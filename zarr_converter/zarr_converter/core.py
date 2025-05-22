@@ -98,10 +98,13 @@ class ZarrConverter:
 
     def view(self, level=0):
         try:
-            import napari
+            try:
+                import napari
+            except ImportError:
+                print("Napari is not installed. Run `pip install napari[all]` to enable viewer.")
             data = self.get_dask_array(level=level).squeeze()
             napari.view_image(data, channel_axis=0, name=self.channel_names)
-        except ImportError:
-            print("Napari is not installed. Run `pip install napari[all]` to enable viewer.")
+        except Exception as error:
+            print("Unknown error:", error)
 
 
