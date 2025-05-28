@@ -55,5 +55,13 @@ def build_pyramid(
 
     metadata["scales"] = new_scales
 
+    # Update metadata size:
+    size = metadata["size"]
+    new_size = []
+    for level in range(num_levels):
+        new_size.append(pyramid[level].shape)
+
+    metadata["size"] = new_size
+
     return pyramid, metadata
 

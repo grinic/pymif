@@ -1,24 +1,28 @@
 import os
 import dask.array as da
 from tifffile import imread
-import zarr
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
-from utils.visualize import visualize as _visualize
-from utils.write import write as _write
-from utils.pyramid import build_pyramid
 from dask import delayed
+from .microscope_manager import MicroscopeManager
 
-class ViventisManager():
+class ViventisManager(MicroscopeManager):
     
     def __init__(self, 
                  path: str,
                  chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
+        """
+        Initialize the ViventisManager with the given file path.
+
+        Args:
+            path (str): Path to the Viventis data file.
+        """
+        
         super().__init__()
         self.position_dir = Path(path)
         self.chunks = chunks
-        self.data, self.metadata = self.read()
+        self.read()
 
     def _parse_companion_file(self) -> Dict[str, Any]:
         companion = list(self.position_dir.glob("*.ome"))[0]
@@ -60,7 +64,7 @@ class ViventisManager():
             plane_files[(t, c)] = filename
 
         return {
-            "size": (size_t, size_c, size_z, size_y, size_x),
+            "size": [(size_t, size_c, size_z, size_y, size_x)],
             "scales": scales,
             "units": units,
             "time_increment": time_increment,
@@ -73,14 +77,14 @@ class ViventisManager():
         }
 
     def _build_dask_array(self) -> List[da.Array]:
-        t, c, z, y, x = self.metadata["size"]
+        t, c, z, y, x = self.metadata["size"][0]
 
         lazy_imread = delayed(imread)  # lazy reader
         filenames = self.metadata["plane_files"]
         lazy_arrays = [ [ lazy_imread(f"{self.position_dir}/{filenames[(ti,ci)]}") for ci in range(c) ] for ti in range(t) ] 
         dask_arrays = [
             [
-                da.from_delayed(l2, shape=self.metadata["size"][2:], dtype=self.metadata["dtype"])
+                da.from_delayed(l2, shape=(z,y,x), dtype=self.metadata["dtype"])
                 for l2 in l1
             ]
             for l1 in lazy_arrays
@@ -92,60 +96,15 @@ class ViventisManager():
         return [stack]  # level 0 only
 
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
-        data = self._build_dask_array()
-        metadata = self._parse_companion_file()
-        return (data, metadata)
-    
-    def visualize(self, viewer=None):
-        return _visualize(self.data, self.metadata, viewer=viewer)
-
-    def write(self, path: str, compressor=None):
-        return _write(path, self.data, self.metadata, compressor)
-    
-    def build_pyramid(self, num_levels: int = 3, downscale_factor: int = 2):
         """
-        Converts single-resolution data into a pyramidal multiscale structure
-        and updates self.data and self.metadata in-place.
+        Read the Viventis data file and extract image arrays and metadata.
+
+        Returns:
+            Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
+            Dask arrays representing image data and a dictionary of metadata.
         """
-        pyramid_levels, updated_metadata = build_pyramid(
-            self.data[0], self.metadata, num_levels=num_levels, downscale_factor=downscale_factor
-        )
-        self.data = pyramid_levels
-        self.metadata = updated_metadata
-
-if __name__ == "__main__":
-    test_path = "/g/mif/people/gritti/code/code_ome_zarr/test_data/viventis/20241104_162954_Experiment/Position 1_Settings 1_down"
-
-    if not os.path.exists(test_path):
-        print(f"⚠️ Test path not found: {test_path}")
-    else:
-        import napari
-        reader = ViventisManager(test_path)
-        data, meta = reader.read()
-
-        print("✅ Metadata keys:", list(meta.keys()))
-        print("✅ Axes:", meta["axes"])
-        print("✅ Scales:", meta["scales"])
-        print("✅ Channel names:", meta["channel_names"])
         
-        print(meta)
-
-        # print("✅ Data type:", type(data[0]))
-        # print("✅ Data shape:", data.shape)
-        # print("✅ Data chunks:", data.chunks)
-        
-        reader.build_pyramid(3,2)
-
-        print("✅ Metadata keys:", list(meta.keys()))
-        print("✅ Axes:", meta["axes"])
-        print("✅ Scales:", meta["scales"])
-        print("✅ Channel names:", meta["channel_names"])
-        
-        print(meta)
-
-        reader.write("test.zarr")
-        # v = reader.visualize()
-        # # v.run()
-        
-        # napari.run()
-        
+        self.metadata = self._parse_companion_file()
+        self.data = self._build_dask_array()
+        return (self.data, self.metadata)
+    

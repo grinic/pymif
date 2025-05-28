@@ -26,9 +26,11 @@ def visualize(
     """
     if viewer is None:
         viewer = napari.Viewer()
+        
+    size = metadata['size'][0]
 
-    channel_axis = 1 if 'channel_names' in metadata and metadata['size'][1] > 1 else None
-    num_channels = metadata["size"][1]
+    channel_axis = 1 if 'channel_names' in metadata and size[1] > 1 else None
+    num_channels = size[1]
 
     if "channel_colors" in metadata:
         colormaps = [

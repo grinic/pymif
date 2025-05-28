@@ -26,14 +26,17 @@ def write(
     overwrite=True,
 ):
     """
-    Write OME-Zarr multiscale pyramid with separate images per channel,
-    nested chunk storage, and standard pyramid folder structure.
-    Includes OMERO-style metadata for napari visualization.
+    Write image data and metadata to the specified path.
+
+    Args:
+        path (str): Destination path for the output data.
+        data (List[da.Array]): List of Dask arrays representing image data.
+        metadata (Dict[str, Any]): Dictionary containing metadata information.
     """
 
-    if compressor is None:
+    if compressor is not None:
         compressor = Blosc(cname="zstd", clevel=5, shuffle=Blosc.BITSHUFFLE)
-
+        
     store_path = Path(path)
     if store_path.exists() and overwrite:
         import shutil
@@ -45,12 +48,11 @@ def write(
     scales = metadata["scales"]  # [[1,0.173,0.173], [2,0.346,0.346], ...]
     axes_labels = metadata["axes"]
     
-    non_spatial_len = len(axes_labels) - 3  # Assume (T,C) or (C) if 4D
     coordinate_transformations = [
         [
             {
                 "type": "scale", 
-                "scale": [1.0] * non_spatial_len + list(scale),
+                "scale": [metadata["time_increment"]] + [1] + list(scale),
             }
         ]
         for scale in scales
@@ -142,5 +144,4 @@ def write(
         "channels": channels,
         "rdefs": {"model": "color"}
     }
-    
 
