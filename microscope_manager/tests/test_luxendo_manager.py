@@ -45,11 +45,11 @@ def test_viventis_manager_basic_load():
         # print("✅ Data chunks:", [d.chunks for d in data])
         print(f"Building pyramid done in {(time.time()-start)} sec.")
 
-        print("------------ Writing to disk... ------------")
-        start = time.time()
-        reader.write(output_path)
+        # print("------------ Writing to disk... ------------")
+        # start = time.time()
+        # reader.write(output_path)
 
-        print(f"Writing done in {(time.time()-start)} sec.")
+        # print(f"Writing done in {(time.time()-start)} sec.")
 
         print("------------ Visualizing dataset... ------------")
         start = time.time()

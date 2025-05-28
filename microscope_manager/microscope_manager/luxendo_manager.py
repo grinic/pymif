@@ -89,9 +89,7 @@ class LuxendoManager(MicroscopeManager):
         }
         
     def _read_h5_stack(self, h5_path: Path, 
-                       dataset_name: str,
-                       shape,
-                       dtype) -> np.ndarray:
+                       dataset_name: str) -> np.ndarray:
         """
         Load a single resolution dataset as dask array from an HDF5 file.
         """
@@ -134,9 +132,8 @@ class LuxendoManager(MicroscopeManager):
                 for ci in range(c):
                     index = ti * c + ci
                     h5_path = h5_files[index]
-                    shape, dtype = self._read_h5_shape(h5_path, ds_name)
-                    delayed_arr = self._read_h5_stack(h5_path, ds_name,
-                                                      shape, dtype)
+                    # shape, dtype = self._read_h5_shape(h5_path, ds_name)
+                    delayed_arr = self._read_h5_stack(h5_path, ds_name)
                     row.append(delayed_arr)
                 lazy_arrays.append(row)
 
