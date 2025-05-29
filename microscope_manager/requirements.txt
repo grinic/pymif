@@ -24,3 +24,4 @@ napari[all]>=0.4.18
 aicspylibczi>=3.1.1
 fsspec>=2022.7.1
 napari-ome-zarr
+pytest
