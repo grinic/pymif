@@ -61,7 +61,7 @@ conda create -n pymif python=3.10
 conda activate pymif
 ```
 
-Installation is then done clining the repository:
+Installation is then done by cloning the repository:
 
 ```bash
 git clone https://github.com/grinic/pymif.git
