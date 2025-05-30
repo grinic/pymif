@@ -81,7 +81,7 @@ pytest tests/
 
 ### ➕ Adding New Microscope Support
 
-- To add a new format:
+To add a new format:
 
 - Subclass MicroscopeManager
 
