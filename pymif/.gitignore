@@ -1,6 +1,0 @@
-__pycache__/
-*.py[cod]
-*.zarr
-*.egg-info/
-.env
-.ipynb_checkpoints
