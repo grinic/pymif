@@ -57,7 +57,7 @@ pymif/
 It is recommended to install pymif in a clean conda environment:
 
 ```bash
-conda create -n pymif puthon=3.10
+conda create -n pymif python=3.10
 conda activate pymif
 ```
 
@@ -80,7 +80,7 @@ dataset.write("output.zarr")
 viewer = dataset.visualize(start_level=0, in_memory=False)
 ```
 
-For more examples, see [examples](https://github.com/grinic/pymif/tree/main/pymif/examples).
+For more examples, see [examples](examples/).
 
 ### 🧪 Running Tests
 
