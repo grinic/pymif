@@ -13,6 +13,7 @@ def visualize(
     data_levels: List[da.Array],
     metadata: Dict[str, Any],
     start_level: Optional[int] = 0,
+    stop_level: Optional[int] = -1,
     in_memory: Optional[bool] = False,
     viewer: Optional[napari.Viewer] = None,
     ) -> napari.Viewer:
@@ -32,12 +33,19 @@ def visualize(
     # Check that start_level is valid
     if not 0 <= start_level < len(data_levels):
         raise ValueError(f"start_level={start_level} is out of bounds for available {len(data_levels)} levels.")
+    if (stop_level>0) & (not stop_level < len(data_levels)):
+        raise ValueError(f"stop_level={stop_level} is out of bounds for available {len(data_levels)} levels.")
+    if (stop_level>0) & (not start_level < stop_level):
+        raise ValueError(f"start_level={start_level} must be lower than stop_level={stop_level}.")
 
     if viewer is None:
         viewer = napari.Viewer()
 
     # Reduce pyramid to selected levels
-    pyramid = data_levels[start_level:]
+    if stop_level == -1:
+        pyramid = data_levels[start_level:]
+    else:
+        pyramid = data_levels[start_level:stop_level]
 
     # If requested, convert Dask arrays to NumPy for interactivity
     if in_memory:
@@ -60,7 +68,7 @@ def visualize(
 
     viewer.add_image(
         pyramid,
-        name="Pyramidal Image",
+        name=metadata.get("channel_names", [f"ch_{i}" for i in range(num_channels)]),
         scale=metadata.get("scales", [(1, 1, 1)])[0],
         channel_axis=channel_axis,
         colormap=colormaps,
