@@ -7,7 +7,7 @@ with open("requirements.txt") as f:
 setup(
     name="pymif",
     version="0.1.0",
-    description="Convert microscopy images (TIFF, CZI, LIF, H5) to pyramidal OME-Zarr with metadata.",
+    description="A collection of functions in Python for MIF users.",
     author="Nicola Gritti",
     author_email="nicola.gritti@embl.es",
     packages=find_packages(),
