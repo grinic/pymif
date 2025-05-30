@@ -105,12 +105,13 @@ Tuple[List[dask.array], Dict[str, Any]]
 ```python
 {
   "size": [... per level ...],
-  "scales": [...],
+  "scales": [... per level ...],
   "units": (...),
   "axes": "tczyx",
   "channel_names": [...],
   "channel_colors": [...],
   "time_increment": ...,
+  "time_increment_unit": ...,
   ...
 }
 ```
