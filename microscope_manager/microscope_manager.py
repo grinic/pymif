@@ -27,6 +27,7 @@ class MicroscopeManager(ABC):
 
     def visualize(  self,
                     start_level: Optional[int] = 0,
+                    stop_level: Optional[int] = -1,
                     in_memory: Optional[bool] = False,
                     viewer: Optional[napari.Viewer] = None,
                   ) -> Any:
@@ -34,6 +35,7 @@ class MicroscopeManager(ABC):
         return _visualize(  self.data, 
                             self.metadata,
                             start_level = start_level,
+                            stop_level = stop_level,
                             in_memory = in_memory,
                             viewer = viewer,
                           )
