@@ -9,7 +9,7 @@ import sys, os
 import pandas as pd
 from skimage.io import imread
 sys.path.append('W:\\people\\gritti\\code\\pymif')
-from pymif import pe_opera
+from pymif_old import pe_opera
 
 exp_folder = 'Y:\\Nick Marschlich\\EMBL_Barcelona\\Imaging\\Opera PE\\P3_Metabolism\\220929_mezzo-GFP_BF_2-DG_injections'
 # ff_folder = 'Y:\\Nicola_Gritti\hannah\\20220824_HF_HBMEC-RM-exp2_FF__2022-08-24T15_45_50-Measurement 1'

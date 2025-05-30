@@ -63,4 +63,7 @@ class MicroscopeManager(ABC):
             except Exception as e:
                 print(f"Warning: failed to close file: {e}")
         self._open_files = []
+        
+    # def print_info(self) -> None:
+        
 
