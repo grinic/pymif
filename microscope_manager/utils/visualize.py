@@ -66,6 +66,7 @@ def visualize(
     else:
         colormaps = ["gray"] * num_channels
 
+    max_val = da.max(pyramid[-1])
     viewer.add_image(
         pyramid,
         name=metadata.get("channel_names", [f"ch_{i}" for i in range(num_channels)]),
@@ -73,7 +74,7 @@ def visualize(
         channel_axis=channel_axis,
         colormap=colormaps,
         metadata=metadata,
-        contrast_limits=[0,2000],
+        contrast_limits=[0, int(2*max_val)],
         multiscale=True
     )
 
