@@ -1,4 +1,4 @@
-# 🧠 pymif — Python at the Mesoscopic Imaging Facility
+# pymif — Python at the Mesoscopic Imaging Facility
 
 **pymif** is a modular Python package to read, visualize, and write multiscale (pyramidal) microscopy image data from a variety of microscope platforms available at the [Mesoscopic Imaging Facility (MIF)](https://www.embl.org/groups/mesoscopic-imaging-facility/) into the [OME-NGFF (Zarr)](https://ngff.openmicroscopy.org/) format.
 
@@ -32,7 +32,7 @@ pymif/
 │ ├── zarr_manager.py
 │ ├── microscope_manager.py
 │ └── utils/
-│  ├── build_pyramid.py
+│  ├── pyramid.py
 │  ├── visualize.py
 │  └── write.py
 ├── examples/
