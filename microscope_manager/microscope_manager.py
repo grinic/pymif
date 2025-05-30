@@ -41,9 +41,9 @@ class MicroscopeManager(ABC):
                           )
 
     def build_pyramid(self, 
-                      num_levels: int = 3, 
-                      downscale_factor: int = 2,
-                      start_level: int = 0,
+                      num_levels: Optional[int] = 3, 
+                      downscale_factor: Optional[int] = 2,
+                      start_level: Optional[int] = 0,
                       ) -> None:
         from .utils.pyramid import build_pyramid as _build_pyramid
         """
