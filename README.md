@@ -55,7 +55,7 @@ pymif/
 ### 📥 Installation
 
 ```bash
-git clone https://github.com/<your-username>/pymif.git
+git clone https://github.com/grinic/pymif.git
 cd pymif
 pip install -e .
 ```
