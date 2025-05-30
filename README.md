@@ -1,82 +1,109 @@
-# pymif
+# 🧠 pymif — Python at the Mesoscopic Imaging Facility
 
-This is a collection of useful functions and workflows in Python that can be used to process/analyze data acquired on some microscopes available at the [Mesoscopic Imaging Facility (MIF)](https://www.embl.org/groups/mesoscopic-imaging-facility/) at EMBL Barcelona .
+**pymif** is a modular Python package to read, visualize, and write multiscale (pyramidal) microscopy image data from a variety of microscope platforms available at the [Mesoscopic Imaging Facility (MIF)](https://www.embl.org/groups/mesoscopic-imaging-facility/) into the [OME-NGFF (Zarr)](https://ngff.openmicroscopy.org/) format.
 
-## Usage
+---
 
-### Copy the repository on your machine
+## 📦 Features
 
-Clone or download the repository in a path location of your machine.
+- ✅ Read and parse image metadata from multiple microscope vendors:
+  - **Viventis** (`.ome + .tif`)
+  - **Luxendo** (`.xml + .h5`)
+  - **Generic OME-Zarr**
+- ✅ Abstract base class `MicroscopeManager` ensures uniform interface for all readers
+- ✅ Lazy loading via Dask for memory-efficient processing
+- ✅ Build pyramidal (multiscale) OME-Zarr archives from raw data or existing pyramids
+- ✅ Write OME-Zarr with:
+  - Blosc compression
+  - Nested directory layout
+  - Full NGFF + OMERO metadata (channel names, colors, scales, units)
+- ✅ Visualize pyramids in **Napari** using `napari-ome-zarr` plugin
+- ✅ Compatible with automated workflows and interactive exploration (Jupyter + scripts)
 
-1. Clone:
-```
-cd existing_repo
-git remote add origin https://git.embl.de/grp-mif/image-analysis/pymif.git
-git branch -M main
-git push -uf origin main
-```
+---
 
-1. Download: Use the `Code/Download source code` blue button at the top right of the page.
-
-### Setup the script
-
-Once downloaded, modifiy the `sys.path.append` line in the examples in the `workflows` folder to point to the right location of the pymif code in your machine.
-
-<!-- You have 2 options:
-
-1. Install the package
-
-Navigate in the folder of the repository containing the `setup.py` file.
-
-In the terminal, create a new environment and install the package:
+## 🗂️ Project Structure
 
 ```
-conda create -n pymif python=3.9
+pymif/
+├── microscope_manager/
+│ ├── viventis_manager.py
+│ ├── luxendo_manager.py
+│ ├── zarr_manager.py
+│ ├── microscope_manager.py
+│ └── utils/
+│  ├── build_pyramid.py
+│  ├── visualize.py
+│  └── write.py
+├── examples/
+| ├── example_luxendo.ipynb
+│ └── example_viventis.ipynb
+├── tests/
+│ ├── test_viventis_manager.py
+│ ├── test_zarr_manager.py
+│ └── test_luxendo_manager.py
+├── requirements.txt
+├── setup.py
+└── README.md
+```
+
+
+---
+
+## 🚀 Getting Started
+
+### 📥 Installation
+
+```bash
+git clone https://github.com/<your-username>/pymif.git
+cd pymif
 pip install -e .
-``` -->
-
-### Every time you want to run a workflow
-
-<!-- Activate the environment and start using the functions:
-
-```
-conda activate pymif
-``` -->
-
-Move the scripts in the `workflows` folder in your location of choice, change the parameters and run the script.
-
-### Ask for help
-
-If you run into problems, contact `nicola.gritti@embl.es`.
-
-<!-- ## Quick start
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://git.embl.de/grp-mif/image-analysis/pymif.git
-git branch -M main
-git push -uf origin main
 ```
 
-### Collaborate with your team
+### 📚 Example Usage
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+```python
+from microscope_manager.viventis_manager import ViventisManager
 
-### Test and Deploy
+dataset = ViventisManager("path/to/Position_1")
+dataset.build_pyramid(num_levels=3)
+dataset.write("output.zarr")
+viewer = dataset.visualize(start_level=0, in_memory=False)
+```
 
-Use the built-in continuous integration in GitLab.
+For more examples, see [examples](https://github.com/grinic/pymif/tree/main/pymif/examples).
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### 🧪 Running Tests
 
-*** -->
+```bash
+pytest tests/
+```
+
+### ➕ Adding New Microscope Support
+
+- To add a new format:
+
+- Subclass MicroscopeManager
+
+- Implement read() returning:
+
+```python
+Tuple[List[dask.array], Dict[str, Any]]
+```
+
+- Follow this metadata schema:
+
+```python
+{
+  "size": [... per level ...],
+  "scales": [...],
+  "units": (...),
+  "axes": "tczyx",
+  "channel_names": [...],
+  "channel_colors": [...],
+  "time_increment": ...,
+  ...
+}
+```
+
+You will automatically inherit `build_pyramid()`, `write()` and `visualize()`.
