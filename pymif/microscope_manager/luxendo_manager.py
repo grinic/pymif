@@ -45,7 +45,9 @@ class LuxendoManager(MicroscopeManager):
         for setup in setups:
             setup_id = int(setup.find("id").text)
             size = tuple(map(int, setup.find("size").text.split()))
+            size = (size[2],size[1],size[0]) # invert XYZ -> ZYX
             voxel = tuple(map(float, setup.find("voxelSize/size").text.split()))
+            voxel = (voxel[2],voxel[1],voxel[0]) # invert XYZ -> ZYX
             setup_sizes[setup_id] = size
             setup_voxels[setup_id] = voxel
 
