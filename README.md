@@ -54,6 +54,15 @@ pymif/
 
 ### 📥 Installation
 
+It is recommended to install pymif in a clean conda environment:
+
+```bash
+conda create -n pymif puthon=3.10
+conda activate pymif
+```
+
+Installation is then done clining the repository:
+
 ```bash
 git clone https://github.com/grinic/pymif.git
 cd pymif
@@ -63,7 +72,7 @@ pip install -e .
 ### 📚 Example Usage
 
 ```python
-from microscope_manager.viventis_manager import ViventisManager
+from pymif.microscope_manager.viventis_manager import ViventisManager
 
 dataset = ViventisManager("path/to/Position_1")
 dataset.build_pyramid(num_levels=3)
