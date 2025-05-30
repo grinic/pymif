@@ -9,7 +9,7 @@ def test_viventis_manager_basic_load():
     
     dataset = "luxendo"
     test_path = f"/g/mif/people/gritti/code/pymif_test_data/{dataset}"
-    output_path = f"/g/mif/people/gritti/code/pymif_test_data/{dataset}.zarr"
+    output_path = f"/g/mif/people/gritti/code/pymif_test_data/{dataset}_down.zarr"
 
     if not os.path.exists(test_path):
         print(f"⚠️ Test path not found: {test_path}")
@@ -31,9 +31,13 @@ def test_viventis_manager_basic_load():
         # print("✅ Data chunks:", [d.chunks for d in data])
         print(f"Reading done in {(time.time()-start)} sec.")
         
-        print("------------ Building pyramid... ------------")
+        print("------------ Building pyramid and write to disk... ------------")
         start = time.time()
-        reader.build_pyramid(3,2)
+        reader.build_pyramid(                      
+                    num_levels = 3, 
+                    downscale_factor = 2,
+                    start_level = 3,
+                    )
 
         print(meta)
         print("✅ Metadata keys:", list(meta.keys()))
@@ -45,18 +49,20 @@ def test_viventis_manager_basic_load():
         # print("✅ Data chunks:", [d.chunks for d in data])
         print(f"Building pyramid done in {(time.time()-start)} sec.")
 
-        # print("------------ Writing to disk... ------------")
-        # start = time.time()
-        # reader.write(output_path)
-
-        # print(f"Writing done in {(time.time()-start)} sec.")
-
-        print("------------ Visualizing dataset... ------------")
         start = time.time()
-        reader.visualize()
+        reader.write(output_path)
 
-        print(f"Visualizing done in {(time.time()-start)} sec.")
+        print(f"Writing done in {(time.time()-start)} sec.")
+
+        # print("------------ Visualizing dataset... ------------")
+        # start = time.time()
+        # reader.visualize(   
+        #                  start_level = 3,
+        #                  in_memory = True,
+        #                 )
+
+        # print(f"Visualizing done in {(time.time()-start)} sec.")
         
-        napari.run()
-        reader.close()
+        # napari.run()
+        # reader.close()
         
