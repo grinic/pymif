@@ -2,8 +2,8 @@ import os, time, sys
 import numpy as np
 import pandas as pd
 sys.path.append('/g/mif/people/gritti/code/pymif')
-from pymif import luxendo
-from pymif import io
+from pymif_old import luxendo
+from pymif_old import io
 # from measure_somitoid_volume import compute_full_volume
 # from measure_ch_volume import compute_ch_volume, compute_tbx6_volume
 
