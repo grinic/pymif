@@ -48,7 +48,7 @@ def test_array_manager_basic_load():
     assert isinstance(data, list)
     assert isinstance(meta, dict)
     assert len(data) == 3
-    assert data[0].shape == (1, 2, 8, 128, 128)
+    assert data[0].shape == (3, 2, 8, 64, 64)
     assert meta["channel_names"] == ["Red", "Green"]
     assert meta["scales"][1][1] > meta["scales"][0][1]  # Y scale increases
 
