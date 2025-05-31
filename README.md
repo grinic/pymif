@@ -26,15 +26,16 @@
 
 ```
 pymif/
-├── microscope_manager/
-│ ├── viventis_manager.py
-│ ├── luxendo_manager.py
-│ ├── zarr_manager.py
-│ ├── microscope_manager.py
-│ └── utils/
-│  ├── pyramid.py
-│  ├── visualize.py
-│  └── write.py
+├── pymif
+│ └── microscope_manager
+│   ├── viventis_manager.py
+│   ├── luxendo_manager.py
+│   ├── zarr_manager.py
+│   ├── microscope_manager.py
+│   └── utils/
+│    ├── pyramid.py
+│    ├── visualize.py
+│    └── write.py
 ├── examples/
 | ├── example_luxendo.ipynb
 │ └── example_viventis.ipynb
