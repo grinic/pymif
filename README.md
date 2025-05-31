@@ -31,6 +31,7 @@ pymif/
 │   ├── viventis_manager.py
 │   ├── luxendo_manager.py
 │   ├── zarr_manager.py
+│   ├── array_manager.py
 │   ├── microscope_manager.py
 │   └── utils/
 │    ├── pyramid.py
