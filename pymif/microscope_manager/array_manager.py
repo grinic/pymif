@@ -36,8 +36,9 @@ class ArrayManager(MicroscopeManager):
         Return the pyramid and metadata.
 
         Returns:
-        - List of dask arrays (one per resolution level)
-        - Metadata dictionary
+            Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
+            Dask arrays representing image data and a dictionary of metadata.
+        """
         """
         array = self.data
         metadata = self.metadata
