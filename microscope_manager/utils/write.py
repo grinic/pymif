@@ -1,4 +1,6 @@
 import dask.array as da
+from dask.distributed import Client
+from dask.diagnostics import ProgressBar
 from numcodecs import Blosc
 from typing import List, Dict, Any
 from ome_zarr.format import CurrentFormat
@@ -88,6 +90,10 @@ def write(
         ]
 
     # Write multiscale array in root
+    client = Client()
+    print("Dask dashboard:", client.dashboard_link)
+    ProgressBar().register()
+    
     write_multiscale(
         pyramid=data_levels,
         group=root_group,
