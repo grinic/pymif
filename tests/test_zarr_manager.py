@@ -3,7 +3,7 @@ pytest -s test_viventis_manager.py
 """
 
 import os, time
-from microscope_manager.zarr_manager import ZarrManager
+from pymif.microscope_manager.zarr_manager import ZarrManager
 
 def test_viventis_manager_basic_load():
     
