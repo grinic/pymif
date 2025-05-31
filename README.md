@@ -6,10 +6,11 @@
 
 ## 📦 Features
 
-- ✅ Read and parse image metadata from multiple microscope vendors:
+- ✅ Read and parse image metadata from multiple microscope vendors and data formats:
   - **Viventis** (`.ome + .tif`)
   - **Luxendo** (`.xml + .h5`)
   - **Generic OME-Zarr**
+  - **Numpy or Dask array**
 - ✅ Abstract base class `MicroscopeManager` ensures uniform interface for all readers
 - ✅ Lazy loading via Dask for memory-efficient processing
 - ✅ Build pyramidal (multiscale) OME-Zarr archives from raw data or existing pyramids
