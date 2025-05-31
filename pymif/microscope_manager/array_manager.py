@@ -39,7 +39,6 @@ class ArrayManager(MicroscopeManager):
             Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
             Dask arrays representing image data and a dictionary of metadata.
         """
-        """
         array = self.data
         metadata = self.metadata
         chunks = self.chunks
