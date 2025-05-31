@@ -20,6 +20,10 @@ class ZarrManager(MicroscopeManager):
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
         """
         Read an existing OME-Zarr dataset and extract data and metadata.
+        
+        Returns:
+            Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
+            Dask arrays representing image data and a dictionary of metadata.
         """
         reader = Reader(self.store)
         nodes = list(reader())
