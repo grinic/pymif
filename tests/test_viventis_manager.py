@@ -3,7 +3,7 @@ pytest -s test_viventis_manager.py
 """
 
 import os, time
-from microscope_manager.viventis_manager import ViventisManager
+from pymif.microscope_manager.viventis_manager import ViventisManager
 
 def test_viventis_manager_basic_load():
     
