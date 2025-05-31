@@ -2,7 +2,7 @@ import numpy as np
 import dask.array as da
 import time
 import os
-from pymif.array_manager import ArrayManager
+from pymif.microscope_manager.array_manager import ArrayManager
 
 
 def test_array_manager_basic_load():

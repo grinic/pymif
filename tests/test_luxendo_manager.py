@@ -3,7 +3,7 @@ pytest -s test_viventis_manager.py
 """
 
 import os, time
-from microscope_manager.luxendo_manager import LuxendoManager
+from pymif.microscope_manager.luxendo_manager import LuxendoManager
 
 def test_viventis_manager_basic_load():
     
