@@ -33,7 +33,7 @@ class MicroscopeManager(ABC):
                       self.metadata, 
                       compressor=compressor, 
                       compressor_level=compressor_level,
-                      overwrite=True,
+                      overwrite=overwrite,
                       parallelize=parallelize
                       )
 
