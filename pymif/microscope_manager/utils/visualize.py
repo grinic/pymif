@@ -1,12 +1,22 @@
 import napari
 import dask.array as da
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 
-def _ome_int_to_rgb_tuple(color_int: int) -> tuple:
-    """Convert OME int color to RGB float tuple for Napari."""
-    r = (color_int >> 16) & 0xFF
-    g = (color_int >> 8) & 0xFF
-    b = color_int & 0xFF
+def _parse_color(color: Union[int, str]) -> tuple:
+    """Convert OME int or hex string color to RGB float tuple for Napari."""
+    if isinstance(color, int):
+        r = (color >> 16) & 0xFF
+        g = (color >> 8) & 0xFF
+        b = color & 0xFF
+    elif isinstance(color, str):
+        color = color.lstrip('#-')
+        if len(color) != 6:
+            raise ValueError(f"Invalid hex color string: {color}")
+        r = int(color[0:2], 16)
+        g = int(color[2:4], 16)
+        b = int(color[4:6], 16)
+    else:
+        raise TypeError(f"Unsupported color type: {type(color)}")
     return (r / 255.0, g / 255.0, b / 255.0)
 
 def visualize(
@@ -41,11 +51,9 @@ def visualize(
     if viewer is None:
         viewer = napari.Viewer()
 
-    # Reduce pyramid to selected levels
-    if stop_level == -1:
-        pyramid = data_levels[start_level:]
-    else:
-        pyramid = data_levels[start_level:stop_level]
+    # Subselect pyramid levels
+    pyramid = data_levels[start_level:] if stop_level == -1 else data_levels[start_level:stop_level]
+
 
     # If requested, convert Dask arrays to NumPy for interactivity
     if in_memory:
@@ -58,11 +66,10 @@ def visualize(
     num_channels = size[0][1] if len(size[0]) >= 2 else 1
     channel_axis = 1 if num_channels > 1 else None
     
-        # Handle channel colors
-    if "channel_colors" in metadata:
-        colormaps = [
-            _ome_int_to_rgb_tuple(c) for c in metadata["channel_colors"]
-        ]
+    # Handle channel colors
+    channel_colors = metadata.get("channel_colors", [])
+    if channel_colors:
+        colormaps = [_parse_color(c) for c in channel_colors]
     else:
         colormaps = ["gray"] * num_channels
 
