@@ -15,10 +15,13 @@
 - ✅ Lazy loading via Dask for memory-efficient processing
 - ✅ Build pyramidal (multiscale) OME-Zarr archives from raw data or existing pyramids
 - ✅ Write OME-Zarr with:
-  - Blosc compression
+  - Blosc or GZIP compression
   - Nested directory layout
   - Full NGFF + OMERO metadata (channel names, colors, scales, units)
-- ✅ Visualize pyramids in **Napari** using `napari-ome-zarr` plugin
+  - Optional parallelization with `dask-distribute`
+- ✅ Visualize pyramids in **Napari** using `napari-ome-zarr` plugin:
+  - Using lazy loading for fast visualization, or
+  - Using *in-memory* loading of any resolution layer for interactivity.
 - ✅ Compatible with automated workflows and interactive exploration (Jupyter + scripts)
 
 ---
@@ -40,10 +43,12 @@ pymif/
 │    └── write.py
 ├── examples/
 | ├── example_luxendo.ipynb
+| ├── example_array.ipynb
 │ └── example_viventis.ipynb
 ├── tests/
 │ ├── test_viventis_manager.py
 │ ├── test_zarr_manager.py
+│ ├── test_array_manager.py
 │ └── test_luxendo_manager.py
 ├── requirements.txt
 ├── setup.py
@@ -75,12 +80,13 @@ pip install -e .
 ### 📚 Example Usage
 
 ```python
-from pymif.microscope_manager.viventis_manager import ViventisManager
+import pymif.microscope_manager as mm
 
-dataset = ViventisManager("path/to/Position_1")
+dataset = mm.ViventisManager("path/to/Position_1")
 dataset.build_pyramid(num_levels=3)
 dataset.write("output.zarr")
-viewer = dataset.visualize(start_level=0, in_memory=False)
+dataset_zarr = mm.ZarrManager("output.zarr")
+viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
 ```
 
 For more examples, see [examples](examples/).
@@ -91,9 +97,9 @@ For more examples, see [examples](examples/).
 pytest tests/
 ```
 
-### ➕ Adding New Microscope Support
+### ➕ Adding New Microscope Support and Contributing
 
-To add a new format:
+Contributions/PRs are welcome! If you would like to help and add a new format:
 
 - Subclass MicroscopeManager
 
@@ -119,7 +125,7 @@ Tuple[List[dask.array], Dict[str, Any]]
 }
 ```
 
-You will automatically inherit all `MicrowscopeManager` methods, including:
+You will automatically inherit all `MicroscopeManager` methods, including:
 - `build_pyramid()`, 
 - `write()`, 
 - `visualize()`,
