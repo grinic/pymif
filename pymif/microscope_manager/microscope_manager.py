@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple, Optional
 import dask.array as da
 import napari
+import warnings
 
 class MicroscopeManager(ABC):
     def __init__(self):
@@ -67,5 +68,92 @@ class MicroscopeManager(ABC):
         self._open_files = []
         
     # def print_info(self) -> None:
+    
+    def reorder_channels(self, new_order: List[int]):
+        """
+        Reorder the channel axis and update channel-related metadata.
+
+        Args:
+            new_order (List[int]): A permutation of the channel indices.
+        """
+        if not self.data:
+            raise ValueError("No data loaded.")
+
+        c_dim = self.metadata["axes"].index("c")
+        original_c = self.data[0].shape[c_dim]
         
+        if sorted(new_order) != list(range(original_c)):
+            raise ValueError(f"new_order must be a permutation of 0..{original_c - 1}")
+
+        # Reorder each resolution level
+        self.data = [
+            da.moveaxis(level, c_dim, 1)[:, new_order, ...]
+            for level in self.data
+        ]
+
+        # Reorder metadata
+        if "channel_names" in self.metadata:
+            self.metadata["channel_names"] = [self.metadata["channel_names"][i] for i in new_order]
+        if "channel_colors" in self.metadata:
+            self.metadata["channel_colors"] = [self.metadata["channel_colors"][i] for i in new_order]
+
+        print(f"✅ Channels reordered to {new_order}")
+        
+    def update_metadata(self, updates: Dict[str, Any]):
+        """
+        Safely update entries in the metadata dictionary with validation.
+
+        Args:
+            updates (Dict[str, Any]): Dictionary of key-value updates.
+
+        Supports:
+            - channel_names (list[str])
+            - channel_colors (list[int or str])
+            - scales (list[tuple])
+            - time_increment (float)
+            - time_increment_unit (str)
+
+        Warnings:
+            Issues warnings or raises exceptions if updates are incompatible.
+        """
+        valid_keys = {
+            "channel_names",
+            "channel_colors",
+            "scales",
+            "time_increment",
+            "time_increment_unit",
+        }
+
+        for key, value in updates.items():
+            if key not in valid_keys:
+                warnings.warn(f"⚠️ Unsupported or unknown metadata key: '{key}'")
+                continue
+
+            if key in {"channel_names", "channel_colors"}:
+                c_dim = self.metadata["axes"].index("c")
+                expected_len = self.data[0].shape[c_dim]
+                if len(value) != expected_len:
+                    warnings.warn(
+                        f"⚠️ Length of '{key}' ({len(value)}) does not match number of channels ({expected_len}). Skipping."
+                    )
+                    continue
+
+            if key == "scales":
+                if not isinstance(value, list) or len(value) != len(self.data):
+                    raise ValueError("❌ 'scales' must be a list with one entry per pyramid level.")
+                for s in value:
+                    if not isinstance(s, (list, tuple)) or len(s) != 3:
+                        raise ValueError("❌ Each scale entry must be a tuple/list of (Z, Y, X).")
+
+            if key == "time_increment":
+                if not isinstance(value, (float, int)) or value <= 0:
+                    raise ValueError("❌ 'time_increment' must be a positive float.")
+
+            if key == "time_increment_unit":
+                if not isinstance(value, str):
+                    raise ValueError("❌ 'time_increment_unit' must be a string.")
+
+            self.metadata[key] = value
+            print(f"✅ Updated metadata entry '{key}'")
+            
 

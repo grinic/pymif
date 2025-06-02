@@ -1,6 +1,7 @@
 from typing import Tuple, List, Dict, Any, Union
 import dask.array as da
 import numpy as np
+import warnings
 from .microscope_manager import MicroscopeManager
 
 
@@ -65,19 +66,20 @@ class ArrayManager(MicroscopeManager):
         self.metadata.setdefault("dtype", str(self.data[0].dtype))
         self.metadata.setdefault("size", [level.shape for level in self.data])
 
-        # Ensure metadata has proper 'scales' per level
-        if "scales" not in self.metadata or not isinstance(self.metadata["scales"], list):
-            # Assume base scale if not present
-            base_scale = (1.0, 1.0, 1.0)
+        # Validate and normalize scales
+        user_scales = metadata.get("scales", [])
+        if isinstance(user_scales, list) and len(user_scales) == len(self.data):
+            scales = user_scales
         else:
-            base_scale = self.metadata["scales"][0]
-
-        # Normalize to list of tuples (one per pyramid level)
-        self.metadata["scales"] = [
-            tuple(s * (2**i) for s in base_scale)
-            for i in range(len(self.data))
-        ]
-        
+            if user_scales:
+                warnings.warn(
+                    f"⚠️ Metadata 'scales' length ({len(user_scales)}) does not match pyramid levels ({len(self.data)}). Falling back to automatic scale generation."
+                )
+            base_scale = tuple(user_scales[0]) if user_scales else (1.0, 1.0, 1.0)
+            scales = [tuple(s * (2**i) for s in base_scale) for i in range(len(self.data))]
+            
+        self.metadata["scales"] = scales
+            
         self.metadata.setdefault("units", ("micrometer", "micrometer", "micrometer"))
         self.metadata.setdefault(
             "channel_names",
