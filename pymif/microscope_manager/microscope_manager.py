@@ -22,9 +22,20 @@ class MicroscopeManager(ABC):
         """
         pass
 
-    def write(self, path: str, compressor: Any = None) -> None:
+    def write(self, path: str, 
+              compressor: Any = None, 
+              compressor_level: Any = 3, 
+              overwrite=True,
+              parallelize: Any = False) -> None:
         from .utils.write import write as _write
-        return _write(path, self.data, self.metadata, compressor)
+        return _write(path, 
+                      self.data, 
+                      self.metadata, 
+                      compressor=compressor, 
+                      compressor_level=compressor_level,
+                      overwrite=True,
+                      parallelize=parallelize
+                      )
 
     def visualize(  self,
                     start_level: Optional[int] = 0,

@@ -119,4 +119,9 @@ Tuple[List[dask.array], Dict[str, Any]]
 }
 ```
 
-You will automatically inherit `build_pyramid()`, `write()` and `visualize()`.
+You will automatically inherit all `MicrowscopeManager` methods, including:
+- `build_pyramid()`, 
+- `write()`, 
+- `visualize()`,
+- `reorder_channels()`,
+- `update_metadata()`

@@ -1,7 +1,7 @@
 import dask.array as da
 from dask.distributed import Client
 from dask.diagnostics import ProgressBar
-from numcodecs import Blosc
+from numcodecs import Blosc, GZip
 from typing import List, Dict, Any
 from ome_zarr.format import CurrentFormat
 from ome_zarr.writer import write_multiscale
@@ -25,7 +25,9 @@ def write(
     data_levels: List[da.Array],
     metadata: Dict[str, Any],
     compressor=None,
+    compressor_level=3,
     overwrite=True,
+    parallelize=False,
 ):
     """
     Write image data and metadata to the specified path.
@@ -35,9 +37,13 @@ def write(
         data (List[da.Array]): List of Dask arrays representing image data.
         metadata (Dict[str, Any]): Dictionary containing metadata information.
     """
+    
+    print(parallelize)
 
-    if compressor is not None:
-        compressor = Blosc(cname="zstd", clevel=5, shuffle=Blosc.BITSHUFFLE)
+    if compressor is "Blosc":
+        compressor = Blosc(cname="zstd", clevel=compressor_level, shuffle=Blosc.BITSHUFFLE)
+    if compressor.lower() is "gzip":
+        compressor = GZip(level=compressor_level)
         
     store_path = Path(path)
     if store_path.exists() and overwrite:
@@ -90,9 +96,10 @@ def write(
         ]
 
     # Write multiscale array in root
-    client = Client()
-    print("Dask dashboard:", client.dashboard_link)
-    ProgressBar().register()
+    if parallelize:
+        client = Client()
+        print("Dask dashboard:", client.dashboard_link)
+        ProgressBar().register()
     
     write_multiscale(
         pyramid=data_levels,
