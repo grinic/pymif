@@ -1,0 +1,3 @@
+ffmpeg -i demonstration_open_zarr.mp4 -vf "select='not(mod(n\,3))',setpts=0.33*PTS,fps=18,scale=1000:-1:flags=lanczos,palettegen=stats_mode=diff" -y palette.png
+
+ffmpeg -i demonstration_open_zarr.mp4 -i palette.png -filter_complex "[0:v]select='not(mod(n\,3))',setpts=0.33*PTS,fps=18,scale=1000:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3" -y demonstration_open_zarr.gif
