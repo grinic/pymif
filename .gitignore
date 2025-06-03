@@ -5,3 +5,4 @@ __pycache__/
 .env
 .ipynb_checkpoints
 pymif_old/
+documentation/demonstration_open_zarr.avi
