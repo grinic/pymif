@@ -6,7 +6,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="pymif",
-    version="0.1.0",
+    version="0.1.1",
     description="A collection of functions in Python for MIF users.",
     author="Nicola Gritti",
     author_email="nicola.gritti@embl.es",
