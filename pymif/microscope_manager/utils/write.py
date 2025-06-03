@@ -38,12 +38,11 @@ def write(
         metadata (Dict[str, Any]): Dictionary containing metadata information.
     """
     
-    print(parallelize)
-
-    if compressor is "Blosc":
-        compressor = Blosc(cname="zstd", clevel=compressor_level, shuffle=Blosc.BITSHUFFLE)
-    if compressor.lower() is "gzip":
-        compressor = GZip(level=compressor_level)
+    if isinstance(compressor, str):
+        if compressor.lower() == "blosc":
+            compressor = Blosc(cname="zstd", clevel=compressor_level, shuffle=Blosc.BITSHUFFLE)
+        if compressor.lower() == "gzip":
+            compressor = GZip(level=compressor_level)
         
     store_path = Path(path)
     if store_path.exists() and overwrite:
