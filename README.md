@@ -89,6 +89,8 @@ dataset_zarr = mm.ZarrManager("output.zarr")
 viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
 ```
 
+![Demo](documentation/demonstration_open_zarr.avi)
+
 For more examples, see [examples](examples/).
 
 ### 🧪 Running Tests
