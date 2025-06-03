@@ -90,6 +90,8 @@ viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
 ```
 
 ![Demo](documentation/demonstration_open_zarr.gif)
+*Demonstration of pymif usage. Data: near newborn mouse embryo (~1.5 cm long). Fluorescence signal: metylene blue + autofluorescence. Sample processed and imaged by Montserrat Coll at the Mesoscopic Imaging Facility.*
+
 
 For more examples, see [examples](examples/).
 
