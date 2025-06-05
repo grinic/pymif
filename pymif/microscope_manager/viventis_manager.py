@@ -20,12 +20,12 @@ class ViventisManager(MicroscopeManager):
         """
         
         super().__init__()
-        self.position_dir = Path(path)
+        self.path = Path(path)
         self.chunks = chunks
         self.read()
 
     def _parse_companion_file(self) -> Dict[str, Any]:
-        companion = list(self.position_dir.glob("*.ome"))[0]
+        companion = list(self.path.glob("*.ome"))[0]
         tree = ET.parse(companion)
         root = tree.getroot()
 
@@ -81,7 +81,7 @@ class ViventisManager(MicroscopeManager):
 
         lazy_imread = delayed(imread)  # lazy reader
         filenames = self.metadata["plane_files"]
-        lazy_arrays = [ [ lazy_imread(f"{self.position_dir}/{filenames[(ti,ci)]}") for ci in range(c) ] for ti in range(t) ] 
+        lazy_arrays = [ [ lazy_imread(f"{self.path}/{filenames[(ti,ci)]}") for ci in range(c) ] for ti in range(t) ] 
         dask_arrays = [
             [
                 da.from_delayed(l2, shape=(z,y,x), dtype=self.metadata["dtype"])

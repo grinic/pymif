@@ -13,7 +13,7 @@ class ZarrManager(MicroscopeManager):
                  path,
                  chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
         super().__init__()
-        self.store = parse_url(path)
+        self.path = parse_url(path)
         self.chunks = chunks
         self.read()
         
@@ -25,7 +25,7 @@ class ZarrManager(MicroscopeManager):
             Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
             Dask arrays representing image data and a dictionary of metadata.
         """
-        reader = Reader(self.store)
+        reader = Reader(self.path)
         nodes = list(reader())
         if not nodes:
             raise ValueError(f"No readable nodes found in {self.root}")
@@ -33,7 +33,7 @@ class ZarrManager(MicroscopeManager):
         node = nodes[0]
         
         # Access raw NGFF metadata
-        group = zarr.open(KVStore(self.store.store), mode="r")
+        group = zarr.open(KVStore(self.path.store), mode="r")
         image_meta = group.attrs.asdict()
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
