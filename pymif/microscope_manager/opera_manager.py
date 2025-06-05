@@ -125,7 +125,7 @@ class OperaManager(MicroscopeManager):
                 arr = _reorder_axes(level[0], level[1])
 
                 # Update scale
-                current_size = arr.shape[2:]
+                current_size = self.metadata["size"][0][:2] + arr.shape[2:]
                 level_scale = (
                                 base_scale[0] / current_size[0] * base_size[0],
                                 base_scale[1] / current_size[1] * base_size[1],
