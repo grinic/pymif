@@ -9,6 +9,7 @@
 - ✅ Read and parse image metadata from multiple microscope vendors and data formats:
   - **Viventis** (`.ome + .tif`)
   - **Luxendo** (`.xml + .h5`)
+  - **Opera PE** (`.ome.tiff`)
   - **Generic OME-Zarr**
   - **Numpy or Dask array**
 - ✅ Abstract base class `MicroscopeManager` ensures uniform interface for all readers
@@ -32,8 +33,9 @@
 pymif/
 ├── pymif
 │ └── microscope_manager
-│   ├── viventis_manager.py
 │   ├── luxendo_manager.py
+│   ├── viventis_manager.py
+│   ├── opera_manager.py
 │   ├── zarr_manager.py
 │   ├── array_manager.py
 │   ├── microscope_manager.py
@@ -41,15 +43,16 @@ pymif/
 │    ├── pyramid.py
 │    ├── visualize.py
 │    └── write.py
+│
 ├── examples/
 | ├── example_luxendo.ipynb
-| ├── example_array.ipynb
-│ └── example_viventis.ipynb
+| ├── example_viventis.ipynb
+| ├── example_opera.ipynb
+│ └── example_array.ipynb
+│
 ├── tests/
-│ ├── test_viventis_manager.py
-│ ├── test_zarr_manager.py
-│ ├── test_array_manager.py
-│ └── test_luxendo_manager.py
+│ └── ...
+│
 ├── requirements.txt
 ├── setup.py
 └── README.md
