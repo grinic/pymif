@@ -77,7 +77,7 @@ def visualize(
     viewer.add_image(
         pyramid,
         name=metadata.get("channel_names", [f"ch_{i}" for i in range(num_channels)]),
-        scale=metadata.get("scales", [(1, 1, 1)])[0],
+        scale=metadata.get("scales", [(1, 1, 1)])[start_level],
         channel_axis=channel_axis,
         colormap=colormaps,
         metadata=metadata,
