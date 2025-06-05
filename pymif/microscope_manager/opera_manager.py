@@ -14,10 +14,10 @@ class OperaManager(MicroscopeManager):
                  path: str,
                  chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
         """
-        Initialize the ViventisManager with the given file path.
+        Initialize the OperaManager with the given file path.
 
         Args:
-            path (str): Path to the Viventis data file.
+            path (str): Path to the Opera data file.
         """
         
         super().__init__()
