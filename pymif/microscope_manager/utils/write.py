@@ -74,7 +74,7 @@ def write(
     }
     units = [metadata["time_increment_unit"], ""] + list( metadata["units"] )
     def normalize_unit(unit: str) -> str:
-    # Common aliases to normalize
+        # Common aliases to normalize
         if not unit:
             return unit 
         aliases = {
