@@ -13,7 +13,7 @@ class ZarrManager(MicroscopeManager):
                  path,
                  chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
         super().__init__()
-        self.path = parse_url(path)
+        self.path = path
         self.chunks = chunks
         self.read()
         
@@ -25,20 +25,24 @@ class ZarrManager(MicroscopeManager):
             Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
             Dask arrays representing image data and a dictionary of metadata.
         """
-        reader = Reader(self.path)
-        nodes = list(reader())
-        if not nodes:
-            raise ValueError(f"No readable nodes found in {self.root}")
+        # reader = Reader(self.path)
+        # nodes = list(reader())
+        # if not nodes:
+        #     raise ValueError(f"No readable nodes found in {self.root}")
         
-        node = nodes[0]
+        # node = nodes[0]
         
         # Access raw NGFF metadata
-        group = zarr.open(KVStore(self.path.store), mode="r")
+        group = zarr.open(self.path, mode="r")
         image_meta = group.attrs.asdict()
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
         omero = image_meta.get("omero", {})
-        data_levels = node.data
+        # Load pyramid levels properly
+        data_levels = [
+            da.from_zarr(group[str(i)], chunks=self.chunks)
+            for i in range(len(datasets))
+        ]        
         dtype = data_levels[0].dtype
         
         # Metadata
