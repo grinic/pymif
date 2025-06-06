@@ -142,7 +142,7 @@ class OperaManager(MicroscopeManager):
     
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
         """
-        Read the Viventis data file and extract image arrays and metadata.
+        Read the Opera data file and extract image arrays and metadata.
 
         Returns:
             Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
