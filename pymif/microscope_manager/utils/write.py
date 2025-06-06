@@ -49,7 +49,7 @@ def write(
         import shutil
         shutil.rmtree(store_path)
 
-    store = zarr.DirectoryStore(str(store_path))
+    store = zarr.NestedDirectoryStore(str(store_path))
     root_group = zarr.group(store=store, overwrite=True)
 
     scales = metadata["scales"]  # [[1,0.173,0.173], [2,0.346,0.346], ...]
