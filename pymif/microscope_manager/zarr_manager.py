@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 import dask.array as da
 from ome_zarr.io import parse_url
 from ome_zarr.reader import Reader
@@ -81,3 +81,21 @@ class ZarrManager(MicroscopeManager):
 
         self.data = pyramid
         return self.data, self.metadata
+    
+    def add_label(self, 
+                    label_levels: List[da.Array],
+                    label_name: Optional[str] = "new_label",
+                    compressor: Any = None, 
+                    compressor_level: Any = 3, 
+                    parallelize: Any = False) -> None:
+        from .utils.add_label import add_label as _add_label
+        return _add_label(self.path, 
+                      label_levels, 
+                      self.metadata, 
+                      label_name,
+                      compressor=compressor, 
+                      compressor_level=compressor_level,
+                      parallelize=parallelize
+                      )
+        
+        
