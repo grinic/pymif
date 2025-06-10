@@ -27,6 +27,7 @@ def add_label(
     metadata: Dict[str, Any],
     compressor=None,
     compressor_level=3,
+    parallelize=False,
 ):
     """
     Write image data and metadata to the specified path.

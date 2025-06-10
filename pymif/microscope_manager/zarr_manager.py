@@ -6,6 +6,7 @@ from ome_zarr.reader import Reader
 from .microscope_manager import MicroscopeManager
 import zarr
 from zarr.storage import KVStore
+import napari
 
 class ZarrManager(MicroscopeManager):
     
@@ -80,8 +81,38 @@ class ZarrManager(MicroscopeManager):
         pyramid = [p.rechunk(self.chunks) for p in pyramid]
 
         self.data = pyramid
-        return self.data, self.metadata
-    
+        
+        ### optional, read labels
+        self.labels = self._load_labels()
+
+    def _load_labels(self) -> Dict[str, List[da.Array]]:
+        """
+        Load labels stored under `/labels/<label_name>/` groups.
+
+        Returns:
+            Dict[label_name, List[dask.Array]]: each label name maps to a list of dask arrays (one per pyramid level)
+        """
+        labels = {}
+        root = zarr.open_group(str(self.path), mode='r')
+        if "labels" not in root:
+            return labels
+
+        labels_grp = root["labels"]
+        for label_name, label_grp in labels_grp.groups():
+            # Expect label_grp to have a multiscale structure similar to images
+            label_multiscales = label_grp.attrs.get("multiscales", [])
+            if not label_multiscales:
+                continue
+
+            label_datasets = label_multiscales[0].get("datasets", [])
+            label_pyramid = []
+            for ds in label_datasets:
+                ds_path = ds["path"]
+                zarr_arr = label_grp[ds_path]
+                label_pyramid.append(da.from_zarr(zarr_arr))
+            labels[label_name] = label_pyramid
+        return labels
+        
     def add_label(self, 
                     label_levels: List[da.Array],
                     label_name: str = "new_label",
@@ -97,5 +128,16 @@ class ZarrManager(MicroscopeManager):
                       compressor_level=compressor_level,
                       parallelize=parallelize
                       )
+        
+    def visualize_zarr(self,
+            viewer: Optional[napari.Viewer] = None,
+        ) -> napari.Viewer:
+        
+        if viewer is None:
+            viewer = napari.Viewer()
+        
+        viewer.open(self.path, plugin="napari-ome-zarr")
+        
+        return viewer
         
         
