@@ -84,15 +84,15 @@ class ZarrManager(MicroscopeManager):
     
     def add_label(self, 
                     label_levels: List[da.Array],
-                    label_name: Optional[str] = "new_label",
+                    label_name: str = "new_label",
                     compressor: Any = None, 
                     compressor_level: Any = 3, 
                     parallelize: Any = False) -> None:
         from .utils.add_label import add_label as _add_label
         return _add_label(self.path, 
                       label_levels, 
-                      self.metadata, 
                       label_name,
+                      self.metadata, 
                       compressor=compressor, 
                       compressor_level=compressor_level,
                       parallelize=parallelize
