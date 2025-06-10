@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional, Union
 import dask.array as da
 import napari
 import warnings
@@ -13,9 +13,10 @@ class MicroscopeManager(ABC):
     """
     
     def __init__(self):
-        self.data: List[da.Array] = []
-        self.metadata: Dict[str, Any] = {}
+        # self.data: List[da.Array] = []
+        # self.metadata: Dict[str, Any] = {}
         self._open_files = []
+        self.datasets = {}  # dict: name -> (data, metadata)
 
     @abstractmethod
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
@@ -29,6 +30,18 @@ class MicroscopeManager(ABC):
         """
         pass
 
+    @property
+    def sample_names(self) -> Tuple[str]:
+        return tuple([k for k, v in self.datasets.items()])
+    
+    @property
+    def data(self) -> Dict[str, Any]:
+        return {k: v[0] for k, v in self.datasets.items()}
+
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        return {k: v[1] for k, v in self.datasets.items()}    
+
     def write(self, path: str, 
               compressor: Any = None, 
               compressor_level: Any = 3, 
@@ -36,6 +49,7 @@ class MicroscopeManager(ABC):
               parallelize: Any = False) -> None:
         from .utils.write import write as _write
         return _write(path, 
+                      self.sample_names,
                       self.data, 
                       self.metadata, 
                       compressor=compressor, 
@@ -45,13 +59,20 @@ class MicroscopeManager(ABC):
                       )
 
     def visualize(  self,
+                    sample_names: Optional[Union[str, List[str]]] = None,
                     start_level: Optional[int] = 0,
                     stop_level: Optional[int] = -1,
                     in_memory: Optional[bool] = False,
                     viewer: Optional[napari.Viewer] = None,
                   ) -> Any:
+        if sample_names is None:
+            sample_names = self.sample_names
+        else:
+            sample_names = [str(n) for n in ([sample_names] if isinstance(sample_names, str) else sample_names)]
+            
         from .utils.visualize import visualize as _visualize
-        return _visualize(  self.data, 
+        return _visualize(  self.data,
+                            sample_names, 
                             self.metadata,
                             start_level = start_level,
                             stop_level = stop_level,
@@ -69,109 +90,110 @@ class MicroscopeManager(ABC):
         Converts single-resolution data into a pyramidal multiscale structure
         and updates self.data and self.metadata in-place.
         """
-        self.data, self.metadata = _build_pyramid(
-            self.data, self.metadata, 
+        data, meta = _build_pyramid(
+            self.sample_names, self.data, self.metadata, 
             num_levels=num_levels, 
             downscale_factor=downscale_factor,
             start_level = start_level,
         )
+        self.datasets = {s: (data[s],meta[s]) for s in self.sample_names}
 
-    def close(self) -> None:
-        """Close all open resources, such as file handles."""
-        for f in getattr(self, "_open_files", []):
-            try:
-                f.close()
-            except Exception as e:
-                print(f"Warning: failed to close file: {e}")
-        self._open_files = []
+    # def close(self) -> None:
+    #     """Close all open resources, such as file handles."""
+    #     for f in getattr(self, "_open_files", []):
+    #         try:
+    #             f.close()
+    #         except Exception as e:
+    #             print(f"Warning: failed to close file: {e}")
+    #     self._open_files = []
         
-    # def print_info(self) -> None:
+    # # def print_info(self) -> None:
     
-    def reorder_channels(self, new_order: List[int]):
-        """
-        Reorder the channel axis and update channel-related metadata.
+    # def reorder_channels(self, new_order: List[int]):
+    #     """
+    #     Reorder the channel axis and update channel-related metadata.
 
-        Args:
-            new_order (List[int]): A permutation of the channel indices.
-        """
-        if not self.data:
-            raise ValueError("No data loaded.")
+    #     Args:
+    #         new_order (List[int]): A permutation of the channel indices.
+    #     """
+    #     if not self.data:
+    #         raise ValueError("No data loaded.")
 
-        c_dim = self.metadata["axes"].index("c")
-        original_c = self.data[0].shape[c_dim]
+    #     c_dim = self.metadata["axes"].index("c")
+    #     original_c = self.data[0].shape[c_dim]
         
-        if sorted(new_order) != list(range(original_c)):
-            raise ValueError(f"new_order must be a permutation of 0..{original_c - 1}")
+    #     if sorted(new_order) != list(range(original_c)):
+    #         raise ValueError(f"new_order must be a permutation of 0..{original_c - 1}")
 
-        # Reorder each resolution level
-        self.data = [
-            da.moveaxis(level, c_dim, 1)[:, new_order, ...]
-            for level in self.data
-        ]
+    #     # Reorder each resolution level
+    #     self.data = [
+    #         da.moveaxis(level, c_dim, 1)[:, new_order, ...]
+    #         for level in self.data
+    #     ]
 
-        # Reorder metadata
-        if "channel_names" in self.metadata:
-            self.metadata["channel_names"] = [self.metadata["channel_names"][i] for i in new_order]
-        if "channel_colors" in self.metadata:
-            self.metadata["channel_colors"] = [self.metadata["channel_colors"][i] for i in new_order]
+    #     # Reorder metadata
+    #     if "channel_names" in self.metadata:
+    #         self.metadata["channel_names"] = [self.metadata["channel_names"][i] for i in new_order]
+    #     if "channel_colors" in self.metadata:
+    #         self.metadata["channel_colors"] = [self.metadata["channel_colors"][i] for i in new_order]
 
-        print(f"✅ Channels reordered to {new_order}")
+    #     print(f"✅ Channels reordered to {new_order}")
         
-    def update_metadata(self, updates: Dict[str, Any]):
-        """
-        Safely update entries in the metadata dictionary with validation.
+    # def update_metadata(self, updates: Dict[str, Any]):
+    #     """
+    #     Safely update entries in the metadata dictionary with validation.
 
-        Args:
-            updates (Dict[str, Any]): Dictionary of key-value updates.
+    #     Args:
+    #         updates (Dict[str, Any]): Dictionary of key-value updates.
 
-        Supports:
-            - channel_names (list[str])
-            - channel_colors (list[int or str])
-            - scales (list[tuple])
-            - time_increment (float)
-            - time_increment_unit (str)
+    #     Supports:
+    #         - channel_names (list[str])
+    #         - channel_colors (list[int or str])
+    #         - scales (list[tuple])
+    #         - time_increment (float)
+    #         - time_increment_unit (str)
 
-        Warnings:
-            Issues warnings or raises exceptions if updates are incompatible.
-        """
-        valid_keys = {
-            "channel_names",
-            "channel_colors",
-            "scales",
-            "time_increment",
-            "time_increment_unit",
-        }
+    #     Warnings:
+    #         Issues warnings or raises exceptions if updates are incompatible.
+    #     """
+    #     valid_keys = {
+    #         "channel_names",
+    #         "channel_colors",
+    #         "scales",
+    #         "time_increment",
+    #         "time_increment_unit",
+    #     }
 
-        for key, value in updates.items():
-            if key not in valid_keys:
-                warnings.warn(f"⚠️ Unsupported or unknown metadata key: '{key}'")
-                continue
+    #     for key, value in updates.items():
+    #         if key not in valid_keys:
+    #             warnings.warn(f"⚠️ Unsupported or unknown metadata key: '{key}'")
+    #             continue
 
-            if key in {"channel_names", "channel_colors"}:
-                c_dim = self.metadata["axes"].index("c")
-                expected_len = self.data[0].shape[c_dim]
-                if len(value) != expected_len:
-                    warnings.warn(
-                        f"⚠️ Length of '{key}' ({len(value)}) does not match number of channels ({expected_len}). Skipping."
-                    )
-                    continue
+    #         if key in {"channel_names", "channel_colors"}:
+    #             c_dim = self.metadata["axes"].index("c")
+    #             expected_len = self.data[0].shape[c_dim]
+    #             if len(value) != expected_len:
+    #                 warnings.warn(
+    #                     f"⚠️ Length of '{key}' ({len(value)}) does not match number of channels ({expected_len}). Skipping."
+    #                 )
+    #                 continue
 
-            if key == "scales":
-                if not isinstance(value, list) or len(value) != len(self.data):
-                    raise ValueError("❌ 'scales' must be a list with one entry per pyramid level.")
-                for s in value:
-                    if not isinstance(s, (list, tuple)) or len(s) != 3:
-                        raise ValueError("❌ Each scale entry must be a tuple/list of (Z, Y, X).")
+    #         if key == "scales":
+    #             if not isinstance(value, list) or len(value) != len(self.data):
+    #                 raise ValueError("❌ 'scales' must be a list with one entry per pyramid level.")
+    #             for s in value:
+    #                 if not isinstance(s, (list, tuple)) or len(s) != 3:
+    #                     raise ValueError("❌ Each scale entry must be a tuple/list of (Z, Y, X).")
 
-            if key == "time_increment":
-                if not isinstance(value, (float, int)) or value <= 0:
-                    raise ValueError("❌ 'time_increment' must be a positive float.")
+    #         if key == "time_increment":
+    #             if not isinstance(value, (float, int)) or value <= 0:
+    #                 raise ValueError("❌ 'time_increment' must be a positive float.")
 
-            if key == "time_increment_unit":
-                if not isinstance(value, str):
-                    raise ValueError("❌ 'time_increment_unit' must be a string.")
+    #         if key == "time_increment_unit":
+    #             if not isinstance(value, str):
+    #                 raise ValueError("❌ 'time_increment_unit' must be a string.")
 
-            self.metadata[key] = value
-            print(f"✅ Updated metadata entry '{key}'")
+    #         self.metadata[key] = value
+    #         print(f"✅ Updated metadata entry '{key}'")
             
 
