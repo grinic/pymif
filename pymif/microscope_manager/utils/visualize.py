@@ -1,6 +1,6 @@
 import napari
 import dask.array as da
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Tuple
 
 def _parse_color(color: Union[int, str]) -> tuple:
     """Convert OME int or hex string color to RGB float tuple for Napari."""
@@ -20,8 +20,9 @@ def _parse_color(color: Union[int, str]) -> tuple:
     return (r / 255.0, g / 255.0, b / 255.0)
 
 def visualize(
-    data_levels: List[da.Array],
-    metadata: Dict[str, Any],
+    data: Dict[str, List[da.Array]],
+    sample_names: Tuple[str],
+    metadata: Dict[str, Dict[str, Any]],
     start_level: Optional[int] = 0,
     stop_level: Optional[int] = -1,
     in_memory: Optional[bool] = False,
@@ -40,51 +41,55 @@ def visualize(
     Returns:
         napari.Viewer: viewer instance with the image loaded.
     """
-    # Check that start_level is valid
-    if not 0 <= start_level < len(data_levels):
-        raise ValueError(f"start_level={start_level} is out of bounds for available {len(data_levels)} levels.")
-    if (stop_level>0) & (not stop_level < len(data_levels)):
-        raise ValueError(f"stop_level={stop_level} is out of bounds for available {len(data_levels)} levels.")
-    if (stop_level>0) & (not start_level < stop_level):
-        raise ValueError(f"start_level={start_level} must be lower than stop_level={stop_level}.")
+    for sample_name in sample_names:
+        sample_data_levels = data[sample_name]
+        sample_metadata = metadata[sample_name]
 
-    if viewer is None:
-        viewer = napari.Viewer()
+        # Check that start_level is valid
+        if not 0 <= start_level < len(sample_data_levels):
+            raise ValueError(f"start_level={start_level} is out of bounds for available {len(sample_data_levels)} levels.")
+        if (stop_level>0) & (not stop_level < len(sample_data_levels)):
+            raise ValueError(f"stop_level={stop_level} is out of bounds for available {len(sample_data_levels)} levels.")
+        if (stop_level>0) & (not start_level < stop_level):
+            raise ValueError(f"start_level={start_level} must be lower than stop_level={stop_level}.")
 
-    # Subselect pyramid levels
-    pyramid = data_levels[start_level:] if stop_level == -1 else data_levels[start_level:stop_level]
+        if viewer is None:
+            viewer = napari.Viewer()
+
+        # Subselect pyramid levels
+        pyramid = sample_data_levels[start_level:] if stop_level == -1 else sample_data_levels[start_level:stop_level]
 
 
-    # If requested, convert Dask arrays to NumPy for interactivity
-    if in_memory:
-        try:
-            pyramid = [p.compute() for p in pyramid]
-        except Exception as e:
-            raise RuntimeError(f"Failed to load data into memory: {e}")    
-            
-    size = metadata.get("size", [pyramid[0].shape])
-    num_channels = size[0][1] if len(size[0]) >= 2 else 1
-    channel_axis = 1 if num_channels > 1 else None
-    
-    # Handle channel colors
-    channel_colors = metadata.get("channel_colors", [])
-    if channel_colors:
-        colormaps = [_parse_color(c) for c in channel_colors]
-    else:
-        colormaps = ["gray"] * num_channels
+        # If requested, convert Dask arrays to NumPy for interactivity
+        if in_memory:
+            try:
+                pyramid = [p.compute() for p in pyramid]
+            except Exception as e:
+                raise RuntimeError(f"Failed to load data into memory: {e}")    
+                
+        size = sample_metadata.get("size", [pyramid[0].shape])
+        num_channels = size[0][1] if len(size[0]) >= 2 else 1
+        channel_axis = 1 if num_channels > 1 else None
+        
+        # Handle channel colors
+        channel_colors = sample_metadata.get("channel_colors", [])
+        if channel_colors:
+            colormaps = [_parse_color(c) for c in channel_colors]
+        else:
+            colormaps = ["gray"] * num_channels
 
-    max_val = da.max(pyramid[-1])
-    clim_max = max(1, int(2 * max_val))
-    viewer.add_image(
-        pyramid,
-        name=metadata.get("channel_names", [f"ch_{i}" for i in range(num_channels)]),
-        scale=metadata.get("scales", [(1, 1, 1)])[start_level],
-        channel_axis=channel_axis,
-        colormap=colormaps,
-        metadata=metadata,
-        contrast_limits=[0, clim_max],
-        multiscale=True
-    )
+        max_val = da.max(pyramid[-1])
+        clim_max = max(1, int(2 * max_val))
+        viewer.add_image(
+            pyramid,
+            name=[f"{sample_name}-{ch}" for ch in sample_metadata.get("channel_names", [f"ch_{i}" for i in range(num_channels)])],
+            scale=sample_metadata.get("scales", [(1, 1, 1)])[start_level],
+            channel_axis=channel_axis,
+            colormap=colormaps,
+            metadata=sample_metadata,
+            contrast_limits=[0, clim_max],
+            multiscale=True
+        )
 
     return viewer
 

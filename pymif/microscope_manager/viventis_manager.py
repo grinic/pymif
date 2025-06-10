@@ -3,15 +3,17 @@ import dask.array as da
 from tifffile import imread
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Union, Optional
 from dask import delayed
 from .microscope_manager import MicroscopeManager
 
 class ViventisManager(MicroscopeManager):
     
     def __init__(self, 
-                 path: str,
-                 chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
+                 paths: Union[str, List[str]],
+                 chunks: Tuple[int, ...] = (1, 1, 16, 256, 256),
+                 names: Optional[Union[str, List[str]]] = None,
+                 ):
         """
         Initialize the ViventisManager with the given file path.
 
@@ -20,12 +22,22 @@ class ViventisManager(MicroscopeManager):
         """
         
         super().__init__()
-        self.path = Path(path)
+        self.paths = [Path(p) for p in ([paths] if isinstance(paths, str) else paths)]
+        
+        if names is None:
+            self.names = [p.stem for p in self.paths]
+        else:
+            self.names = [str(n) for n in ([names] if isinstance(names, str) else names)]
+            if len(self.names) != len(self.paths):
+                print("⚠️ 'names' does not match 'paths' — defaulting to file stems.")
+                self.names = [p.stem for p in self.paths]
+        
         self.chunks = chunks
+        self.datasets = {}
         self.read()
 
-    def _parse_companion_file(self) -> Dict[str, Any]:
-        companion = list(self.path.glob("*.ome"))[0]
+    def _parse_companion_file(self, path: Path) -> Dict[str, Any]:
+        companion = list(path.glob("*.ome"))[0]
         tree = ET.parse(companion)
         root = tree.getroot()
 
@@ -59,12 +71,13 @@ class ViventisManager(MicroscopeManager):
         for entry in tiffdata:
             t = int(entry.attrib["FirstT"])
             c = int(entry.attrib["FirstC"])
-            z_count = int(entry.attrib.get("PlaneCount", 1))
+            # z_count = int(entry.attrib.get("PlaneCount", 1))
             filename = entry.find(".//{*}UUID").attrib["FileName"]
             plane_files[(t, c)] = filename
 
         return {
             "size": [(size_t, size_c, size_z, size_y, size_x)],
+            "chunks": self.chunks,
             "scales": scales,
             "units": units,
             "time_increment": time_increment,
@@ -76,22 +89,22 @@ class ViventisManager(MicroscopeManager):
             "axes": "tczyx"
         }
 
-    def _build_dask_array(self) -> List[da.Array]:
-        t, c, z, y, x = self.metadata["size"][0]
+    def _build_dask_array(self, path: Path, metadata: Dict[str, Any]) -> List[da.Array]:
+        t, c, z, y, x = metadata["size"][0]
 
         lazy_imread = delayed(imread)  # lazy reader
-        filenames = self.metadata["plane_files"]
-        lazy_arrays = [ [ lazy_imread(f"{self.path}/{filenames[(ti,ci)]}") for ci in range(c) ] for ti in range(t) ] 
+        filenames = metadata["plane_files"]
+        lazy_arrays = [ [ lazy_imread(f"{path}/{filenames[(ti,ci)]}") for ci in range(c) ] for ti in range(t) ] 
         dask_arrays = [
             [
-                da.from_delayed(l2, shape=(z,y,x), dtype=self.metadata["dtype"])
+                da.from_delayed(l2, shape=(z,y,x), dtype=metadata["dtype"])
                 for l2 in l1
             ]
             for l1 in lazy_arrays
         ]
         # Stack into one large dask.array
         stack = da.stack(dask_arrays, axis=0)
-        stack = stack.rechunk((self.chunks))
+        stack = stack.rechunk((metadata["chunks"]))
   
         return [stack]  # level 0 only
 
@@ -103,8 +116,7 @@ class ViventisManager(MicroscopeManager):
             Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
             Dask arrays representing image data and a dictionary of metadata.
         """
-        
-        self.metadata = self._parse_companion_file()
-        self.data = self._build_dask_array()
-        return (self.data, self.metadata)
-    
+        for path, name in zip(self.paths, self.names):
+            metadata = self._parse_companion_file(path)
+            data = self._build_dask_array(path, metadata)
+            self.datasets[name] = (data, metadata)    

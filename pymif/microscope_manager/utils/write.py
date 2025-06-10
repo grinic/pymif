@@ -2,7 +2,7 @@ import dask.array as da
 from dask.distributed import Client
 from dask.diagnostics import ProgressBar
 from numcodecs import Blosc, GZip
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from ome_zarr.format import CurrentFormat
 from ome_zarr.writer import write_multiscale
 import zarr
@@ -22,7 +22,8 @@ DEFAULT_COLORS = [
 
 def write(
     path: str,
-    data_levels: List[da.Array],
+    sample_names: Tuple[str],
+    pyramids: List[da.Array],
     metadata: Dict[str, Any],
     compressor=None,
     compressor_level=3,
@@ -51,109 +52,115 @@ def write(
 
     store = zarr.NestedDirectoryStore(str(store_path))
     root_group = zarr.group(store=store, overwrite=True)
-
-    scales = metadata["scales"]  # [[1,0.173,0.173], [2,0.346,0.346], ...]
-    axes_labels = metadata["axes"]
     
-    coordinate_transformations = [
-        [
-            {
-                "type": "scale", 
-                "scale": [metadata["time_increment"]] + [1] + list(scale),
-            }
-        ]
-        for scale in scales
-    ]
+    for sample_name in sample_names:
+        sample_group = root_group.require_group(sample_name)
+        
+        sample_metadata = metadata[sample_name]
+        sample_pyramid = pyramids[sample_name]
 
-    axes_map = {
-        "t": "time",
-        "c": "channel",
-        "z": "space",
-        "y": "space",
-        "x": "space",
-    }
-    units = [metadata["time_increment_unit"], ""] + list( metadata["units"] )
-    def normalize_unit(unit: str) -> str:
-        # Common aliases to normalize
-        if not unit:
-            return unit 
-        aliases = {
-            "um": f"micrometer",
-            "μm": f"micrometer",  # Greek mu
-            "\u00b5m": f"micrometer",  # Micro sign
-            "micron": f"micrometer",
-            "microns": f"micrometer",
+        scales = sample_metadata["scales"]  # [[1,0.173,0.173], [2,0.346,0.346], ...]
+        axes_labels = sample_metadata["axes"]
+        
+        coordinate_transformations = [
+            [
+                {
+                    "type": "scale", 
+                    "scale": [sample_metadata["time_increment"]] + [1] + list(scale),
+                }
+            ]
+            for scale in scales
+        ]
+
+        axes_map = {
+            "t": "time",
+            "c": "channel",
+            "z": "space",
+            "y": "space",
+            "x": "space",
         }
-        return aliases.get(unit.strip(), unit.strip())
-    
-    axes = [
-            {
-                "name": ax, 
-                "type": axes_map.get(ax, "unknown"),
-                "unit": normalize_unit(units[i])
-            } for i, ax in enumerate(axes_labels)
-        ]
-
-    # Write multiscale array in root
-    if parallelize:
-        client = Client()
-        print("Dask dashboard:", client.dashboard_link)
-        ProgressBar().register()
-    
-    write_multiscale(
-        pyramid=data_levels,
-        group=root_group,
-        axes=axes,
-        coordinate_transformations=coordinate_transformations,
-        storage_options={"compressor": compressor},
-    )
-
-    # OMERO metadata
-    C = data_levels[0].shape[axes_labels.index("c")]
-    ch_names = metadata.get("channel_names", [f"channel_{i}" for i in range(C)])
-    ch_colors = metadata.get("channel_colors", ["FFFFFF"] * C)
-    
-    def _normalize_color(color):
-        """Ensure color is a 6-digit hex string."""
-        if isinstance(color, int):
-            return f"{color & 0xFFFFFF:06X}"  # mask to 24-bit and format
-        if isinstance(color, str):
-            color = color.lstrip("#-")
-            if len(color) == 6:
-                return color.upper()
-        return "FFFFFF"  # default fallback
-
-    channels = [{
-        "label": ch_names[i],
-        "color": _normalize_color(ch_colors[i]),
-        "window": {
-            "start": 0,
-            "end": 1500,
-            "min": 0,
-            "max": 65535
-        },
-        "active": True,
-        "inverted": False,
-        "coefficient": 1.0,
-        "family": "linear",
-    } for i in range(C)]
-
-    root_group.attrs["multiscales"] = [{
-        # "version": CurrentFormat.version,
-        "name": metadata.get("name", "OME-Zarr image"),
-        "datasets": [
-            {
-                "path": str(i),
-                "coordinateTransformations": coordinate_transformations[i],
+        units = [sample_metadata["time_increment_unit"], ""] + list( sample_metadata["units"] )
+        def normalize_unit(unit: str) -> str:
+            # Common aliases to normalize
+            if not unit:
+                return unit 
+            aliases = {
+                "um": f"micrometer",
+                "μm": f"micrometer",  # Greek mu
+                "\u00b5m": f"micrometer",  # Micro sign
+                "micron": f"micrometer",
+                "microns": f"micrometer",
             }
-            for i in range(len(data_levels))
-        ],
-        "axes": axes,
-        "type": "image",
-    }]
+            return aliases.get(unit.strip(), unit.strip())
+        
+        axes = [
+                {
+                    "name": ax, 
+                    "type": axes_map.get(ax, "unknown"),
+                    "unit": normalize_unit(units[i])
+                } for i, ax in enumerate(axes_labels)
+            ]
 
-    root_group.attrs["omero"] = {
-        "channels": channels,
-        "rdefs": {"model": "color"}
-    }
+        # Write multiscale array in root
+        if parallelize:
+            client = Client()
+            print("Dask dashboard:", client.dashboard_link)
+            ProgressBar().register()
+        
+        write_multiscale(
+            pyramid=sample_pyramid,
+            group=sample_group,
+            axes=axes,
+            coordinate_transformations=coordinate_transformations,
+            storage_options={"compressor": compressor},
+        )
+
+        # OMERO metadata
+        C = sample_pyramid[0].shape[axes_labels.index("c")]
+        ch_names = sample_metadata.get("channel_names", [f"channel_{i}" for i in range(C)])
+        ch_colors = sample_metadata.get("channel_colors", ["FFFFFF"] * C)
+        
+        def _normalize_color(color):
+            """Ensure color is a 6-digit hex string."""
+            if isinstance(color, int):
+                return f"{color & 0xFFFFFF:06X}"  # mask to 24-bit and format
+            if isinstance(color, str):
+                color = color.lstrip("#-")
+                if len(color) == 6:
+                    return color.upper()
+            return "FFFFFF"  # default fallback
+
+        channels = [{
+            "label": ch_names[i],
+            "color": _normalize_color(ch_colors[i]),
+            "window": {
+                "start": 0,
+                "end": 1500,
+                "min": 0,
+                "max": 65535
+            },
+            "active": True,
+            "inverted": False,
+            "coefficient": 1.0,
+            "family": "linear",
+        } for i in range(C)]
+
+        sample_group.attrs["multiscales"] = [{
+            # "version": CurrentFormat.version,
+            "name": sample_metadata.get("name", "OME-Zarr image"),
+            "datasets": [
+                {
+                    "path": str(i),
+                    "coordinateTransformations": coordinate_transformations[i],
+                }
+                for i in range(len(sample_pyramid))
+            ],
+            "axes": axes,
+            "type": "image",
+        }]
+
+        sample_group.attrs["omero"] = {
+            "channels": channels,
+            "rdefs": {"model": "color"}
+        }
 
