@@ -48,7 +48,7 @@ Contributions/PRs are welcome! If you would like to help and add a new format:
 
 - Subclass MicroscopeManager
 
-- Implement read() returning:
+- Implement `read()` returning:
 
 ```python
 Tuple[List[dask.array], Dict[str, Any]]
@@ -70,9 +70,4 @@ Tuple[List[dask.array], Dict[str, Any]]
 }
 ```
 
-You will automatically inherit all `MicroscopeManager` methods, including:
-- `build_pyramid()`, 
-- `write()`, 
-- `visualize()`,
-- `reorder_channels()`,
-- `update_metadata()`
+You will automatically inherit all `MicroscopeManager` methods.
