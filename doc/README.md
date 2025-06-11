@@ -42,12 +42,14 @@ pymif/
 │   └── utils/
 │    ├── pyramid.py
 │    ├── visualize.py
+│    ├── add_labels.py
 │    └── write.py
 │
 ├── examples/
 | ├── example_luxendo.ipynb
 | ├── example_viventis.ipynb
 | ├── example_opera.ipynb
+| ├── example_zarr.ipynb
 │ └── example_array.ipynb
 │
 ├── tests/
@@ -81,6 +83,8 @@ pip install -e .
 ```
 
 ### 📚 Example Usage
+
+With the following code, we read Viventis image data and parse the corresponding metadata. Next, we build a pyramidal structure of 3 resolution layers and save it into an OME-Zarr format. Finally, we load the new dataset and visualize it in napari.
 
 ```python
 import pymif.microscope_manager as mm
