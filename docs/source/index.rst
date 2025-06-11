@@ -15,3 +15,12 @@ documentation for details.
    :maxdepth: 2
    :caption: Contents:
 
+   modules
+
+API Reference
+=============
+
+.. automodule:: pymif
+   :members:
+   :undoc-members:
+   :show-inheritance:
