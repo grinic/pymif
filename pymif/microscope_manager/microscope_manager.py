@@ -5,6 +5,13 @@ import napari
 import warnings
 
 class MicroscopeManager(ABC):
+    """
+    Abstract base class for managing microscope image datasets.
+
+    Provides shared functionality for reading, writing, visualizing,
+    and managing multiscale image data and metadata.
+    """
+    
     def __init__(self):
         self.data: List[da.Array] = []
         self.metadata: Dict[str, Any] = {}

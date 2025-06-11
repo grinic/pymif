@@ -9,15 +9,24 @@ import numpy as np
 from .microscope_manager import MicroscopeManager
 
 class LuxendoManager(MicroscopeManager):
-    
+    """
+    Reader for Luxendo microscope data saved as multi-resolution HDF5 (.lux.h5) and XML metadata.
+
+    This class parses Luxendo's XML configuration and builds a lazy Dask array pyramid for downstream processing.
+    """
+        
     def __init__(self, 
                  path: str,
                  chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
         """
-        Initialize the LuxendoManager with the given file path.
+        Initialize the LuxendoManager.
 
-        Args:
-            path (str): Path to the Viventis data file.
+        Parameters
+        ----------
+        path : str
+            Path to the Luxendo dataset directory.
+        chunks : Tuple[int, ...], optional
+            Chunk shape for Dask arrays, by default (1, 1, 16, 256, 256).
         """
         
         super().__init__()
@@ -27,6 +36,15 @@ class LuxendoManager(MicroscopeManager):
         self.read()
 
     def _parse_metadata(self) -> Dict[str, Any]:
+        """
+        Parse XML metadata from the Luxendo dataset.
+
+        Returns
+        -------
+        Dict[str, Any]
+            A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.
+        """
+        
         xml_path = next(self.path.glob("*.xml"))
         tree = ET.parse(xml_path)
         root = tree.getroot()
@@ -93,8 +111,21 @@ class LuxendoManager(MicroscopeManager):
     def _read_h5_stack(self, h5_path: Path, 
                        dataset_name: str) -> np.ndarray:
         """
-        Load a single resolution dataset as dask array from an HDF5 file.
+        Load a single resolution dataset lazily as a Dask array.
+
+        Parameters
+        ----------
+        h5_path : Path
+            Path to the .lux.h5 file.
+        dataset_name : str
+            Internal dataset name (e.g., "Data", "Data444", etc.)
+
+        Returns
+        -------
+        np.ndarray
+            A Dask array loaded from the HDF5 file.
         """
+        
         f = h5py.File(h5_path, "r")
         self._open_files.append(f)
         # return dask array, no readings yet
@@ -102,13 +133,39 @@ class LuxendoManager(MicroscopeManager):
 
     def _read_h5_shape(self, h5_path: Path, dataset_name: str):
         """
-        Load a single resolution dataset from an HDF5 file.
+        Read the shape and dtype of a dataset in an HDF5 file.
+
+        Parameters
+        ----------
+        h5_path : Path
+            Path to the .lux.h5 file.
+        dataset_name : str
+            Internal dataset name.
+
+        Returns
+        -------
+        Tuple[Tuple[int, ...], np.dtype]
+            A tuple containing the dataset shape and dtype.
         """
+        
         with h5py.File(h5_path, "r") as f:
             return f[dataset_name].shape, f[dataset_name].dtype
         
     def get_available_datasets(self, h5_file) -> List:
-        # Get available dataset names from first file
+        """
+        Extract all dataset names from a .lux.h5 file.
+
+        Parameters
+        ----------
+        h5_file : Path
+            Path to a Luxendo HDF5 file.
+
+        Returns
+        -------
+        List[str]
+            Sorted list of dataset names.
+        """
+        
         with h5py.File(h5_file, "r") as f:
             dataset_names = [k for k in f.keys() if k.startswith("Data")]
         dataset_names = sorted(dataset_names, key=lambda s: (len(s), s))  # natural scale order
@@ -116,9 +173,14 @@ class LuxendoManager(MicroscopeManager):
 
     def _build_dask_array(self) -> List[da.Array]:
         """
-        Build a multiscale Dask array pyramid from Luxendo HDF5 files.
-        Each .h5 file corresponds to one timepoint and channel.
+        Construct a multiscale image pyramid as Dask arrays.
+
+        Returns
+        -------
+        List[da.Array]
+            A list of Dask arrays representing each resolution level (from highest to lowest).
         """
+        
         t, c, z, y, x = self.metadata["size"][0]
         
         h5_files = sorted(self.path.glob("*.lux.h5"))
@@ -147,11 +209,12 @@ class LuxendoManager(MicroscopeManager):
 
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
         """
-        Read the Luxendo data file and extract image arrays and metadata.
+        Read Luxendo image data and metadata.
 
-        Returns:
-            Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
-            Dask arrays representing image data and a dictionary of metadata.
+        Returns
+        -------
+        Tuple[List[da.Array], Dict[str, Any]]
+            A list of Dask arrays (pyramidal levels) and a metadata dictionary.
         """
         
         self.metadata = self._parse_metadata()

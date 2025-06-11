@@ -9,10 +9,37 @@ from zarr.storage import KVStore
 import napari
 
 class ZarrManager(MicroscopeManager):
-    
+    """
+    A manager class for reading and handling OME-Zarr datasets.
+
+    This class reads NGFF-compliant multiscale image data along with
+    metadata and optional label layers from a Zarr directory. It supports
+    lazy loading with Dask, label layer detection, and integration with
+    Napari for visualization.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the root directory of the OME-Zarr dataset.
+    chunks : Tuple[int, ...], optional
+        Chunk size to apply when reading arrays. If None, native chunking
+        in the Zarr arrays is used.
+    """
+        
     def __init__(self, 
                  path,
                  chunks: Tuple[int, ...] = None):
+        """
+        Initialize the ZarrManager.
+
+        Parameters
+        ----------
+        path : str
+            Path to the folder containing the Zarr dataset.
+        chunks : Tuple[int, ...], optional
+            Desired chunk shape for the output Dask array. Default is `None`.
+        """
+        
         super().__init__()
         self.path = path
         self.chunks = chunks
@@ -20,18 +47,25 @@ class ZarrManager(MicroscopeManager):
         
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
         """
-        Read an existing OME-Zarr dataset and extract data and metadata.
-        
-        Returns:
-            Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
-            Dask arrays representing image data and a dictionary of metadata.
+        Read an OME-Zarr dataset and extract both image data and metadata.
+
+        This method lazily loads the multiscale image pyramid and metadata
+        from the root of the Zarr dataset. If `/labels/` groups exist, they
+        are also read into the `self.labels` attribute.
+
+        Returns
+        -------
+        data_levels : List[dask.array.Array]
+            List of Dask arrays, one for each resolution level.
+        metadata : Dict[str, Any]
+            Dictionary containing image metadata such as axes, scales, sizes,
+            channels, time increments, and units.
+
+        Raises
+        ------
+        ValueError
+            If the dataset structure is invalid or lacks required metadata.
         """
-        # reader = Reader(self.path)
-        # nodes = list(reader())
-        # if not nodes:
-        #     raise ValueError(f"No readable nodes found in {self.root}")
-        
-        # node = nodes[0]
         
         # Access raw NGFF metadata
         group = zarr.open(self.path, mode="r")
@@ -123,11 +157,16 @@ class ZarrManager(MicroscopeManager):
 
     def _load_labels(self) -> Dict[str, List[da.Array]]:
         """
-        Load labels stored under `/labels/<label_name>/` groups.
+        Load label layers from the `/labels/` group in the Zarr dataset.
 
-        Returns:
-            Dict[label_name, List[dask.Array]]: each label name maps to a list of dask arrays (one per pyramid level)
+        Each label is stored as a multiscale pyramid similar to image data.
+
+        Returns
+        -------
+        labels : Dict[str, List[dask.array.Array]]
+            Dictionary mapping each label name to its list of pyramid levels.
         """
+        
         labels = {}
         root = zarr.open_group(str(self.path), mode='r')
         if "labels" not in root:
@@ -155,6 +194,23 @@ class ZarrManager(MicroscopeManager):
                     compressor: Any = None, 
                     compressor_level: Any = 3, 
                     parallelize: Any = False) -> None:
+        """
+        Add a label layer to the Zarr dataset.
+
+        Parameters
+        ----------
+        label_levels : List[dask.array.Array]
+            A list of arrays representing a label image pyramid.
+        label_name : str, optional
+            Name of the label group (default is "new_label").
+        compressor : Any, optional
+            Compression method to use when writing labels.
+        compressor_level : Any, optional
+            Compression level to apply (default: 3).
+        parallelize : bool, optional
+            If True, label data is written in parallel.
+        """
+        
         from .utils.add_label import add_label as _add_label
         return _add_label(self.path, 
                       label_levels, 
@@ -168,7 +224,20 @@ class ZarrManager(MicroscopeManager):
     def visualize_zarr(self,
             viewer: Optional[napari.Viewer] = None,
         ) -> napari.Viewer:
-        
+        """
+        Visualize the OME-Zarr dataset using Napari's `napari-ome-zarr` plugin.
+
+        Parameters
+        ----------
+        viewer : napari.Viewer, optional
+            An existing viewer instance. If None, a new one will be created.
+
+        Returns
+        -------
+        viewer : napari.Viewer
+            A Napari viewer instance with the image loaded.
+        """
+                
         if viewer is None:
             viewer = napari.Viewer()
         

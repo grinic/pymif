@@ -8,15 +8,24 @@ from dask import delayed
 from .microscope_manager import MicroscopeManager
 
 class ViventisManager(MicroscopeManager):
+    """
+    Reader for Viventis microscope datasets with OME-TIFF and companion .ome XML files.
     
+    This class lazily loads data into a dask array and parses associated OME-XML metadata.
+    """
+        
     def __init__(self, 
                  path: str,
                  chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
         """
-        Initialize the ViventisManager with the given file path.
+        Initialize the ViventisManager.
 
-        Args:
-            path (str): Path to the Viventis data file.
+        Parameters
+        ----------
+        path : str
+            Path to the folder containing the Viventis dataset (including `.ome` and `.tif` files).
+        chunks : Tuple[int, ...], optional
+            Desired chunk shape for the output Dask array. Default is `(1, 1, 16, 256, 256)`.
         """
         
         super().__init__()
@@ -25,6 +34,16 @@ class ViventisManager(MicroscopeManager):
         self.read()
 
     def _parse_companion_file(self) -> Dict[str, Any]:
+        """
+        Parse the companion `.ome` XML metadata file.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary containing extracted metadata such as size, scales, units, channel info,
+            time increment, and TIFF file mapping.
+        """
+        
         companion = list(self.path.glob("*.ome"))[0]
         tree = ET.parse(companion)
         root = tree.getroot()
@@ -77,6 +96,15 @@ class ViventisManager(MicroscopeManager):
         }
 
     def _build_dask_array(self) -> List[da.Array]:
+        """
+        Lazily construct a dask array for the image data using tifffile and delayed loading.
+
+        Returns
+        -------
+        List[da.Array]
+            A list containing a single Dask array representing the full dataset (level 0).
+        """
+        
         t, c, z, y, x = self.metadata["size"][0]
 
         lazy_imread = delayed(imread)  # lazy reader
@@ -97,11 +125,14 @@ class ViventisManager(MicroscopeManager):
 
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
         """
-        Read the Viventis data file and extract image arrays and metadata.
+        Read the Viventis dataset and populate self.data and self.metadata.
 
-        Returns:
-            Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
-            Dask arrays representing image data and a dictionary of metadata.
+        Returns
+        -------
+        Tuple[List[da.Array], Dict[str, Any]]
+            A tuple containing:
+            - A list with one dask array representing the image data.
+            - A metadata dictionary with pixel sizes, units, axes, etc.
         """
         
         self.metadata = self._parse_companion_file()

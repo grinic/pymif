@@ -9,15 +9,27 @@ import tifffile
 from .microscope_manager import MicroscopeManager
 
 class OperaManager(MicroscopeManager):
-    
+    """
+    Manager for reading Opera (PerkinElmer Opera Phenix) pyramidal OME-TIFF datasets.
+
+    This class:
+    - Parses OME-XML metadata embedded in the TIFF file.
+    - Loads multi-resolution pyramidal image data as lazy Dask arrays.
+    - Normalizes axes ordering to a standard TCZYX format.
+    """
+        
     def __init__(self, 
                  path: str,
                  chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
         """
         Initialize the OperaManager with the given file path.
 
-        Args:
-            path (str): Path to the Opera data file.
+        Parameters
+        ----------
+        path : str
+            Path to the Opera pyramidal OME-TIFF file.
+        chunks : tuple of int, optional
+            Chunk sizes for Dask arrays in TCZYX order. Defaults to (1, 1, 16, 256, 256).
         """
         
         super().__init__()
@@ -26,7 +38,15 @@ class OperaManager(MicroscopeManager):
         self.read()
 
     def _parse_metadata(self) -> dict:
-        
+        """
+        Parse OME-XML metadata embedded in the pyramidal OME-TIFF file.
+
+        Returns
+        -------
+        dict
+            Metadata dictionary containing size, scales, units, channel info, dtype, and axes.
+        """
+                
         with tifffile.TiffFile(self.path) as tif:
             xml_string = tif.ome_metadata
             
@@ -82,14 +102,34 @@ class OperaManager(MicroscopeManager):
 
     def _build_dask_array(self) -> List[da.Array]:
         """
-        Load pyramid levels from a pyramidal OME-TIFF file, normalize to TCZYX format.
+        Load pyramid levels from the pyramidal OME-TIFF and convert them to Dask arrays.
 
-        Returns:
-            - List of Dask arrays in TCZYX format
+        Returns
+        -------
+        list of dask.array.Array
+            List of Dask arrays, each corresponding to a pyramid level, normalized to TCZYX axes order.
         """
         
         def _reorder_axes(arr: da.Array, axes: str, target_axes: str = "tczyx") -> da.Array:
-            """Reorder array to target axes, inserting singleton dims as needed."""
+            """
+            Reorder axes of the input array to the target axes order,
+            inserting singleton dimensions as needed.
+
+            Parameters
+            ----------
+            arr : dask.array.Array
+                Input Dask array.
+            axes : str
+                Current axes string of the array.
+            target_axes : str, optional
+                Desired axes order (default is "tczyx").
+
+            Returns
+            -------
+            dask.array.Array
+                Reordered Dask array.
+            """
+            
             # Add missing axes
             for ax in target_axes:
                 if ax not in axes:
@@ -142,11 +182,14 @@ class OperaManager(MicroscopeManager):
     
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
         """
-        Read the Opera data file and extract image arrays and metadata.
+        Read the Opera pyramidal OME-TIFF file and extract image data and metadata.
 
-        Returns:
-            Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
-            Dask arrays representing image data and a dictionary of metadata.
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - List of Dask arrays, one per resolution level.
+            - Metadata dictionary.
         """
         
         self.metadata = self._parse_metadata()
