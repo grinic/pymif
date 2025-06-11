@@ -1,30 +1,40 @@
-name: Build & Deploy docs
+name: Build & Publish Sphinx Docs
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  docs:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # ✅ Must fetch full history for GH-Pages
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - run: |
+      - name: Install dependencies
+        run: |
           pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints
-          pip install -e .
-      - run: |
-          cd docs
+          pip install -e .  # Install your package to support doc imports
+
+      - name: Build documentation
+        working-directory: docs
+        run: |
           make html
 
-      - uses: peaceiris/actions-gh-pages@v3
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/build/html
+          allow_empty_commit: true
+          user_name: github-actions
+          user_email: github-actions@github.com
