@@ -1,10 +1,9 @@
-name: Build & Publish Sphinx Docs
+name: documentation
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: write
 
 jobs:
   build-and-deploy:
@@ -23,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints
+          pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints myst_parser sphinx-autoapi
           pip install -e .  # Install your package to support doc imports
 
       - name: Build documentation
