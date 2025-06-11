@@ -54,7 +54,6 @@ def visualize(
     # Subselect pyramid levels
     pyramid = data_levels[start_level:] if stop_level == -1 else data_levels[start_level:stop_level]
 
-
     # If requested, convert Dask arrays to NumPy for interactivity
     if in_memory:
         try:
@@ -85,6 +84,31 @@ def visualize(
         contrast_limits=[0, clim_max],
         multiscale=True
     )
+
+    # --- Add label layers if present
+    label_metadata = metadata.get("labels_metadata", {})
+    for label_name, label_info in label_metadata.items():
+        label_pyramid = label_info.get("data")  # list of Dask arrays
+        label_pyramid = label_pyramid[start_level:] if stop_level == -1 else label_pyramid[start_level:stop_level]
+
+        label_scale = label_info.get("scale", metadata.get("scales", [(1, 1, 1)])[start_level])
+        # label_color = label_info.get("color", "magenta")
+        label_opacity = label_info.get("opacity", 0.5)
+
+        if in_memory:
+            try:
+                label_pyramid = [l.compute() for l in label_pyramid]
+            except Exception as e:
+                raise RuntimeError(f"Failed to load labels into memory: {e}")    
+
+        viewer.add_labels(
+            label_pyramid,
+            name=label_name,
+            scale=label_scale,
+            multiscale=True,
+            # colormap=label_color,
+            opacity=label_opacity,
+        )
 
     return viewer
 

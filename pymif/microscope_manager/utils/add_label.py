@@ -38,13 +38,20 @@ def add_label(
         metadata (Dict[str, Any]): Dictionary containing metadata information.
     """
     expected_ndim = 4
-    if len(label_levels) != len(metadata["size"]):
+    label_layers = len(label_levels)
+    expected_layers = len(metadata["size"])
+    if label_layers != expected_layers:
         raise ValueError(
-            f"Label pyramid has {len(label_levels)} levels, expected {len(metadata["size"])}."
+            f"Label pyramid has {label_layers} levels, expected {expected_layers}."
         )
         
     for i, level in enumerate(label_levels):
-        expected_shape = [metadata["size"][i][0]] + metadata["size"][i][2:]
+        expected_shape = (
+                            metadata["size"][i][0],
+                            metadata["size"][i][2],
+                            metadata["size"][i][3],
+                            metadata["size"][i][4],
+        )
         if level.ndim != expected_ndim:
             raise ValueError(
                 f"Label pyramid level {i} has {level.ndim} dimensions, expected {expected_ndim} (tzyx)."

@@ -88,6 +88,38 @@ class ZarrManager(MicroscopeManager):
         
         ### optional, read labels
         self.labels = self._load_labels()
+        
+        def _default_label_color(name: str) -> str:
+            name = name.lower()
+            if "nuc" in name:
+                return "magenta"
+            elif "mem" in name:
+                return "cyan"
+            elif "mask" in name:
+                return "yellow"
+            return "white"
+        
+        if self.labels:
+            self.metadata["labels_metadata"] = {}
+            for label_name, label_levels in self.labels.items():
+                # Try to read scale info from label multiscale metadata
+                label_grp = zarr.open_group(str(self.path), mode='r')["labels"][label_name]
+                label_multiscales = label_grp.attrs.get("multiscales", [])
+                if label_multiscales:
+                    label_datasets = label_multiscales[0].get("datasets", [])
+                    if label_datasets and "coordinateTransformations" in label_datasets[0]:
+                        label_scale = label_datasets[0]["coordinateTransformations"][0].get("scale", [1,1,1])[1:]
+                    else:
+                        label_scale = [1, 1, 1]
+                else:
+                    label_scale = [1, 1, 1]
+
+                self.metadata["labels_metadata"][label_name] = {
+                    "data": label_levels,
+                    "scale": label_scale,
+                    "color": _default_label_color(label_name),
+                    "opacity": 0.5
+                }
 
     def _load_labels(self) -> Dict[str, List[da.Array]]:
         """
