@@ -6,7 +6,7 @@
 PyMIF documentation
 ===================
 
-**PyMIF** is a modular Python package to read, visualize, and write multiscale (pyramidal) 
+**PyMIF** (source code `here <https://github.com/grinic/pymif>`_) is a modular Python package to read, visualize, and write multiscale (pyramidal) 
 microscopy image data from a variety of microscope platforms available at the 
 `Mesoscopic Imaging Facility (MIF) <https://www.embl.org/groups/mesoscopic-imaging-facility>`_ 
 into the `OME-NGFF (Zarr) <https://ngff.openmicroscopy.org/)>`_ format.
