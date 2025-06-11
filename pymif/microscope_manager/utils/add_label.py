@@ -37,6 +37,23 @@ def add_label(
         data (List[da.Array]): List of Dask arrays representing image data.
         metadata (Dict[str, Any]): Dictionary containing metadata information.
     """
+    expected_ndim = 4
+    if len(label_levels) != len(metadata["size"]):
+        raise ValueError(
+            f"Label pyramid has {len(label_levels)} levels, expected {len(metadata["size"])}."
+        )
+        
+    for i, level in enumerate(label_levels):
+        expected_shape = [metadata["size"][i][0]] + metadata["size"][i][2:]
+        if level.ndim != expected_ndim:
+            raise ValueError(
+                f"Label pyramid level {i} has {level.ndim} dimensions, expected {expected_ndim} (tzyx)."
+            )
+        if level.shape != expected_shape:
+            raise ValueError(
+                f"Shape mismatch at level {i}. Label shape: {level.shape}, expected shape: {expected_shape}"
+            )
+    
     
     if isinstance(compressor, str):
         if compressor.lower() == "blosc":
