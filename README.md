@@ -28,7 +28,7 @@ cd pymif
 pip install -e .
 ```
 
-### 📚 Example Usage
+### 📚 Minimal Example Usage
 
 ```python
 import pymif.microscope_manager as mm
@@ -41,33 +41,3 @@ viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
 ```
 
 For more examples, see [examples](examples/).
-
-### ➕ Adding New Microscope Support and Contributing
-
-Contributions/PRs are welcome! If you would like to help and add a new format:
-
-- Subclass MicroscopeManager
-
-- Implement `read()` returning:
-
-```python
-Tuple[List[dask.array], Dict[str, Any]]
-```
-
-- Follow this metadata schema:
-
-```python
-{
-  "size": [... per level ...],
-  "scales": [... per level ...],
-  "units": (...),
-  "axes": "tczyx",
-  "channel_names": [...],
-  "channel_colors": [...],
-  "time_increment": ...,
-  "time_increment_unit": ...,
-  ...
-}
-```
-
-You will automatically inherit all `MicroscopeManager` methods.
