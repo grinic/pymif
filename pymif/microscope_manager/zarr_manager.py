@@ -12,7 +12,7 @@ class ZarrManager(MicroscopeManager):
     
     def __init__(self, 
                  path,
-                 chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
+                 chunks: Tuple[int, ...] = None):
         super().__init__()
         self.path = path
         self.chunks = chunks
@@ -39,11 +39,17 @@ class ZarrManager(MicroscopeManager):
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
         omero = image_meta.get("omero", {})
+        
         # Load pyramid levels properly
-        data_levels = [
-            da.from_zarr(group[str(i)], chunks=self.chunks)
-            for i in range(len(datasets))
-        ]        
+        data_levels = []
+        for i in range(len(datasets)):
+            zarr_array = group[str(i)]
+            if self.chunks is None:
+                arr = da.from_zarr(zarr_array)  # uses native chunking
+            else:
+                arr = da.from_zarr(zarr_array, chunks=self.chunks) # use chunks (same for all levels)
+            data_levels.append(arr)      
+        self.chunks = data_levels[0].chunksize
         dtype = data_levels[0].dtype
         
         # Metadata
@@ -76,11 +82,7 @@ class ZarrManager(MicroscopeManager):
             "axes": axes
         }
 
-        # Dask pyramids
-        pyramid = data_levels#[da.from_zarr(Path(self.path) / ds["path"]) for ds in datasets]
-        pyramid = [p.rechunk(self.chunks) for p in pyramid]
-
-        self.data = pyramid
+        self.data = data_levels
         
         ### optional, read labels
         self.labels = self._load_labels()
