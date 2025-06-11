@@ -30,8 +30,6 @@ pip install -e .
 
 ### 📚 Minimal Example Usage
 
-With the following code, we read Viventis image data and parse the corresponding metadata. Next, we build a pyramidal structure of 3 resolution layers and save it into an OME-Zarr format. Finally, we load the new dataset and visualize it in napari.
-
 ```python
 import pymif.microscope_manager as mm
 
