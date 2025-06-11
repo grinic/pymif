@@ -2,7 +2,8 @@ name: Build & Publish Sphinx Docs
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -13,7 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # ✅ Must fetch full history for GH-Pages
+          fetch-depth: 0  # Must fetch full history for GH-Pages
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -27,14 +28,10 @@ jobs:
 
       - name: Build documentation
         working-directory: docs
-        run: |
-          make html
+        run: make html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/build/html
-          allow_empty_commit: true
-          user_name: github-actions
-          user_email: github-actions@github.com
