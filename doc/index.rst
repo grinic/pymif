@@ -6,9 +6,10 @@
 PyMIF documentation
 ===================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+**PyMIF** is a modular Python package to read, visualize, and write multiscale (pyramidal) 
+microscopy image data from a variety of microscope platforms available at the 
+`Mesoscopic Imaging Facility (MIF) <https://www.embl.org/groups/mesoscopic-imaging-facility>`_ 
+into the `OME-NGFF (Zarr) <https://ngff.openmicroscopy.org/)>`_ format.
 
 
 .. toctree::
