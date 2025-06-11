@@ -57,6 +57,7 @@ class ZarrManager(MicroscopeManager):
         sizes = [ tuple(d.shape) for d in data_levels ]
         scales = [tuple(d.get("coordinateTransformations", [{}])[0].get("scale", None)[2:])
                   for d in datasets]
+        chunksize = [d.chunksize for d in data_levels]
         units = tuple([a.get("unit", None) for a in multiscales.get("axes", [])][2:])
 
         # Channels
@@ -71,6 +72,7 @@ class ZarrManager(MicroscopeManager):
 
         self.metadata = {
             "size": sizes,
+            "chunksize": chunksize,
             "scales": scales,
             "units": units,
             "time_increment": time_increment,
