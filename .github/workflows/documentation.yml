@@ -21,6 +21,8 @@ jobs:
       - name: Sphinx build
         run: |
           sphinx-build doc _build
+      - name: Copy README.md to docs
+        run: cp README.md doc/readme.md          
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

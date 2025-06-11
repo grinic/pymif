@@ -23,6 +23,11 @@ extensions = ['myst_parser', 'autoapi.extension', 'sphinx.ext.linkcode']
 
 autoapi_dirs = ['../../pymif']
 
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}
+
 def linkcode_resolve(domain, info):
     
     if domain != 'py':
