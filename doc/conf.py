@@ -21,7 +21,9 @@ release = 'v0.1.1'
 
 extensions = ['myst_parser', 'autoapi.extension', 'sphinx.ext.linkcode']
 
-autoapi_dirs = ['../../pymif']
+autoapi_dirs = [
+    '../../pymif/pymif',
+    ]
 
 source_suffix = {
     ".rst": "restructuredtext",
