@@ -1,5 +1,4 @@
 import dask.array as da
-import numpy as np
 from typing import List, Tuple, Dict, Any
 
 def pad_to_divisible(array: da.Array, factors: List[int]) -> da.Array:

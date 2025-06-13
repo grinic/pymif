@@ -1,4 +1,3 @@
-import os
 import dask.array as da
 from tifffile import imread
 import xml.etree.ElementTree as ET

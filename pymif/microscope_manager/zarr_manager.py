@@ -1,11 +1,7 @@
-from pathlib import Path
 from typing import Tuple, List, Dict, Any, Optional
 import dask.array as da
-from ome_zarr.io import parse_url
-from ome_zarr.reader import Reader
 from .microscope_manager import MicroscopeManager
 import zarr
-from zarr.storage import KVStore
 import napari
 
 class ZarrManager(MicroscopeManager):

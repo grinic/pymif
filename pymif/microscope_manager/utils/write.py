@@ -3,11 +3,9 @@ from dask.distributed import Client
 from dask.diagnostics import ProgressBar
 from numcodecs import Blosc, GZip
 from typing import List, Dict, Any
-from ome_zarr.format import CurrentFormat
 from ome_zarr.writer import write_multiscale
 import zarr
 from pathlib import Path
-import numpy as np
 
 DEFAULT_COLORS = [
     "FF0000",  # Red

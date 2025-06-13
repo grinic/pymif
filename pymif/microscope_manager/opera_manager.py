@@ -1,7 +1,5 @@
-import os
 import dask.array as da
 import zarr
-from tifffile import imread
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Tuple, Dict, Any

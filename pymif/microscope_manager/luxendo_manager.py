@@ -3,7 +3,6 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
 import dask.array as da
-from dask import delayed
 import h5py
 import numpy as np
 from .microscope_manager import MicroscopeManager
