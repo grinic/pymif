@@ -10,10 +10,7 @@ class OperaManager(MicroscopeManager):
     """
     Manager for reading Opera (PerkinElmer Opera Phenix) pyramidal OME-TIFF datasets.
 
-    This class:
-    - Parses OME-XML metadata embedded in the TIFF file.
-    - Loads multi-resolution pyramidal image data as lazy Dask arrays.
-    - Normalizes axes ordering to a standard TCZYX format.
+    This class reads and parses OME-XML metadata embedded in the TIFF file.
     """
         
     def __init__(self, 
