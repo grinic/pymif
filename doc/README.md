@@ -10,6 +10,7 @@
   - **Viventis** (`.ome + .tif`)
   - **Luxendo** (`.xml + .h5`)
   - **Opera PE** (`.ome.tiff`)
+  - **Zeiss** (`.czi`)
   - **Generic OME-Zarr**
   - **Numpy or Dask array**
 - ✅ Abstract base class `MicroscopeManager` ensures uniform interface for all readers
@@ -36,6 +37,7 @@ pymif/
 │   ├── luxendo_manager.py
 │   ├── viventis_manager.py
 │   ├── opera_manager.py
+│   ├── zeiss_manager.py
 │   ├── zarr_manager.py
 │   ├── array_manager.py
 │   ├── microscope_manager.py
@@ -49,6 +51,7 @@ pymif/
 | ├── example_luxendo.ipynb
 | ├── example_viventis.ipynb
 | ├── example_opera.ipynb
+| ├── example_zeiss.ipynb
 | ├── example_zarr.ipynb
 │ └── example_array.ipynb
 │

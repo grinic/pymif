@@ -10,10 +10,7 @@ class OperaManager(MicroscopeManager):
     """
     Manager for reading Opera (PerkinElmer Opera Phenix) pyramidal OME-TIFF datasets.
 
-    This class:
-    - Parses OME-XML metadata embedded in the TIFF file.
-    - Loads multi-resolution pyramidal image data as lazy Dask arrays.
-    - Normalizes axes ordering to a standard TCZYX format.
+    This class reads and parses OME-XML metadata embedded in the TIFF file.
     """
         
     def __init__(self, 
@@ -163,14 +160,14 @@ class OperaManager(MicroscopeManager):
                 arr = _reorder_axes(level[0], level[1])
 
                 # Update scale
-                current_size = self.metadata["size"][0][:2] + arr.shape[2:]
+                current_size = arr.shape[2:]
                 level_scale = (
                                 base_scale[0] / current_size[0] * base_size[0],
                                 base_scale[1] / current_size[1] * base_size[1],
                                 base_scale[2] / current_size[2] * base_size[2],
                                 )  # Z, Y, X
                 scales.append(level_scale)  # T, C, Z, Y, X
-                sizes.append(current_size)
+                sizes.append(self.metadata["size"][0][:2] + current_size)
                 data_levels.append(arr.rechunk(chunks = self.chunks))
 
         self.metadata["scales"] = scales

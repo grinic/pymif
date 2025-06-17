@@ -1,7 +1,7 @@
 # aicsimageio>=4.12.1
 # ome-types>=0.6.1
-# bioio>=1.6.1
-# bioio-czi>=2.1.0
+bioio>=1.6.1
+bioio-czi>=2.1.0
 # bioio.lif>=1.1.0
 ome-zarr>=0.9.0
 dask[distributed]>=2023.4.1
