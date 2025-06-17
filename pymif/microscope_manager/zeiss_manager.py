@@ -1,9 +1,7 @@
-from typing import Tuple, List, Dict, Any, Optional
-import dask.array as da
+from pathlib import Path
+from typing import Tuple, Dict, Any, Optional
 from .microscope_manager import MicroscopeManager
 from bioio_czi.aicspylibczi_reader.reader import Reader as AicsPyLibCziReader
-import zarr
-import napari
 
 class ZeissManager(MicroscopeManager):
     """
@@ -43,17 +41,18 @@ class ZeissManager(MicroscopeManager):
             self.scene_name = scene_name
             self.scene_index = aics.scenes.index(scene_name)
 
-        self.aics = aics
-
         self.chunks = chunks
         self.read()
         
     def read(self):
+        aics = AicsPyLibCziReader(self.path)
+        aics.set_scene(self.scene_index)
         if self.chunks is None:
-            self.chunks = self.aics.get_image_dask_data("TCZYX").chunksize
-        self.data = self.aics.get_image_dask_data("TCZYX").rechunk(self.chunks)
+            self.chunks = aics.get_image_dask_data("TCZYX").chunksize
+        self.data = [ aics.get_image_dask_data("TCZYX").rechunk(self.chunks) ]
         self.metadata = self._parse_metadata()
-        return
+        
+        return (self.data, self.metadata)
         
     def _parse_metadata(self) -> Dict[str, Any]:
         """
@@ -65,50 +64,56 @@ class ZeissManager(MicroscopeManager):
             A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.
         """
         
+        aics = AicsPyLibCziReader(self.path)
+        aics.set_scene(self.scene_index)
+        
         size = tuple([
-            self.aics.standard_metadata.image_size_t,
-            self.aics.standard_metadata.image_size_c,
-            self.aics.standard_metadata.image_size_z,
-            self.aics.standard_metadata.image_size_y,
-            self.aics.standard_metadata.image_size_x,
+            aics.standard_metadata.image_size_t,
+            aics.standard_metadata.image_size_c,
+            aics.standard_metadata.image_size_z,
+            aics.standard_metadata.image_size_y,
+            aics.standard_metadata.image_size_x,
         ])
         
+        # The values are stored in units of meters always in .czi. Convert to microns.
         scales = tuple([
-            self.aics.standard_metadata.pixel_size_z,
-            self.aics.standard_metadata.pixel_size_y,
-            self.aics.standard_metadata.pixel_size_x,
+            float(aics.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='Z']")[0].find("./Value").text)/1e-6,
+            float(aics.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='Y']")[0].find("./Value").text)/1e-6,
+            float(aics.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='X']")[0].find("./Value").text)/1e-6,
         ])
         
-        units = tuple([
-            self.aics.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='Z']")[0].find("./DefaultUnitFormat").text,
-            self.aics.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='Y']")[0].find("./DefaultUnitFormat").text,
-            self.aics.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='X']")[0].find("./DefaultUnitFormat").text,
-        ])
+        units = ["micrometer"] * 3
         
-        time_increment = float(self.aics.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/Value") or 1.0)
-        time_unit = self.aics.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/DefaultUnitFormat") or "s"
+        time_increment = float(aics.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/Value") or 1.0)
+        time_unit = aics.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/DefaultUnitFormat") or "s"
 
         # Channels
-        # channels = []
         colors = []
-        default_colors = [0xFF0000, 0x0000FF]
-        for i, ch in enumerate( self.aics.metadata.findall(".//Channels/Channel") ):
-            # name = ch.findtext(".//AdditionalDyeInformation/ShortName") or ch.findtext(".//FluorescenceDye/ShortName") or "Unnamed"
-            color = ch.findtext("Color") or default_colors[i]
-            # channels.append(name)
+        default_colors = [0xFF0000, 0x0000FF, 0x00FF00]
+        for i, ch in enumerate( aics.metadata.findall(".//DisplaySetting/Channels/Channel") ):
+            color = ch.findtext("Color") or default_colors[i%len(default_colors)]
+            if (len(color) == 9) and (color[0] == "#"):
+                # AARRGGBB → drop AA
+                color = "#"+color[3:]
             colors.append(color)
         
-        bit_depth = int(self.aics.metadata.findtext(".//BitsPerPixel") or 16)
+        bit_depth = int(aics.metadata.findtext(".//BitsPerPixel") or 16)
+        if bit_depth==8:
+            dtype = "uint8"
+        elif bit_depth==16:
+            dtype = "uint16"
+        else:
+            dtype = "Unknown"
         
         return {
             "size": [size],
-            "scales": scales,
+            "scales": [scales],
             "units": tuple(units),
             "time_increment": time_increment,
             "time_increment_unit": time_unit,
-            "channel_names": self.aics.channel_names,
+            "channel_names": [str(n) for n in aics.channel_names],
             "channel_colors": colors,  # Example, map from name if needed
-            "dtype": bit_depth,
-            "plane_files": None,
+            "dtype": dtype,
+            "plane_files": Path(self.path).stem,
             "axes": "tczyx"
         }

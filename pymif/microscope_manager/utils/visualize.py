@@ -1,6 +1,6 @@
 import napari
 import dask.array as da
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Tuple
 
 def _parse_color(color: Union[int, str]) -> tuple:
     """Convert OME int or hex string color to RGB float tuple for Napari."""
@@ -9,12 +9,25 @@ def _parse_color(color: Union[int, str]) -> tuple:
         g = (color >> 8) & 0xFF
         b = color & 0xFF
     elif isinstance(color, str):
-        color = color.lstrip('#-')
-        if len(color) != 6:
-            raise ValueError(f"Invalid hex color string: {color}")
-        r = int(color[0:2], 16)
-        g = int(color[2:4], 16)
-        b = int(color[4:6], 16)
+        s = color.strip()
+        if s.startswith("#"):
+            if s.startswith("#-"):
+                s = s[2:]
+            else:
+                s = s[1:]
+        if s.lower().startswith("0x"):
+            s = s[2:]
+
+        if len(s) == 8:
+            s = s[2:]  # drop AA from AARRGGBB
+
+        if len(s) != 6:
+            raise ValueError(f"Invalid hex color string: {color!r} (expected 6 or 8 hex digits)")
+
+        r = int(s[0:2], 16)
+        g = int(s[2:4], 16)
+        b = int(s[4:6], 16)
+
     else:
         raise TypeError(f"Unsupported color type: {type(color)}")
     return (r / 255.0, g / 255.0, b / 255.0)
