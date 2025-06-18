@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Tuple, Dict, Any, Optional
 from .microscope_manager import MicroscopeManager
 from bioio_czi.aicspylibczi_reader.reader import Reader as AicsPyLibCziReader
+from bioio_czi.pylibczirw_reader.reader import Reader as PyLibCziReader
 
 class ZeissManager(MicroscopeManager):
     """
@@ -31,7 +32,7 @@ class ZeissManager(MicroscopeManager):
         super().__init__()
         self.path = path
         
-        aics = AicsPyLibCziReader(path)
+        aics = PyLibCziReader(path)
         if scene_name == "":
             self.scene_index = scene_index
             assert scene_index<len(aics.scenes), ValueError(f"Invalid scene index {scene_index}, only {len(aics.scenes)} scenes available: {aics.scenes}")
@@ -49,7 +50,7 @@ class ZeissManager(MicroscopeManager):
     def read(self,
              scene_index: int = 0):
         
-        aics = AicsPyLibCziReader(self.path)
+        aics = PyLibCziReader(self.path)
 
         assert scene_index<len(aics.scenes), ValueError(f"Invalid scene index {scene_index}, only {len(aics.scenes)} scenes available: {aics.scenes}")
         self.scene_index = scene_index
@@ -73,7 +74,7 @@ class ZeissManager(MicroscopeManager):
             A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.
         """
         
-        aics = AicsPyLibCziReader(self.path)
+        aics = PyLibCziReader(self.path)
         aics.set_scene(self.scene_index)
         
         size = tuple([
