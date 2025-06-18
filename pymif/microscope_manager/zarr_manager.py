@@ -39,6 +39,7 @@ class ZarrManager(MicroscopeManager):
         super().__init__()
         self.path = path
         self.chunks = chunks
+        self.datasets = {}
         self.read()
         
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
