@@ -136,5 +136,5 @@ class ViventisManager(MicroscopeManager):
         
         self.metadata = self._parse_companion_file()
         self.data = self._build_dask_array()
-        return (self.data, self.metadata)
+        return
     

@@ -90,4 +90,4 @@ class ArrayManager(MicroscopeManager):
         self.metadata.setdefault("time_increment_unit", "s")
         self.metadata.setdefault("plane_files", None)
 
-        return (self.data, self.metadata)
+        return

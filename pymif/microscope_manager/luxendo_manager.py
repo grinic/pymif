@@ -218,5 +218,5 @@ class LuxendoManager(MicroscopeManager):
         
         self.metadata = self._parse_metadata()
         self.data = self._build_dask_array()
-        return (self.data, self.metadata)
+        return
     

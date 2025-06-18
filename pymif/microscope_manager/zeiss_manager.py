@@ -40,19 +40,28 @@ class ZeissManager(MicroscopeManager):
             assert scene_name in aics.scenes, ValueError(f"Invalid scene {scene_name}: scene not found in available scenes: {aics.scenes}")
             self.scene_name = scene_name
             self.scene_index = aics.scenes.index(scene_name)
+            
+        print(f"Scenes: {aics.scenes}, loading {aics.scenes[self.scene_index]}. Rerun `read(scene_index)` to load another scene.")
 
         self.chunks = chunks
-        self.read()
+        self.read( scene_index = self.scene_index )
         
-    def read(self):
+    def read(self,
+             scene_index: int = 0):
+        
         aics = AicsPyLibCziReader(self.path)
+
+        assert scene_index<len(aics.scenes), ValueError(f"Invalid scene index {scene_index}, only {len(aics.scenes)} scenes available: {aics.scenes}")
+        self.scene_index = scene_index
+        self.scene_name = aics.scenes[scene_index]
+            
         aics.set_scene(self.scene_index)
         if self.chunks is None:
             self.chunks = aics.get_image_dask_data("TCZYX").chunksize
         self.data = [ aics.get_image_dask_data("TCZYX").rechunk(self.chunks) ]
         self.metadata = self._parse_metadata()
         
-        return (self.data, self.metadata)
+        return
         
     def _parse_metadata(self) -> Dict[str, Any]:
         """
