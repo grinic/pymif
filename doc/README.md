@@ -82,7 +82,7 @@ Installation is then done by cloning the repository:
 ```bash
 git clone https://github.com/grinic/pymif.git
 cd pymif
-pip install -e .
+python -m pip install -e .
 ```
 
 ### 📚 Example Usage

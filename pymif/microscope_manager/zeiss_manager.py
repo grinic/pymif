@@ -86,8 +86,12 @@ class ZeissManager(MicroscopeManager):
         ])
         
         # The values are stored in units of meters always in .czi. Convert to microns.
+        try:
+            pxl_z = float(aics.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='Z']")[0].find("./Value").text)/1e-6
+        except:
+            pxl_z  =1.
         scales = tuple([
-            float(aics.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='Z']")[0].find("./Value").text)/1e-6,
+            pxl_z,
             float(aics.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='Y']")[0].find("./Value").text)/1e-6,
             float(aics.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='X']")[0].find("./Value").text)/1e-6,
         ])
