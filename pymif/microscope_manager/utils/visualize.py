@@ -99,7 +99,6 @@ def visualize(
     min_val = da.min(pyramid[-1]).compute()
     clim_max = max(1, int(2 * max_val))
     clim_min = max(0, min_val)
-    print([clim_min, clim_max])
     viewer.add_image(
         pyramid,
         name=metadata.get("channel_names", [f"ch_{i}" for i in range(num_channels)]),
