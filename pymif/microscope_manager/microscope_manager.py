@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional,Sequence
 import dask.array as da
 import napari
 import warnings
@@ -173,5 +173,47 @@ class MicroscopeManager(ABC):
 
             self.metadata[key] = value
             print(f"✅ Updated metadata entry '{key}'")
+            
+            
+    def subset_dataset(self,
+                    T: Optional[Sequence[int]] = None,
+                    C: Optional[Sequence[int]] = None,
+                    Z: Optional[Sequence[int]] = None,
+                    Y: Optional[Sequence[int]] = None,
+                    X: Optional[Sequence[int]] = None):
+        """
+        Subset the dataset by timepoints, channels, or spatial coordinates.
+
+        Args:
+            T, C, Z, Y, X: Optional sequences of indices for each axis.
+                        Must be uniformly spaced. For example:
+                        dataset.subset_dataset(T=np.arange(0, 10, 2), Z=[0,1,2])
+        Raises:
+            ValueError: if index spacing is not uniform or out of bounds.
+        """
+        from .utils.subset import subset_dask_array, subset_metadata
+        
+        if not self.data:
+            raise ValueError("No data loaded.")
+
+        # Validate bounds
+        shape = self.metadata["size"][0]
+        axis_order = self.metadata["axes"].lower()
+        for name, index in zip("tczyx", [T, C, Z, Y, X]):
+            if index is not None:
+                max_len = shape[axis_order.index(name)]
+                if max(index) >= max_len or min(index) < 0:
+                    raise ValueError(f"Index for {name.upper()} out of range.")
+
+        # Subset data
+        self.data = [
+            subset_dask_array(level, T=T, C=C, Z=Z, Y=Y, X=X)
+            for level in self.data
+        ]
+
+        # Subset metadata
+        self.metadata = subset_metadata(self.metadata, T=T, C=C, Z=Z, Y=Y, X=X)
+
+        print("✅ Dataset subset complete.")
             
 
