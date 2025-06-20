@@ -43,15 +43,25 @@ def visualize(
     """
     Visualize a multiscale dataset with Napari.
 
-    Args:
-        data_levels: list of Dask arrays, one per resolution level.
-        metadata: dict with NGFF-compatible metadata.
-        viewer: optional existing Napari viewer.
-        start_level: index of resolution level to use as the highest-resolution (default: 0).
-        in_memory: if True, convert Dask arrays to NumPy for interactivity (default: False).
+    Parameters
+    ----------
+    data_levels : List[da.Array]
+        list of Dask arrays, one per resolution level.
+    metadata : Dict[str, Any]
+        dict with NGFF-compatible metadata.
+    start_level : Optional[int]
+        index of resolution level to use as the highest-resolution (default: 0).
+    stop_level : Optional[int]
+        index of resolution level to use as the lowest-resolution (default: -1).
+    in_memory : Optional[bool]
+        if True, convert Dask arrays to NumPy for interactivity (default: False).
+    viewer : Optional[napari.Viewer]
+        optional existing Napari viewer (deafult: None).
 
-    Returns:
-        napari.Viewer: viewer instance with the image loaded.
+    Returns
+    ----------
+    napari.Viewer
+        viewer instance with the image loaded.
     """
     # Check that start_level is valid
     if not 0 <= start_level < len(data_levels):
@@ -76,7 +86,7 @@ def visualize(
             
     size = metadata.get("size", [pyramid[0].shape])
     num_channels = size[0][1] if len(size[0]) >= 2 else 1
-    channel_axis = 1 if num_channels > 1 else None
+    channel_axis = 1
     
     # Handle channel colors
     channel_colors = metadata.get("channel_colors", [])
