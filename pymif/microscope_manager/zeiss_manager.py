@@ -49,7 +49,17 @@ class ZeissManager(MicroscopeManager):
         
     def read(self,
              scene_index: int = 0):
-        
+        """
+        Read the Zeiss dataset and populate self.data and self.metadata.
+
+        Returns
+        -------
+        Tuple[List[da.Array], Dict[str, Any]]
+            A tuple containing:
+            - A list with one dask array representing the image data.
+            - A metadata dictionary with pixel sizes, units, axes, etc.
+        """
+                
         aics = PyLibCziReader(self.path)
 
         assert scene_index<len(aics.scenes), ValueError(f"Invalid scene index {scene_index}, only {len(aics.scenes)} scenes available: {aics.scenes}")

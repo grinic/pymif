@@ -22,18 +22,30 @@ def write(
     path: str,
     data_levels: List[da.Array],
     metadata: Dict[str, Any],
-    compressor=None,
-    compressor_level=3,
-    overwrite=True,
-    parallelize=False,
+    compressor: Any =None,
+    compressor_level: int =3,
+    overwrite: bool =True,
+    parallelize: bool =False,
 ):
     """
     Write image data and metadata to the specified path.
 
-    Args:
-        path (str): Destination path for the output data.
-        data (List[da.Array]): List of Dask arrays representing image data.
-        metadata (Dict[str, Any]): Dictionary containing metadata information.
+    Parameters
+    ----------
+        path : str
+            Destination path for the output data.
+        data_levels : List[da.Array]
+            List of Dask arrays representing image data.
+        metadata : Dict[str, Any]
+            Dictionary containing metadata information.
+        compressor : Any
+            Type of compression used (default: None).
+        compressor_level : int
+            Compression level used (if compression is not None).
+        overwrite : bool
+            whether to overwrite existing data at Destination path (default: True).
+        parallelize : bool
+            whether to use dask distribute to parallelize (default: False).
     """
     
     if isinstance(compressor, str):

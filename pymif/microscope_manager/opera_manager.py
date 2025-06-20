@@ -181,7 +181,7 @@ class OperaManager(MicroscopeManager):
 
         Returns
         -------
-        tuple
+        Tuple[List[da.Array], Dict[str, Any]]
             A tuple containing:
             - List of Dask arrays, one per resolution level.
             - Metadata dictionary.

@@ -92,8 +92,10 @@ class MicroscopeManager(ABC):
         """
         Reorder the channel axis and update channel-related metadata.
 
-        Args:
-            new_order (List[int]): A permutation of the channel indices.
+        Parameters
+        ----------
+            new_order : List[int]
+                A permutation of the channel indices.
         """
         if not self.data:
             raise ValueError("No data loaded.")
@@ -122,19 +124,23 @@ class MicroscopeManager(ABC):
         """
         Safely update entries in the metadata dictionary with validation.
 
-        Args:
-            updates (Dict[str, Any]): Dictionary of key-value updates.
+        Parameters
+        ----------
+            updates : Dict[str, Any]
+                Dictionary of key-value updates.
 
-        Supports:
-            - channel_names (list[str])
-            - channel_colors (list[int or str])
-            - scales (list[tuple])
-            - time_increment (float)
-            - time_increment_unit (str)
+                Supports:
+                    - channel_names (list[str])
+                    - channel_colors (list[int or str])
+                    - scales (list[tuple])
+                    - time_increment (float)
+                    - time_increment_unit (str)
 
-        Warnings:
+        Warnings
+        ----------
             Issues warnings or raises exceptions if updates are incompatible.
         """
+        
         valid_keys = {
             "channel_names",
             "channel_colors",

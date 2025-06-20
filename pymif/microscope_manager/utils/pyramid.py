@@ -28,15 +28,23 @@ def build_pyramid(
     """
     Generate a multiscale pyramid and updated metadata for NGFF-compatible OME-Zarr writing.
 
-    Args:
-        base_level: Dask array of the highest resolution (shape: TCZYX).
-        metadata: Metadata dict with at least 'scales' and 'axes'.
-        num_levels: Total number of pyramid levels to generate.
-        downscale_factor: Factor by which to reduce spatial dims at each level.
-        start_level: Use this level from existing pyramid (if any) as base level.
+    Parameters
+    ----------
+        base_level : da.Array
+            Dask array of the highest resolution (shape: TCZYX).
+        metadata : Dict[str, Any]
+            Metadata dict with at least 'scales' and 'axes'.
+        num_levels : int
+            Total number of pyramid levels to generate.
+        downscale_factor : int
+            Factor by which to reduce spatial dims at each level.
+        start_level : int
+            Use this level from existing pyramid (if any) as base level.
 
-    Returns:
-        (pyramid_levels, updated_metadata)
+    Returns
+    -------
+        Tuple[List[da.Array], Dict[str, Any]]
+            tuple containing the pyramidal dataset and the updated metadata
     """
     if data_levels[0].ndim != 5:
         raise ValueError("Expected base_level to have shape (T, C, Z, Y, X)")

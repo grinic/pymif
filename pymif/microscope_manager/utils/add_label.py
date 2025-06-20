@@ -28,10 +28,16 @@ def add_label(
     """
     Write image data and metadata to the specified path.
 
-    Args:
-        path (str): Destination path for the output data.
-        data (List[da.Array]): List of Dask arrays representing image data.
-        metadata (Dict[str, Any]): Dictionary containing metadata information.
+    Parameters
+    ----------
+        path : str
+            Destination path for the output data.
+        label_levels : List[da.Array]
+            List of Dask arrays representing image data.
+        label_name : str
+            Name of the objects labeled
+        metadata : Dict[str, Any]
+            Dictionary containing metadata information.
     """
     expected_ndim = 4
     label_layers = len(label_levels)
