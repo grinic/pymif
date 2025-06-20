@@ -198,6 +198,7 @@ class MicroscopeManager(ABC):
             if index spacing is not uniform or out of bounds.
         """
         from .utils.subset import subset_dask_array, subset_metadata
+        import numpy as np
         
         if not self.data:
             raise ValueError("No data loaded.")
@@ -214,7 +215,7 @@ class MicroscopeManager(ABC):
         num_levels = len(self.data)
         downscale_factor = 2
         if num_levels>1:
-            downscale_factor = self.metadata["size"][0][2]/self.metadata["size"][1][2]
+            downscale_factor = int(np.round(self.metadata["size"][0][-1]/self.metadata["size"][1][-1]))
 
         # Subset data
         self.data = [subset_dask_array(self.data[0], T=T, C=C, Z=Z, Y=Y, X=X)]
