@@ -11,9 +11,14 @@ def subset_dask_array(
     X: Optional[Union[slice, Sequence[int]]] = None,
 ) -> da.Array:
     """Subset a 5D Dask array with optional indexing for each axis."""
-    index = [T, C, Z, Y, X]
-    index = [i if i is not None else slice(None) for i in index]
-    return arr[tuple(index)]
+    axes = [T, C, Z, Y, X]
+    for axis, index in enumerate(axes):
+        if index is not None:
+            index = np.array(index)
+            if index.ndim != 1:
+                raise NotImplementedError("Only 1D fancy indexing is supported.")
+            arr = arr[tuple(slice(None) if i != axis else index for i in range(arr.ndim))]
+    return arr
 
 def validate_uniform_spacing(indices: Sequence[int], name: str):
     """Ensure spacing between indices is uniform."""
@@ -30,7 +35,7 @@ def subset_metadata(metadata: dict,
                     X: Optional[Sequence[int]] = None) -> dict:
     """Update metadata after subsetting."""
     new_metadata = metadata.copy()
-    shape = list(metadata["size"][0])  # size per level assumed identical
+    shape = list(metadata["size"][0])  # start from the first level always
 
     axis_map = {"t": T, "c": C, "z": Z, "y": Y, "x": X}
     axes = metadata["axes"]
@@ -40,7 +45,7 @@ def subset_metadata(metadata: dict,
         index = axis_map[ax]
         if index is not None:
             new_size[i] = len(index)
-    new_metadata["size"] = [tuple(new_size)] * len(metadata["size"])
+    new_metadata["size"] = [tuple(new_size)]
 
     # Adjust time increment if T is subset
     if T is not None:
@@ -48,17 +53,13 @@ def subset_metadata(metadata: dict,
         new_metadata["time_increment"] = t_gap * metadata["time_increment"]
         
     # Adjust scales for Z, Y, X
-    original_scales = metadata["scales"]
-    new_scales = []
-    for scale in original_scales:
-        scale_list = list(scale)
-        for i, ax in enumerate("zyx"):
-            idx = axis_map[ax]
-            if idx is not None:
-                spacing = validate_uniform_spacing(idx, ax.upper())
-                scale_list[i] *= spacing
-        new_scales.append(tuple(scale_list))
-    new_metadata["scales"] = new_scales
+    new_scales = list(metadata["scales"][0])
+    for i, ax in enumerate("zyx"):
+        idx = axis_map[ax]
+        if idx is not None:
+            spacing = validate_uniform_spacing(idx, ax.upper())
+            new_scales[i] *= spacing
+    new_metadata["scales"] = [tuple(new_scales)]
 
     # Subset channel names/colors
     if C is not None:

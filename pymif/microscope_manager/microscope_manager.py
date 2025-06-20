@@ -22,10 +22,11 @@ class MicroscopeManager(ABC):
         """
         Abstract method that must be implemented by subclasses to read image data and metadata.
 
-        Returns:
-            Tuple containing:
-                - List of Dask arrays for each resolution level.
-                - Dictionary of extracted metadata.
+        Returns
+        ----------
+        Tuple
+            - List of Dask arrays for each resolution level.
+            - Dictionary of extracted metadata.
         """
         pass
 
@@ -184,12 +185,17 @@ class MicroscopeManager(ABC):
         """
         Subset the dataset by timepoints, channels, or spatial coordinates.
 
-        Args:
-            T, C, Z, Y, X: Optional sequences of indices for each axis.
-                        Must be uniformly spaced. For example:
-                        dataset.subset_dataset(T=np.arange(0, 10, 2), Z=[0,1,2])
-        Raises:
-            ValueError: if index spacing is not uniform or out of bounds.
+        Parameters
+        ----------
+        T, C, Z, Y, X : Optional[Sequence[int]]
+            Optional sequences of indices for each axis.
+            Must be uniformly spaced. For example:
+            dataset.subset_dataset(T=np.arange(0, 10, 2), Z=[0,1,2])
+
+        Raises
+        -------
+        ValueError 
+            if index spacing is not uniform or out of bounds.
         """
         from .utils.subset import subset_dask_array, subset_metadata
         
@@ -205,15 +211,23 @@ class MicroscopeManager(ABC):
                 if max(index) >= max_len or min(index) < 0:
                     raise ValueError(f"Index for {name.upper()} out of range.")
 
+        num_levels = len(self.data)
+        downscale_factor = 2
+        if num_levels>1:
+            downscale_factor = self.metadata["size"][0][2]/self.metadata["size"][1][2]
+
         # Subset data
-        self.data = [
-            subset_dask_array(level, T=T, C=C, Z=Z, Y=Y, X=X)
-            for level in self.data
-        ]
+        self.data = [subset_dask_array(self.data[0], T=T, C=C, Z=Z, Y=Y, X=X)]
 
         # Subset metadata
         self.metadata = subset_metadata(self.metadata, T=T, C=C, Z=Z, Y=Y, X=X)
+        
+        # rebuild pyramid
+        self.build_pyramid(
+            num_levels = num_levels,
+            downscale_factor = downscale_factor,
+        )
 
-        print("✅ Dataset subset complete.")
+        print("Dataset subset complete.")
             
 

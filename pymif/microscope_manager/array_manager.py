@@ -20,10 +20,14 @@ class ArrayManager(MicroscopeManager):
         """
         Initialize ArrayManager with array(s) and metadata.
 
-        Parameters:
-        - array: A single array or a list of arrays (NumPy or Dask), shape (T,C,Z,Y,X)
-        - metadata: NGFF-style metadata dictionary
-        - chunks: Desired chunk shape for Dask (if array is NumPy or unchunked)
+        Parameters
+        ----------
+        array : Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]]
+            A single array or a list of arrays (NumPy or Dask), shape (T,C,Z,Y,X)
+        metadata : Dict[str, Any]
+            NGFF-style metadata dictionary
+        chunks : Tuple[int, ...]
+            Desired chunk shape for Dask (if array is NumPy or unchunked)
         """
         super().__init__()
         self.data = array
@@ -36,8 +40,10 @@ class ArrayManager(MicroscopeManager):
         """
         Return the pyramid and metadata.
 
-        Returns:
-            Tuple[List[da.Array], Dict[str, Any]]: A tuple containing a list of
+        Returns
+        ----------
+        Tuple[List[da.Array], Dict[str, Any]]
+            A tuple containing a list of
             Dask arrays representing image data and a dictionary of metadata.
         """
         array = self.data
