@@ -47,6 +47,7 @@ def write(
         parallelize : bool
             whether to use dask distribute to parallelize (default: False).
     """
+    print("Start writing dataset.")
     
     if isinstance(compressor, str):
         if compressor.lower() == "blosc":
@@ -110,6 +111,7 @@ def write(
         print("Dask dashboard:", client.dashboard_link)
         ProgressBar().register()
     
+    print("Writing pyramid.")
     write_multiscale(
         pyramid=data_levels,
         group=root_group,

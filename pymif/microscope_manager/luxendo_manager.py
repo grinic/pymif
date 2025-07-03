@@ -182,7 +182,13 @@ class LuxendoManager(MicroscopeManager):
         
         t, c, z, y, x = self.metadata["size"][0]
         
-        h5_files = sorted(self.path.glob("*.lux.h5"))
+        def extract_tp_number(filename: str) -> int:
+            match = re.search(r'tp-(\d+)', filename)
+            return int(match.group(1)) if match else -1
+        
+        h5_files = sorted(self.path.glob("*.lux.h5"), 
+                          key=lambda f: extract_tp_number(f.name)
+                          )
         assert len(h5_files) == t * c, "Mismatch between expected and found HDF5 files."
 
         dataset_names = self.get_available_datasets(h5_files[0])

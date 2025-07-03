@@ -52,25 +52,27 @@ def build_pyramid(
     print(f"Requested start level {start_level}")
     if start_level < len(data_levels):
         # Enough preexisting levels — just slice from start_level
-        print("Resolution layer already available")
+        print("Resolution layer already available.")
         pyramid = [data_levels[start_level]]
         new_scales = [metadata["scales"][start_level]]
 
     else:
         # Need to compute base_level from highest available level
-        print("Resoluytion layer not available: will compute")
+        print("Resoluytion layer not available: will compute.")
         base_downscale = downscale_factor ** start_level
         current = pad_to_divisible(data_levels[0], [base_downscale] * 3)
         down = downsample_nn(current, [base_downscale] * 3)
         pyramid = [down]
         new_scales = [(i*base_downscale for i in metadata["scales"][0])]
             
+    print("Creating pyramid.")
     for _ in range(1, num_levels):
         current = pad_to_divisible(pyramid[-1], [downscale_factor] * 3)
         down = downsample_nn(current, [downscale_factor] * 3)
         pyramid.append(down)
 
     # Update metadata scales:
+    print("Updating metadata.")
     for level in range(1,num_levels):
         scale_factor = downscale_factor ** level
         new_scales.append(tuple(s * scale_factor for s in new_scales[0]))
