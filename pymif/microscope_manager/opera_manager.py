@@ -15,7 +15,7 @@ class OperaManager(MicroscopeManager):
         
     def __init__(self, 
                  path: str,
-                 chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
+                 chunks: Tuple[int, ...] = (1, 1, 8, 4096, 4096)):
         """
         Initialize the OperaManager with the given file path.
 
@@ -24,7 +24,7 @@ class OperaManager(MicroscopeManager):
         path : str
             Path to the Opera pyramidal OME-TIFF file.
         chunks : tuple of int, optional
-            Chunk sizes for Dask arrays in TCZYX order. Defaults to (1, 1, 16, 256, 256).
+            Chunk sizes for Dask arrays in TCZYX order. Defaults to (1, 1, 8, 4096, 4096).
         """
         
         super().__init__()

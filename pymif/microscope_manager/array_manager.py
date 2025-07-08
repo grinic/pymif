@@ -15,7 +15,7 @@ class ArrayManager(MicroscopeManager):
         self,
         array: Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]],
         metadata: Dict[str, Any],
-        chunks: Tuple[int, ...] = (1, 1, 16, 256, 256),
+        chunks: Tuple[int, ...] = (1, 1, 8, 4096, 4096),
     ):
         """
         Initialize ArrayManager with array(s) and metadata.

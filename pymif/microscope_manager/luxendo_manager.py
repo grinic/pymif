@@ -16,7 +16,7 @@ class LuxendoManager(MicroscopeManager):
         
     def __init__(self, 
                  path: str,
-                 chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
+                 chunks: Tuple[int, ...] = (1, 1, 8, 4096, 4096)):
         """
         Initialize the LuxendoManager.
 
@@ -25,7 +25,7 @@ class LuxendoManager(MicroscopeManager):
         path : str
             Path to the Luxendo dataset directory.
         chunks : Tuple[int, ...], optional
-            Chunk shape for Dask arrays, by default (1, 1, 16, 256, 256).
+            Chunk shape for Dask arrays, by default (1, 1, 8, 4096, 4096).
         """
         
         super().__init__()

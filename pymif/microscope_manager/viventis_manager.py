@@ -15,7 +15,7 @@ class ViventisManager(MicroscopeManager):
         
     def __init__(self, 
                  path: str,
-                 chunks: Tuple[int, ...] = (1, 1, 16, 256, 256)):
+                 chunks: Tuple[int, ...] = (1, 1, 8, 4096, 4096)):
         """
         Initialize the ViventisManager.
 
@@ -24,7 +24,7 @@ class ViventisManager(MicroscopeManager):
         path : str
             Path to the folder containing the Viventis dataset (including `.ome` and `.tif` files).
         chunks : Tuple[int, ...], optional
-            Desired chunk shape for the output Dask array. Default is `(1, 1, 16, 256, 256)`.
+            Desired chunk shape for the output Dask array. Default is `(1, 1, 8, 4096, 4096)`.
         """
         
         super().__init__()
