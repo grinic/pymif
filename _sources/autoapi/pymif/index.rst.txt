@@ -1,0 +1,15 @@
+pymif
+=====
+
+.. py:module:: pymif
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/pymif/microscope_manager/index
+
+
