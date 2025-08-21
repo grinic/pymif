@@ -302,10 +302,8 @@ class MicroscopeManager(ABC):
 
         # update metadata for rescaled dataset
         new_metadata = self.metadata.copy()
-        new_scales = []
-        base_scale = [target_pixel_size.get(ax, sc) for ax, sc in zip(axes, scales)]
 
-        new_metadata["scales"] = new_scales
+        new_metadata["scales"] = [target_pixel_size.get(ax, sc) for ax, sc in zip(axes, scales)]
         new_metadata["shapes"] = [arr.shape for arr in rescaled]
         new_metadata["chunks"] = [arr.chunks for arr in rescaled]
 
