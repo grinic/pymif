@@ -240,19 +240,32 @@ class MicroscopeManager(ABC):
         print("Dataset subset complete.")
             
     def _rescale_array(self, arr: da.Array, zoom_factors: List[float], order: int = 1) -> da.Array:
-        """
-        Rescale a dask array lazily using scipy.ndimage.zoom chunk-by-chunk.
-        """
-        def _zoom_block(block, zoom_factors):
+        from scipy.ndimage import zoom as scipy_zoom
+
+        def _zoom_block(block, block_info=None):
             return scipy_zoom(block, zoom=zoom_factors, order=order)
 
-        # use map_blocks to apply scipy zoom per chunk
+        # compute full new shape
+        new_shape = tuple(int(round(s * z)) for s, z in zip(arr.shape, zoom_factors))
+
+        # compute new chunks (approximate: scale each chunk size)
+        new_chunks = tuple(
+            tuple(int(round(c * z)) for c in ch)
+            for ch, z in zip(arr.chunks, zoom_factors)
+        )
+
         rescaled = arr.map_blocks(
             _zoom_block,
             dtype=arr.dtype,
-            zoom_factors=zoom_factors,
+            chunks=new_chunks,
         )
-        return rescaled
+
+        # dask already infers shape from chunks, so no reshape needed
+        assert rescaled.shape == new_shape, (
+            f"Shape mismatch: expected {new_shape}, got {rescaled.shape}"
+        )
+
+        return rescaled, new_chunks
     
     def rescale_to_pixel_size(
         self,
@@ -284,30 +297,26 @@ class MicroscopeManager(ABC):
         arrays : list of dask arrays (rescaled pyramid)
         metadata : dict (updated)
         """
-        axes = self.metadata["axes"]
         scales = self.metadata["scales"][start_level]
 
         # compute zoom factors
-        zoom_factors = []
-        for ax, current_scale in zip(axes, scales):
+        zoom_factors = [1,1,]
+        for ax, current_scale in zip("zyx", scales):
             if ax in target_pixel_size:
-                zoom_factors.append(current_scale / target_pixel_size[ax])
+                zoom_factors.append(float(current_scale) / target_pixel_size[ax])
             else:
                 zoom_factors.append(1.0)
 
         zoom_factors = list(zoom_factors)
 
-        # ensure zoom_factors matches ndim of array
-        while len(zoom_factors) < self.data[start_level].ndim:
-            zoom_factors.insert(0, 1.0)  # prepend 1 for t and c if missing
-        
         # rescale selected level lazily
-        self.data = [self._rescale_array(self.data[start_level], zoom_factors, order=order)]
+        rescaled, new_chunks = self._rescale_array(self.data[start_level], zoom_factors, order=order)
+        self.data = [rescaled]
 
         # update metadata for rescaled dataset
         new_metadata = self.metadata.copy()
 
-        new_metadata["scales"] = [[target_pixel_size.get(ax, sc) for ax, sc in zip(axes, scales)]]
+        new_metadata["scales"] = [[target_pixel_size.get(ax, sc) for ax, sc in zip("zyx", scales)]]
         new_metadata["shapes"] = [arr.shape for arr in self.data]
         self.metadata = new_metadata
 
