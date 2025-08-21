@@ -295,17 +295,20 @@ class MicroscopeManager(ABC):
             else:
                 zoom_factors.append(1.0)
 
-        zoom_factors = np.array(zoom_factors)
+        zoom_factors = list(zoom_factors)
 
+        # ensure zoom_factors matches ndim of array
+        while len(zoom_factors) < self.data[start_level].ndim:
+            zoom_factors.insert(0, 1.0)  # prepend 1 for t and c if missing
+        
         # rescale selected level lazily
         self.data = [self._rescale_array(self.data[start_level], zoom_factors, order=order)]
 
         # update metadata for rescaled dataset
         new_metadata = self.metadata.copy()
 
-        new_metadata["scales"] = [(target_pixel_size.get(ax, sc) for ax, sc in zip(axes, scales))]
+        new_metadata["scales"] = [[target_pixel_size.get(ax, sc) for ax, sc in zip(axes, scales)]]
         new_metadata["shapes"] = [arr.shape for arr in self.data]
-        new_metadata["chunks"] = [arr.chunks for arr in self.data]
         self.metadata = new_metadata
 
         # rebuild pyramid from rescaled
