@@ -298,22 +298,17 @@ class MicroscopeManager(ABC):
         zoom_factors = np.array(zoom_factors)
 
         # rescale selected level lazily
-        rescaled = self._rescale_array(self.data[start_level], zoom_factors, order=order)
+        rescaled = [self._rescale_array(self.data[start_level], zoom_factors, order=order)]
 
-        # rebuild pyramid from rescaled
-        from .utils.pyramid import build_pyramid as _build_pyramid
-        pyramid, meta = _build_pyramid([rescaled], num_levels=pyramid_levels, downscale_factor=downscale)
-        self.data = pyramid
-
-        # update metadata
+        # update metadata for rescaled dataset
         new_metadata = self.metadata.copy()
         new_scales = []
         base_scale = [target_pixel_size.get(ax, sc) for ax, sc in zip(axes, scales)]
-        for lvl in range(pyramid_levels):
-            new_scales.append([s * (downscale**lvl) for s in base_scale])
 
         new_metadata["scales"] = new_scales
-        new_metadata["shapes"] = [arr.shape for arr in pyramid]
-        new_metadata["chunks"] = [arr.chunks for arr in pyramid]
+        new_metadata["shapes"] = [arr.shape for arr in rescaled]
+        new_metadata["chunks"] = [arr.chunks for arr in rescaled]
 
-        return pyramid, new_metadata
+        # rebuild pyramid from rescaled
+        from .utils.pyramid import build_pyramid as _build_pyramid
+        self.data, self.metadata = _build_pyramid(rescaled, new_metadata, num_levels=pyramid_levels, downscale_factor=downscale)
