@@ -298,7 +298,7 @@ class MicroscopeManager(ABC):
         zoom_factors = np.array(zoom_factors)
 
         # rescale selected level lazily
-        rescaled = self._rescale_array(self.arrays[start_level], zoom_factors, order=order)
+        rescaled = self._rescale_array(self.data[start_level], zoom_factors, order=order)
 
         # rebuild pyramid from rescaled
         pyramid = self.build_pyramid(rescaled, levels=pyramid_levels, downscale=downscale)
