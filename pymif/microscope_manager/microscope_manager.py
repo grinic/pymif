@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple, Optional,Sequence
 import numpy as np
+from scipy.ndimage import zoom as scipy_zoom
 import dask.array as da
 import napari
 import warnings
@@ -238,7 +239,21 @@ class MicroscopeManager(ABC):
 
         print("Dataset subset complete.")
             
+    def _rescale_array(self, arr: da.Array, zoom_factors: List[float], order: int = 1) -> da.Array:
+        """
+        Rescale a dask array lazily using scipy.ndimage.zoom chunk-by-chunk.
+        """
+        def _zoom_block(block, zoom_factors):
+            return scipy_zoom(block, zoom=zoom_factors, order=order)
 
+        # use map_blocks to apply scipy zoom per chunk
+        rescaled = arr.map_blocks(
+            _zoom_block,
+            dtype=arr.dtype,
+            zoom_factors=zoom_factors,
+        )
+        return rescaled
+    
     def rescale_to_pixel_size(
         self,
         target_pixel_size: Dict[str, float],
@@ -283,8 +298,7 @@ class MicroscopeManager(ABC):
         zoom_factors = np.array(zoom_factors)
 
         # rescale selected level lazily
-        from dask_image.ndinterp import zoom as da_zoom
-        rescaled = da_zoom(self.arrays[start_level], zoom=zoom_factors, order=order)
+        rescaled = self._rescale_array(self.arrays[start_level], zoom_factors, order=order)
 
         # rebuild pyramid from rescaled
         pyramid = self.build_pyramid(rescaled, levels=pyramid_levels, downscale=downscale)
