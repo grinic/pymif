@@ -301,7 +301,8 @@ class MicroscopeManager(ABC):
         rescaled = self._rescale_array(self.data[start_level], zoom_factors, order=order)
 
         # rebuild pyramid from rescaled
-        pyramid = self.build_pyramid(rescaled, levels=pyramid_levels, downscale=downscale)
+        from .utils.pyramid import build_pyramid as _build_pyramid
+        pyramid, meta = _build_pyramid([rescaled], num_levels=pyramid_levels, downscale_factor=downscale)
         self.data = pyramid
 
         # update metadata
