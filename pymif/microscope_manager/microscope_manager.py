@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple, Optional,Sequence
+import numpy as np
 import dask.array as da
 import napari
 import warnings
@@ -238,3 +239,66 @@ class MicroscopeManager(ABC):
         print("Dataset subset complete.")
             
 
+    def rescale_to_pixel_size(
+        self,
+        target_pixel_size: Dict[str, float],
+        start_level: Optional[int] = 0,
+        pyramid_levels: Optional[int] = 4,
+        downscale: Optional[int] = 2,
+        order: Optional[int] = 1,
+    ) -> Tuple[List[da.Array], dict]:
+        """
+        Rescale the image at a chosen pyramid level to a target pixel size,
+        then rebuild the pyramid.
+
+        Parameters
+        ----------
+        target_pixel_size : dict
+            Pixel size per axis, e.g. {"z": 2.0, "y": 0.5, "x": 0.5}
+        start_level : int
+            Pyramid level to rescale from (default: 0).
+        pyramid_levels : int
+            How many pyramid levels to rebuild (default: 4).
+        downscale : int
+            Downscaling factor per level (default: 2).
+        order : int
+            Interpolation order for resampling (default: 1 = linear).
+
+        Returns
+        -------
+        arrays : list of dask arrays (rescaled pyramid)
+        metadata : dict (updated)
+        """
+        axes = self.metadata["axes"]
+        scales = self.metadata["scales"][start_level]
+
+        # compute zoom factors
+        zoom_factors = []
+        for ax, current_scale in zip(axes, scales):
+            if ax in target_pixel_size:
+                zoom_factors.append(current_scale / target_pixel_size[ax])
+            else:
+                zoom_factors.append(1.0)
+
+        zoom_factors = np.array(zoom_factors)
+
+        # rescale selected level lazily
+        from dask_image.ndinterp import zoom as da_zoom
+        rescaled = da_zoom(self.arrays[start_level], zoom=zoom_factors, order=order)
+
+        # rebuild pyramid from rescaled
+        pyramid = self.build_pyramid(rescaled, levels=pyramid_levels, downscale=downscale)
+        self.data = pyramid
+
+        # update metadata
+        new_metadata = self.metadata.copy()
+        new_scales = []
+        base_scale = [target_pixel_size.get(ax, sc) for ax, sc in zip(axes, scales)]
+        for lvl in range(pyramid_levels):
+            new_scales.append([s * (downscale**lvl) for s in base_scale])
+
+        new_metadata["scales"] = new_scales
+        new_metadata["shapes"] = [arr.shape for arr in pyramid]
+        new_metadata["chunks"] = [arr.chunks for arr in pyramid]
+
+        return pyramid, new_metadata
