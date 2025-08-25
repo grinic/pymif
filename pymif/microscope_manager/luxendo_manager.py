@@ -6,6 +6,7 @@ import dask.array as da
 import h5py
 import numpy as np
 from .microscope_manager import MicroscopeManager
+import itertools
 
 class LuxendoManager(MicroscopeManager):
     """
@@ -93,6 +94,9 @@ class LuxendoManager(MicroscopeManager):
                 scales[0][1] * downscale_factors[1],
                 scales[0][2] * downscale_factors[2],
             ]))
+            
+        palette = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF]  # red, green, blue, yellow, magenta, cyan
+        channel_colors = list(itertools.islice(itertools.cycle(palette), len(channel_names)))
 
         return {
             "size": size,
@@ -101,7 +105,7 @@ class LuxendoManager(MicroscopeManager):
             "time_increment": 1.0,
             "time_increment_unit": "s",
             "channel_names": channel_names,
-            "channel_colors": [0xFF0000, 0x0000FF],  # Example, map from name if needed
+            "channel_colors": channel_colors,  # Example, map from name if needed
             "dtype": "uint16",
             "plane_files": None,
             "axes": "tczyx"
