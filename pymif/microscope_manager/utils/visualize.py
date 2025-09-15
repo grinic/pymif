@@ -74,6 +74,9 @@ def visualize(
     if viewer is None:
         viewer = napari.Viewer()
 
+    max_val = da.max(data_levels[-1]).compute()
+    min_val = da.min(data_levels[-1]).compute()
+
     # Subselect pyramid levels
     pyramid = data_levels[start_level:] if stop_level == -1 else data_levels[start_level:stop_level]
 
@@ -95,8 +98,6 @@ def visualize(
     else:
         colormaps = ["gray"] * num_channels
 
-    max_val = da.max(pyramid[-1]).compute()
-    min_val = da.min(pyramid[-1]).compute()
     clim_max = max(1, int(2 * max_val))
     clim_min = max(0, min_val)
     viewer.add_image(
