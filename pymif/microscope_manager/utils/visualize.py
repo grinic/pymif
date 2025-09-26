@@ -85,7 +85,7 @@ def visualize(
         try:
             pyramid = [p.compute() for p in pyramid]
         except Exception as e:
-            raise RuntimeError(f"Failed to load data into memory: {e}")    
+            raise RuntimeError(f"Failed to load data into memory: {e}")
             
     size = metadata.get("size", [pyramid[0].shape])
     num_channels = size[0][1] if len(size[0]) >= 2 else 1
@@ -125,7 +125,7 @@ def visualize(
             try:
                 label_pyramid = [l.compute() for l in label_pyramid]
             except Exception as e:
-                raise RuntimeError(f"Failed to load labels into memory: {e}")    
+                raise RuntimeError(f"Failed to load labels into memory: {e}")
 
         viewer.add_labels(
             label_pyramid,
