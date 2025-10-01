@@ -29,7 +29,7 @@ napari[all]>=0.4.18
 fsspec>=2022.7.1
 napari-ome-zarr==0.6.1
 pytest==7.4.2
-napari-animation>=0.0.7
+napari-animation>=0.0.9
 notebook
 bokeh>=3.1.0
 sphinx 
