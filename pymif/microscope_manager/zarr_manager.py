@@ -1,4 +1,5 @@
 from typing import Tuple, List, Dict, Any, Optional
+import numpy as np
 import dask.array as da
 from .microscope_manager import MicroscopeManager
 import zarr
@@ -240,5 +241,64 @@ class ZarrManager(MicroscopeManager):
         viewer.open(self.path, plugin="napari-ome-zarr")
         
         return viewer
+    
+    def write_region(
+        self,
+        data: np.ndarray | da.Array,
+        t: int | slice = slice(None),
+        c: int | slice = slice(None),
+        z: int | slice = slice(None),
+        y: int | slice = slice(None),
+        x: int | slice = slice(None),
+        level: int = 0,
+    ):
+        """
+        Overwrite a region of the main image in-place.
+        Supports slices in all dimensions: T, C, Z, Y, X.
+        Accepts either a NumPy array or a Dask array.
+
+        Parameters
+        ----------
+        data : np.ndarray or dask.array.Array
+            The array to write. Shape must match the selected region.
+        t, c, z, y, x : int or slice
+            Indices or slices for each dimension.
+        level : int
+            Pyramid level (default: 0).
+        """
+
+        # If data is Dask, compute it (or use store for efficiency)
+        if isinstance(data, da.Array):
+            # Use Dask store to write directly into Zarr without loading into memory
+            group = zarr.open(self.path, mode="r+")
+            multiscales = group.attrs["multiscales"][0]
+            arr_path = multiscales["datasets"][level]["path"]
+            zarr_array = group[arr_path]
+
+            index = (t, c, z, y, x)
+            # Wrap target region as a Zarr array view
+            target = zarr_array[index]
+
+            # Use dask store to write efficiently
+            da.store(data, target, lock=True)
+            return
         
-        
+        # For NumPy arrays
+        if isinstance(data, np.ndarray):
+            group = zarr.open(self.path, mode="r+")
+            multiscales = group.attrs["multiscales"][0]
+            arr_path = multiscales["datasets"][level]["path"]
+            zarr_array = group[arr_path]
+
+            index = (t, c, z, y, x)
+            expected_shape = zarr_array[index].shape
+            if data.shape != expected_shape:
+                raise ValueError(
+                    f"Data shape {data.shape} does not match target region {expected_shape}"
+                )
+
+            zarr_array[index] = data
+            return
+
+        raise TypeError(f"data must be a NumPy array or Dask array, got {type(data)}")
+
