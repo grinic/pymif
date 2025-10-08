@@ -69,8 +69,8 @@ class ZarrManager(MicroscopeManager):
         """
         
         # Access raw NGFF metadata
-        group = zarr.open(self.path, mode=self.mode)
-        image_meta = group.attrs.asdict()
+        root = zarr.open(self.path, mode=self.mode)
+        image_meta = root.attrs.asdict()
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
         omero = image_meta.get("omero", {})
@@ -78,7 +78,7 @@ class ZarrManager(MicroscopeManager):
         # Load pyramid levels properly
         data_levels = []
         for i in range(len(datasets)):
-            zarr_array = group[str(i)]
+            zarr_array = root[str(i)]
             if self.chunks is None:
                 arr = da.from_zarr(zarr_array)  # uses native chunking
             else:
@@ -120,7 +120,7 @@ class ZarrManager(MicroscopeManager):
         }
 
         self.data = data_levels
-        self.group = group  # keep handle for writing later
+        self.root = root  # keep handle for writing later
         
         ### optional, read labels
         self.labels = self._load_labels()
@@ -171,10 +171,10 @@ class ZarrManager(MicroscopeManager):
         
         labels = {}
         # root = zarr.open_group(str(self.path), mode='r')
-        if "labels" not in self.group:
+        if "labels" not in self.root:
             return labels
 
-        labels_grp = self.group["labels"]
+        labels_grp = self.root["labels"]
         for label_name, label_grp in labels_grp.groups():
             # Expect label_grp to have a multiscale structure similar to images
             label_multiscales = label_grp.attrs.get("multiscales", [])
@@ -256,6 +256,7 @@ class ZarrManager(MicroscopeManager):
         y: int | slice = slice(None),
         x: int | slice = slice(None),
         level: int = 0,
+        group: str = None,
     ):
         """
         Write or update a region of the dataset in-place.
@@ -269,6 +270,9 @@ class ZarrManager(MicroscopeManager):
             Indices or slices for each dimension.
         level : int
             The pyramid level to write to (if `data` is a single array).
+        group : str, optional
+            Zarr group to write into. If None, defaults to main image group.
+            For labels, use e.g. "labels/my_label". 
         """
         if self.mode not in ("r+", "a", "w"):
             raise PermissionError(
@@ -282,18 +286,39 @@ class ZarrManager(MicroscopeManager):
             data_list = data
         else:
             raise TypeError("`data` must be a NumPy array, Dask array, or list of such.")
+        
+        target_group = root if group is None else self.root[group]
+        multiscales = target_group.attrs["multiscales"][0]
 
-        multiscales = self.group.attrs["multiscales"][0]
+        base_scale = np.array(self.metadata.get("scales", [[1, 1, 1]])[0])
+
         for i, subdata in enumerate(data_list):
-            target_level = level + i
+            target_level = i
             if target_level >= len(multiscales["datasets"]):
                 break
             arr_path = multiscales["datasets"][target_level]["path"]
-            zarr_array = self.group[arr_path]
+            zarr_array = target_group[arr_path]
 
             if isinstance(subdata, da.Array):
                 subdata = subdata.compute()
 
-            index = t, c, z, y, x
-            zarr_array[index] = subdata
+            # Scale the spatial indices according to the pyramid level
+            scale = np.array(self.metadata["scales"][target_level]) / base_scale
+            z_scale, y_scale, x_scale = scale[-3:]  # last three dims are spatial
+
+            def _scale_index(s, factor):
+                if isinstance(s, slice):
+                    start = None if s.start is None else int(np.floor(s.start / factor))
+                    stop = None if s.stop is None else int(np.ceil(s.stop / factor))
+                    return slice(start, stop)
+                elif isinstance(s, int):
+                    return int(np.floor(s / factor))
+                return s  
+                      
+            scaled_index = t, c, \
+                _scale_index(z, z_scale), \
+                _scale_index(y, y_scale), \
+                _scale_index(x, x_scale)
+            
+            zarr_array[scaled_index] = subdata
 
