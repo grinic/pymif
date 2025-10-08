@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Dict, Any, Optional, Union
 import numpy as np
 import dask.array as da
 from .microscope_manager import MicroscopeManager
@@ -25,7 +25,8 @@ class ZarrManager(MicroscopeManager):
         
     def __init__(self, 
                  path,
-                 chunks: Tuple[int, ...] = None):
+                 chunks: Tuple[int, ...] = None,
+                 mode: str = "r"):
         """
         Initialize the ZarrManager.
 
@@ -35,11 +36,14 @@ class ZarrManager(MicroscopeManager):
             Path to the folder containing the Zarr dataset.
         chunks : Tuple[int, ...], optional
             Desired chunk shape for the output Dask array. Default is `None`.
+        mode : {"r", "r+", "a", "w", "w-"}, default="r"
+            Zarr access mode. Use "r+" to enable in-place modification.        
         """
         
         super().__init__()
         self.path = path
         self.chunks = chunks
+        self.mode = mode
         self.read()
         
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
@@ -65,7 +69,7 @@ class ZarrManager(MicroscopeManager):
         """
         
         # Access raw NGFF metadata
-        group = zarr.open(self.path, mode="r")
+        group = zarr.open(self.path, mode=self.mode)
         image_meta = group.attrs.asdict()
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
@@ -116,6 +120,7 @@ class ZarrManager(MicroscopeManager):
         }
 
         self.data = data_levels
+        self.group = group  # keep handle for writing later
         
         ### optional, read labels
         self.labels = self._load_labels()
@@ -165,11 +170,11 @@ class ZarrManager(MicroscopeManager):
         """
         
         labels = {}
-        root = zarr.open_group(str(self.path), mode='r')
-        if "labels" not in root:
+        # root = zarr.open_group(str(self.path), mode='r')
+        if "labels" not in self.group:
             return labels
 
-        labels_grp = root["labels"]
+        labels_grp = self.group["labels"]
         for label_name, label_grp in labels_grp.groups():
             # Expect label_grp to have a multiscale structure similar to images
             label_multiscales = label_grp.attrs.get("multiscales", [])
@@ -244,7 +249,7 @@ class ZarrManager(MicroscopeManager):
     
     def write_region(
         self,
-        data: np.ndarray | da.Array,
+        data: Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]],
         t: int | slice = slice(None),
         c: int | slice = slice(None),
         z: int | slice = slice(None),
@@ -253,52 +258,42 @@ class ZarrManager(MicroscopeManager):
         level: int = 0,
     ):
         """
-        Overwrite a region of the main image in-place.
-        Supports slices in all dimensions: T, C, Z, Y, X.
-        Accepts either a NumPy array or a Dask array.
+        Write or update a region of the dataset in-place.
 
         Parameters
         ----------
-        data : np.ndarray or dask.array.Array
-            The array to write. Shape must match the selected region.
+        data : np.ndarray or dask.array.Array or list thereof
+            Array(s) to write. If a list, each entry corresponds to one
+            resolution level.
         t, c, z, y, x : int or slice
             Indices or slices for each dimension.
         level : int
-            Pyramid level (default: 0).
+            The pyramid level to write to (if `data` is a single array).
         """
+        if self.mode not in ("r+", "a", "w"):
+            raise PermissionError(
+                f"Dataset opened in read-only mode ('{self.mode}'). "
+                "Reopen with mode='r+' to allow modifications."
+            )
 
-        # If data is Dask, compute it (or use store for efficiency)
-        if isinstance(data, da.Array):
-            # Use Dask store to write directly into Zarr without loading into memory
-            group = zarr.open(self.path, mode="r+")
-            multiscales = group.attrs["multiscales"][0]
-            arr_path = multiscales["datasets"][level]["path"]
-            zarr_array = group[arr_path]
+        if isinstance(data, (np.ndarray, da.Array)):
+            data_list = [data]
+        elif isinstance(data, list):
+            data_list = data
+        else:
+            raise TypeError("`data` must be a NumPy array, Dask array, or list of such.")
 
-            index = (t, c, z, y, x)
-            # Wrap target region as a Zarr array view
-            target = zarr_array[index]
+        multiscales = self.group.attrs["multiscales"][0]
+        for i, subdata in enumerate(data_list):
+            target_level = level + i
+            if target_level >= len(multiscales["datasets"]):
+                break
+            arr_path = multiscales["datasets"][target_level]["path"]
+            zarr_array = self.group[arr_path]
 
-            # Use dask store to write efficiently
-            da.store(data, target, lock=True)
-            return
-        
-        # For NumPy arrays
-        if isinstance(data, np.ndarray):
-            group = zarr.open(self.path, mode="r+")
-            multiscales = group.attrs["multiscales"][0]
-            arr_path = multiscales["datasets"][level]["path"]
-            zarr_array = group[arr_path]
+            if isinstance(subdata, da.Array):
+                subdata = subdata.compute()
 
-            index = (t, c, z, y, x)
-            expected_shape = zarr_array[index].shape
-            if data.shape != expected_shape:
-                raise ValueError(
-                    f"Data shape {data.shape} does not match target region {expected_shape}"
-                )
-
-            zarr_array[index] = data
-            return
-
-        raise TypeError(f"data must be a NumPy array or Dask array, got {type(data)}")
+            index = t, c, z, y, x
+            zarr_array[index] = subdata
 
