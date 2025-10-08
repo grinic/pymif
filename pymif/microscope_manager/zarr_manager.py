@@ -287,7 +287,7 @@ class ZarrManager(MicroscopeManager):
         else:
             raise TypeError("`data` must be a NumPy array, Dask array, or list of such.")
         
-        target_group = root if group is None else self.root[group]
+        target_group = self.root if group is None else self.root[group]
         multiscales = target_group.attrs["multiscales"][0]
 
         base_scale = np.array(self.metadata.get("scales", [[1, 1, 1]])[0])
