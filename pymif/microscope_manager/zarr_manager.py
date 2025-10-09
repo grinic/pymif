@@ -249,76 +249,24 @@ class ZarrManager(MicroscopeManager):
     
     def write_region(
         self,
-        data: Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]],
+        data,
         t: int | slice = slice(None),
         c: int | slice = slice(None),
         z: int | slice = slice(None),
         y: int | slice = slice(None),
         x: int | slice = slice(None),
         level: int = 0,
-        group: str = None,
+        group: Optional[str] = None,
     ):
         """
-        Write or update a region of the dataset in-place.
-
-        Parameters
-        ----------
-        data : np.ndarray or dask.array.Array or list thereof
-            Array(s) to write. If a list, each entry corresponds to one
-            resolution level.
-        t, c, z, y, x : int or slice
-            Indices or slices for each dimension.
-        level : int
-            The pyramid level to write to (if `data` is a single array).
-        group : str, optional
-            Zarr group to write into. If None, defaults to main image group.
-            For labels, use e.g. "labels/my_label". 
+        Public method to write or update a region in the dataset or sub-group.
         """
-        if self.mode not in ("r+", "a", "w"):
-            raise PermissionError(
-                f"Dataset opened in read-only mode ('{self.mode}'). "
-                "Reopen with mode='r+' to allow modifications."
-            )
-
-        if isinstance(data, (np.ndarray, da.Array)):
-            data_list = [data]
-        elif isinstance(data, list):
-            data_list = data
-        else:
-            raise TypeError("`data` must be a NumPy array, Dask array, or list of such.")
-        
-        target_group = self.root if group is None else self.root[group]
-        multiscales = target_group.attrs["multiscales"][0]
-
-        base_scale = np.array(self.metadata.get("scales", [[1, 1, 1]])[0])
-
-        for i, subdata in enumerate(data_list):
-            target_level = i
-            if target_level >= len(multiscales["datasets"]):
-                break
-            arr_path = multiscales["datasets"][target_level]["path"]
-            zarr_array = target_group[arr_path]
-
-            if isinstance(subdata, da.Array):
-                subdata = subdata.compute()
-
-            # Scale the spatial indices according to the pyramid level
-            scale = np.array(self.metadata["scales"][target_level]) / base_scale
-            z_scale, y_scale, x_scale = scale[-3:]  # last three dims are spatial
-
-            def _scale_index(s, factor):
-                if isinstance(s, slice):
-                    start = None if s.start is None else int(np.floor(s.start / factor))
-                    stop = None if s.stop is None else int(np.ceil(s.stop / factor))
-                    return slice(start, stop)
-                elif isinstance(s, int):
-                    return int(np.floor(s / factor))
-                return s  
-                      
-            scaled_index = t, c, \
-                _scale_index(z, z_scale), \
-                _scale_index(y, y_scale), \
-                _scale_index(x, x_scale)
-            
-            zarr_array[scaled_index] = subdata
-
+        from .utils.write_region import write_region as _write_region
+        return _write_region(
+            root=self.root,
+            mode=self.mode,
+            data=data,
+            t=t, c=c, z=z, y=y, x=x,
+            level=level,
+            group_name=group,
+        )
