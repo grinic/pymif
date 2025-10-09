@@ -97,9 +97,12 @@ def write_region(
         if isinstance(subdata, da.Array):
             subdata = subdata.compute()
 
-        # Scale slices for this level
+        # Scale slices for this level, 
+        # take into account that if subdata has 4 dimensions, it's a label, drop c
         scale_factor = 2 ** (i - level)
         index = _scale_index((t, c, z, y, x), subdata.shape, scale_factor)
+
+        print(subdata.shape, index)
 
         # Shape consistency
         # print (index, subdata.shape, zarr_array[index].shape)
@@ -111,12 +114,6 @@ def write_region(
             )
             continue
 
-        # If it's labels, drop channel axis
-        print(index)
-        arr_shape = zarr_array.shape
-        index = _build_index(arr_shape, index)
-        print(index)
-
         # Update the data
         zarr_array[index] = subdata
 
@@ -124,19 +121,6 @@ def write_region(
     store = getattr(root, "store", None)
     if store and hasattr(store, "flush"):
         store.flush()
-
-def _build_index(arr_shape, index):
-    """
-    Build a tuple of slices appropriate for the array dimensions.
-    Supports 4D (TZYX) or 5D (TCZYX) arrays.
-    """
-    t, c, z, y, x = index
-    if len(arr_shape) == 5:  # TCZYX
-        return t, c, z, y, x
-    elif len(arr_shape) == 4:  # TZYX (labels)
-        return t, z, y, x
-    else:
-        raise ValueError(f"Unsupported array shape: {arr_shape}")
     
 def _generate_pyramid(
     ref_data: Union[np.ndarray, da.Array],
@@ -182,7 +166,10 @@ def _generate_pyramid(
 
 def _scale_index(index_tuple, shape, scale_factor: float):
     """Scale slices or ints for down/up-sampled levels."""
-    t, c, z, y, x = index_tuple
+    if len(index_tuple) == 5:
+        t, c, z, y, x = index_tuple
+    else:
+        t, z, y, x = index_tuple
 
     def scale_slice(s, size):
         start = None if s.start is None else int(s.start / scale_factor)
@@ -191,13 +178,21 @@ def _scale_index(index_tuple, shape, scale_factor: float):
         return slice(start, stop, None)
 
     # Typically only y, x (and possibly z) are scaled
-    return (
-        t,
-        c,
-        scale_slice(z, shape[2]),
-        scale_slice(y, shape[3]),
-        scale_slice(x, shape[4]),
-    )
+    if len(shape)==5:
+        return (
+            t,
+            c,
+            scale_slice(z, shape[2]),
+            scale_slice(y, shape[3]),
+            scale_slice(x, shape[4]),
+        )
+    else:
+        return (
+            t,
+            scale_slice(z, shape[1]),
+            scale_slice(y, shape[2]),
+            scale_slice(x, shape[3]),
+        )
 
 def _zoom_numpy(arr: np.ndarray, scale: float) -> np.ndarray:
     """Simple 2x zoom or shrink using nearest-neighbor."""
