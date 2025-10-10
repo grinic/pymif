@@ -3,6 +3,7 @@ import numpy as np
 import dask.array as da
 from .microscope_manager import MicroscopeManager
 import zarr
+from zarr.storage import NestedDirectoryStore
 import napari
 
 class ZarrManager(MicroscopeManager):
@@ -69,7 +70,7 @@ class ZarrManager(MicroscopeManager):
         """
         
         # Access raw NGFF metadata
-        root = zarr.open(self.path, mode=self.mode)
+        root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
         image_meta = root.attrs.asdict()
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
@@ -214,13 +215,15 @@ class ZarrManager(MicroscopeManager):
         """
         
         from .utils.add_label import add_label as _add_label
-        return _add_label(self.path, 
-                      label_levels, 
-                      label_name,
-                      self.metadata, 
-                      compressor=compressor, 
-                      compressor_level=compressor_level,
-                      parallelize=parallelize
+        return _add_label(
+                        root=self.root,
+                        mode=self.mode, 
+                        label_levels=label_levels, 
+                        label_name=label_name,
+                        metadata=self.metadata, 
+                        compressor=compressor, 
+                        compressor_level=compressor_level,
+                        parallelize=parallelize
                       )
         
     def visualize_zarr(self,
@@ -247,7 +250,7 @@ class ZarrManager(MicroscopeManager):
         
         return viewer
     
-    def write_region(
+    def write_image_region(
         self,
         data,
         t: int | slice = slice(None),
@@ -260,13 +263,47 @@ class ZarrManager(MicroscopeManager):
     ):
         """
         Public method to write or update a region in the dataset or sub-group.
+
+        Parameters
+        ----------
+        data : Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]]
+            Arrays representing an image region or its pyramid.
+        t, c, z, y, x : int or slice
+            Slices for each dimension.
+        level : int
+            The pyramid level to write to (if `data` is a single array).
+        group_name : str, optional
+            Name of the group inside the root.       
         """
-        from .utils.write_region import write_region as _write_region
-        return _write_region(
+        from .utils.write_image_region import write_image_region as _write_image_region
+        return _write_image_region(
             root=self.root,
             mode=self.mode,
             data=data,
             t=t, c=c, z=z, y=y, x=x,
+            level=level,
+            group_name=group,
+        )
+
+    def write_label_region(
+        self,
+        data,
+        t: int | slice = slice(None),
+        z: int | slice = slice(None),
+        y: int | slice = slice(None),
+        x: int | slice = slice(None),
+        level: int = 0,
+        group: str = None,
+    ):
+        """
+        Public method to write or update a region in the dataset or sub-group.
+        """
+        from .utils.write_label_region import write_label_region as _write_label_region
+        return _write_label_region(
+            root=self.root,
+            mode=self.mode,
+            data=data,
+            t=t, z=z, y=y, x=x,
             level=level,
             group_name=group,
         )

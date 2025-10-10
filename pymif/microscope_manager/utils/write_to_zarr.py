@@ -18,7 +18,7 @@ DEFAULT_COLORS = [
     "808080",  # Gray
 ]
 
-def write(
+def write_to_zarr(
     path: str,
     data_levels: List[da.Array],
     metadata: Dict[str, Any],

@@ -5,17 +5,16 @@ import zarr
 import warnings
 
 
-def write_region(
+def write_label_region(
     root: zarr.Group,
     mode: str,
     data: Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]],
     t: int | slice = slice(None),
-    c: int | slice = slice(None),
     z: int | slice = slice(None),
     y: int | slice = slice(None),
     x: int | slice = slice(None),
     level: int = 0,
-    group_name: Optional[str] = None,
+    group_name: str = "labels/nuclei",
 ):
     """
     Internal function that writes data (pyramid or single array) to a zarr group.
@@ -32,12 +31,12 @@ def write_region(
     data : np.ndarray, da.Array, or list thereof
         Array(s) to write. If a list, each entry corresponds to one resolution level.
         If a single array, pyramid levels will be generated automatically.
-    t, c, z, y, x : int or slice
+    t, z, y, x : int or slice
         Slices for each dimension.
     level : int
         The pyramid level to write to (if `data` is a single array).
     group_name : str, optional
-        Name of the group inside the root (e.g. "image" or "labels").
+        Name of the group inside the root (e.g. "labels/nuclei").
     """
     # Check mode
     if mode not in ("r+", "a", "w"):
@@ -47,7 +46,7 @@ def write_region(
         )
 
     # Select target group
-    group = root if group_name is None else root.get(group_name)
+    group = root.get(group_name)
     print(group)
     if group is None:
         available = list(root.group_keys())
@@ -100,7 +99,7 @@ def write_region(
         # Scale slices for this level, 
         # take into account that if subdata has 4 dimensions, it's a label, drop c
         scale_factor = 2 ** (i - level)
-        index = _scale_index((t, c, z, y, x), subdata.shape, scale_factor)
+        index = _scale_index((t, z, y, x), subdata.shape, scale_factor)
 
         print(subdata.shape, index)
 
@@ -166,10 +165,7 @@ def _generate_pyramid(
 
 def _scale_index(index_tuple, shape, scale_factor: float):
     """Scale slices or ints for down/up-sampled levels."""
-    if len(index_tuple) == 5:
-        t, c, z, y, x = index_tuple
-    else:
-        t, z, y, x = index_tuple
+    t, z, y, x = index_tuple
 
     def scale_slice(s, size):
         start = None if s.start is None else int(s.start / scale_factor)
@@ -178,21 +174,12 @@ def _scale_index(index_tuple, shape, scale_factor: float):
         return slice(start, stop, None)
 
     # Typically only y, x (and possibly z) are scaled
-    if len(shape)==5:
-        return (
-            t,
-            c,
-            scale_slice(z, shape[2]),
-            scale_slice(y, shape[3]),
-            scale_slice(x, shape[4]),
-        )
-    else:
-        return (
-            t,
-            scale_slice(z, shape[1]),
-            scale_slice(y, shape[2]),
-            scale_slice(x, shape[3]),
-        )
+    return (
+        t,
+        scale_slice(z, shape[1]),
+        scale_slice(y, shape[2]),
+        scale_slice(x, shape[3]),
+    )
 
 def _zoom_numpy(arr: np.ndarray, scale: float) -> np.ndarray:
     """Simple 2x zoom or shrink using nearest-neighbor."""
