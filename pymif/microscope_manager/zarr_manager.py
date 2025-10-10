@@ -1,7 +1,9 @@
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Dict, Any, Optional, Union
+import numpy as np
 import dask.array as da
 from .microscope_manager import MicroscopeManager
 import zarr
+from zarr.storage import NestedDirectoryStore
 import napari
 
 class ZarrManager(MicroscopeManager):
@@ -24,7 +26,8 @@ class ZarrManager(MicroscopeManager):
         
     def __init__(self, 
                  path,
-                 chunks: Tuple[int, ...] = None):
+                 chunks: Tuple[int, ...] = None,
+                 mode: str = "r"):
         """
         Initialize the ZarrManager.
 
@@ -34,11 +37,14 @@ class ZarrManager(MicroscopeManager):
             Path to the folder containing the Zarr dataset.
         chunks : Tuple[int, ...], optional
             Desired chunk shape for the output Dask array. Default is `None`.
+        mode : {"r", "r+", "a", "w", "w-"}, default="r"
+            Zarr access mode. Use "r+" to enable in-place modification.        
         """
         
         super().__init__()
         self.path = path
         self.chunks = chunks
+        self.mode = mode
         self.read()
         
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
@@ -64,8 +70,8 @@ class ZarrManager(MicroscopeManager):
         """
         
         # Access raw NGFF metadata
-        group = zarr.open(self.path, mode="r")
-        image_meta = group.attrs.asdict()
+        root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
+        image_meta = root.attrs.asdict()
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
         omero = image_meta.get("omero", {})
@@ -73,7 +79,7 @@ class ZarrManager(MicroscopeManager):
         # Load pyramid levels properly
         data_levels = []
         for i in range(len(datasets)):
-            zarr_array = group[str(i)]
+            zarr_array = root[str(i)]
             if self.chunks is None:
                 arr = da.from_zarr(zarr_array)  # uses native chunking
             else:
@@ -115,6 +121,7 @@ class ZarrManager(MicroscopeManager):
         }
 
         self.data = data_levels
+        self.root = root  # keep handle for writing later
         
         ### optional, read labels
         self.labels = self._load_labels()
@@ -164,11 +171,11 @@ class ZarrManager(MicroscopeManager):
         """
         
         labels = {}
-        root = zarr.open_group(str(self.path), mode='r')
-        if "labels" not in root:
+        # root = zarr.open_group(str(self.path), mode='r')
+        if "labels" not in self.root:
             return labels
 
-        labels_grp = root["labels"]
+        labels_grp = self.root["labels"]
         for label_name, label_grp in labels_grp.groups():
             # Expect label_grp to have a multiscale structure similar to images
             label_multiscales = label_grp.attrs.get("multiscales", [])
@@ -208,13 +215,15 @@ class ZarrManager(MicroscopeManager):
         """
         
         from .utils.add_label import add_label as _add_label
-        return _add_label(self.path, 
-                      label_levels, 
-                      label_name,
-                      self.metadata, 
-                      compressor=compressor, 
-                      compressor_level=compressor_level,
-                      parallelize=parallelize
+        return _add_label(
+                        root=self.root,
+                        mode=self.mode, 
+                        label_levels=label_levels, 
+                        label_name=label_name,
+                        metadata=self.metadata, 
+                        compressor=compressor, 
+                        compressor_level=compressor_level,
+                        parallelize=parallelize
                       )
         
     def visualize_zarr(self,
@@ -240,5 +249,61 @@ class ZarrManager(MicroscopeManager):
         viewer.open(self.path, plugin="napari-ome-zarr")
         
         return viewer
-        
-        
+    
+    def write_image_region(
+        self,
+        data,
+        t: int | slice = slice(None),
+        c: int | slice = slice(None),
+        z: int | slice = slice(None),
+        y: int | slice = slice(None),
+        x: int | slice = slice(None),
+        level: int = 0,
+        group: Optional[str] = None,
+    ):
+        """
+        Public method to write or update a region in the dataset or sub-group.
+
+        Parameters
+        ----------
+        data : Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]]
+            Arrays representing an image region or its pyramid.
+        t, c, z, y, x : int or slice
+            Slices for each dimension.
+        level : int
+            The pyramid level to write to (if `data` is a single array).
+        group_name : str, optional
+            Name of the group inside the root.       
+        """
+        from .utils.write_image_region import write_image_region as _write_image_region
+        return _write_image_region(
+            root=self.root,
+            mode=self.mode,
+            data=data,
+            t=t, c=c, z=z, y=y, x=x,
+            level=level,
+            group_name=group,
+        )
+
+    def write_label_region(
+        self,
+        data,
+        t: int | slice = slice(None),
+        z: int | slice = slice(None),
+        y: int | slice = slice(None),
+        x: int | slice = slice(None),
+        level: int = 0,
+        group: str = None,
+    ):
+        """
+        Public method to write or update a region in the dataset or sub-group.
+        """
+        from .utils.write_label_region import write_label_region as _write_label_region
+        return _write_label_region(
+            root=self.root,
+            mode=self.mode,
+            data=data,
+            t=t, z=z, y=y, x=x,
+            level=level,
+            group_name=group,
+        )
