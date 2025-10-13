@@ -71,6 +71,7 @@ class ZarrManager(MicroscopeManager):
         
         # Access raw NGFF metadata
         root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
+
         image_meta = root.attrs.asdict()
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
@@ -157,6 +158,12 @@ class ZarrManager(MicroscopeManager):
                     "color": _default_label_color(label_name),
                     "opacity": 0.5
                 }
+                
+        ### Output
+        
+        print(root.tree())
+        for i in self.metadata:
+            print(f"{i.upper()}: {self.metadata[i]}")
 
     def _load_labels(self) -> Dict[str, List[da.Array]]:
         """
