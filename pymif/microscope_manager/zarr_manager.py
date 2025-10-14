@@ -270,6 +270,23 @@ class ZarrManager(MicroscopeManager):
         
         return viewer
     
+    def create_empty_group(
+            self,
+            group_name: str,
+            metadata: Dict[str, Any],
+            parent: Optional[zarr.Group] = None,
+            is_label: bool = False,
+    ):
+        from .utils.create_empty_group import create_empty_group as _create_empty_group
+        if not parent:
+            parent = self.root
+        return _create_empty_group(
+            parent = parent,
+            group_name = group_name,
+            metadata = metadata,
+            is_label = is_label,
+        )
+
     def write_image_region(
         self,
         data,
