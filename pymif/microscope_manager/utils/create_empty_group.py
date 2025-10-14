@@ -2,7 +2,7 @@ from typing import Dict, Any
 import zarr
 
 def create_empty_group(
-    parent: zarr.Group,
+    root: zarr.Group,
     group_name: str,
     metadata: Dict[str, Any],
     is_label: bool = False,
@@ -12,8 +12,8 @@ def create_empty_group(
 
     Parameters
     ----------
-    parent : zarr.Group
-        Parent group (e.g. the root or a sample subgroup).
+    root : zarr.Group
+        root group.
     group_name : str
         Name of the new subgroup (e.g. "processed" or "labels/nuclei").
     metadata : Dict[str, Any]
@@ -26,14 +26,14 @@ def create_empty_group(
 
     # Determine target group
     if is_label:
-        labels_grp = parent.require_group("labels")
+        labels_grp = root.require_group("labels")
         if group_name in labels_grp:
             del labels_grp[group_name]
         grp = labels_grp.create_group(group_name)
     else:
-        if group_name in parent:
-            del parent[group_name]
-        grp = parent.create_group(group_name)
+        if group_name in root:
+            del root[group_name]
+        grp = root.create_group(group_name)
 
     sizes = metadata["size"]
     chunks = metadata["chunksize"]
@@ -102,16 +102,16 @@ def create_empty_group(
     # Register in root so Napari can see it
     if is_label:
         grp.attrs["image-label"] = {"source": {"image": "../../"}}  # label points to root image
-        labels_attr = parent.attrs.get("labels", [])
+        labels_attr = root.attrs.get("labels", [])
         if not isinstance(labels_attr, list):
             labels_attr = []
         label_path = f"labels/{group_name}"
         if label_path not in labels_attr:
             labels_attr.append(label_path)
-            parent.attrs["labels"] = labels_attr
+            root.attrs["labels"] = labels_attr
     else:
         # For images, append to root multiscales if not already present
-        root_multiscales = parent.attrs.get("multiscales", [])
+        root_multiscales = root.attrs.get("multiscales", [])
         root_multiscales.append({
             "name": group_name,
             "path": grp.path,
@@ -119,7 +119,7 @@ def create_empty_group(
             "axes": axes,
             "type": "image",
         })
-        parent.attrs["multiscales"] = root_multiscales
+        root.attrs["multiscales"] = root_multiscales
 
         # Optional OMERO metadata for images
         C = sizes[0][axes_labels.index("c")] if "c" in axes_labels else 1
@@ -137,5 +137,5 @@ def create_empty_group(
         grp.attrs["omero"] = {"channels": channels, "rdefs": {"model":"color"}}
         grp.attrs["image-source"] = {"source":{"image":"../"}}
 
-    print(f"[INFO] Created empty {'label' if is_label else 'image'} group '{grp.path}' in store '{parent.store.path}'")
+    print(f"[INFO] Created empty {'label' if is_label else 'image'} group '{grp.path}' in store '{root.store.path}'")
     return grp

@@ -132,51 +132,30 @@ class ZarrManager(MicroscopeManager):
             "channel_colors": channel_colors,
             "dtype": str(dtype),
             "plane_files": None,
-            "axes": axes
+            "axes": axes,
         }
 
         self.data = data_levels
         
-        ### optional, read labels
-        self.labels = self._load_labels()
-        
-        def _default_label_color(name: str) -> str:
-            name = name.lower()
-            if "nuc" in name:
-                return "magenta"
-            elif "mem" in name:
-                return "cyan"
-            elif "mask" in name:
-                return "yellow"
-            return "white"
-        
-        if self.labels:
-            self.metadata["labels_metadata"] = {}
-            for label_name, label_levels in self.labels.items():
-                # Try to read scale info from label multiscale metadata
-                label_grp = zarr.open_group(str(self.path), mode='r')["labels"][label_name]
-                label_multiscales = label_grp.attrs.get("multiscales", [])
-                if label_multiscales:
-                    label_datasets = label_multiscales[0].get("datasets", [])
-                    if label_datasets and "coordinateTransformations" in label_datasets[0]:
-                        label_scale = label_datasets[0]["coordinateTransformations"][0].get("scale", [1,1,1])[1:]
-                    else:
-                        label_scale = [1, 1, 1]
-                else:
-                    label_scale = [1, 1, 1]
-
-                self.metadata["labels_metadata"][label_name] = {
-                    "data": label_levels,
-                    "scale": label_scale,
-                    "color": _default_label_color(label_name),
-                    "opacity": 0.5
-                }
+        ### optional, read other groups
+        self.groups = {}
+        for name in self.root.group_keys():
+            if name == "labels":
+                self.labels = self._load_labels()
+            else:
+                self.groups[name] = self._load_group(name)
                 
         ### Output
-        
         print(self.root.tree())
         for i in self.metadata:
             print(f"{i.upper()}: {self.metadata[i]}")
+
+    def _load_group(self, name):
+        group = self.root[name]
+        multiscale = group.attrs.get("multiscales", [{}])[0]
+        datasets = multiscale.get("datasets", [])
+        arrays = [da.from_zarr(group[ds["path"]]) for ds in datasets]
+        return arrays
 
     def _load_labels(self) -> Dict[str, List[da.Array]]:
         """
@@ -203,12 +182,7 @@ class ZarrManager(MicroscopeManager):
                 continue
 
             label_datasets = label_multiscales[0].get("datasets", [])
-            label_pyramid = []
-            for ds in label_datasets:
-                ds_path = ds["path"]
-                zarr_arr = label_grp[ds_path]
-                label_pyramid.append(da.from_zarr(zarr_arr))
-            labels[label_name] = label_pyramid
+            labels[label_name] = [da.from_zarr(label_grp[ds["path"]]) for ds in label_datasets]
         return labels
         
     def add_label(self, 
@@ -274,14 +248,11 @@ class ZarrManager(MicroscopeManager):
             self,
             group_name: str,
             metadata: Dict[str, Any],
-            parent: Optional[zarr.Group] = None,
             is_label: bool = False,
     ):
         from .utils.create_empty_group import create_empty_group as _create_empty_group
-        if not parent:
-            parent = self.root
         return _create_empty_group(
-            parent = parent,
+            root = self.root,
             group_name = group_name,
             metadata = metadata,
             is_label = is_label,
