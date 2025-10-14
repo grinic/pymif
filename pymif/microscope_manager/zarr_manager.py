@@ -5,6 +5,7 @@ from .microscope_manager import MicroscopeManager
 import zarr
 from zarr.storage import NestedDirectoryStore
 import napari
+import os
 
 class ZarrManager(MicroscopeManager):
     """
@@ -27,7 +28,8 @@ class ZarrManager(MicroscopeManager):
     def __init__(self, 
                  path,
                  chunks: Tuple[int, ...] = None,
-                 mode: str = "r"):
+                 mode: str = "r",
+                 metadata: dict[str, Any] = None):
         """
         Initialize the ZarrManager.
 
@@ -45,7 +47,22 @@ class ZarrManager(MicroscopeManager):
         self.path = path
         self.chunks = chunks
         self.mode = mode
-        self.read()
+        self.metadata = metadata
+        
+        # Access raw NGFF metadata
+
+        # If path exists and we're in read mode, read it
+        if os.path.exists(self.path):
+            self.root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
+            self.read()
+        else:
+            if mode in ("w", "a"):
+                self.root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
+                from .utils.create_empty_dataset import create_empty_dataset as _create_empty_dataset
+                _create_empty_dataset(self.root,
+                                      self.metadata)
+            else:
+                raise FileNotFoundError(f"Zarr path {self.path} does not exist and mode='{mode}' is read-only.")
         
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
         """
@@ -69,10 +86,7 @@ class ZarrManager(MicroscopeManager):
             If the dataset structure is invalid or lacks required metadata.
         """
         
-        # Access raw NGFF metadata
-        root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
-
-        image_meta = root.attrs.asdict()
+        image_meta = self.root.attrs.asdict()
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
         omero = image_meta.get("omero", {})
@@ -80,7 +94,7 @@ class ZarrManager(MicroscopeManager):
         # Load pyramid levels properly
         data_levels = []
         for i in range(len(datasets)):
-            zarr_array = root[str(i)]
+            zarr_array = self.root[str(i)]
             if self.chunks is None:
                 arr = da.from_zarr(zarr_array)  # uses native chunking
             else:
@@ -122,7 +136,6 @@ class ZarrManager(MicroscopeManager):
         }
 
         self.data = data_levels
-        self.root = root  # keep handle for writing later
         
         ### optional, read labels
         self.labels = self._load_labels()
@@ -161,7 +174,7 @@ class ZarrManager(MicroscopeManager):
                 
         ### Output
         
-        print(root.tree())
+        print(self.root.tree())
         for i in self.metadata:
             print(f"{i.upper()}: {self.metadata[i]}")
 

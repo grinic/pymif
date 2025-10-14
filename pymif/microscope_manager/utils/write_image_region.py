@@ -48,7 +48,7 @@ def write_image_region(
 
     # Select target group
     group = root if group_name is None else root.get(group_name)
-    print(group)
+    # print(group)
     if group is None:
         available = list(root.group_keys())
         warnings.warn(
@@ -100,16 +100,17 @@ def write_image_region(
         # Scale slices for this level, 
         # take into account that if subdata has 4 dimensions, it's a label, drop c
         scale_factor = 2 ** (i - level)
+        # print(t, c, z, y, x, scale_factor, subdata.shape)
         index = _scale_index((t, c, z, y, x), subdata.shape, scale_factor)
 
-        print(subdata.shape, index)
+        # print(subdata.shape, index)
 
         # Shape consistency
         # print (index, subdata.shape, zarr_array[index].shape)
         if subdata.shape != zarr_array[index].shape:
             warnings.warn(
                 f"Shape mismatch for level {i}: data={subdata.shape}, "
-                f"expected={zarr_array.shape}. Skipping level.",
+                f"expected={zarr_array[index].shape}. Skipping level.",
                 UserWarning,
             )
             continue
@@ -195,9 +196,30 @@ def _zoom_numpy(arr: np.ndarray, scale: float) -> np.ndarray:
 
 def _zoom_dask(arr: da.Array, scale: float) -> da.Array:
     """Zoom for dask arrays."""
-    import dask_image.ndinterp as ndinterp
-    factors = [1] * (arr.ndim - 3) + [scale, scale, scale]
+    if not isinstance(arr, da.Array):
+        arr = da.from_array(arr, chunks="auto")
+
+    ndim = arr.ndim
+    if ndim < 3:
+        raise ValueError("Array must have at least 3 dimensions (Z, Y, X)")
+
+    # Build zoom factors: 1 for non-spatial axes, scale for last 3 axes
+    factors = [1] * (ndim - 3) + [scale, scale, scale]
+
+    # Make sure zoom doesn't reduce any dimension below 1
     for i, f in enumerate(factors):
-        if (arr.shape[i]*f) < 1:
-            factors[i] = 1
-    return ndinterp.zoom(arr, zoom=factors, order=0)
+        if arr.shape[i] * f < 1:
+            factors[i] = 1.0
+
+    # Apply zoom blockwise
+    import scipy
+    def _zoom_block(block, zoom):
+        return scipy.ndimage.zoom(block, zoom=zoom, order=0)
+
+    result = arr.map_blocks(
+        _zoom_block,
+        zoom=factors,
+        dtype=arr.dtype
+    )
+
+    return result
