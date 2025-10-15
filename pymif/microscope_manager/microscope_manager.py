@@ -30,13 +30,13 @@ class MicroscopeManager(ABC):
         """
         pass
 
-    def write_to_zarr(self, path: str, 
+    def to_zarr(self, path: str, 
               compressor: Any = None, 
               compressor_level: Any = 3, 
               overwrite=True,
               parallelize: Any = False) -> None:
-        from .utils.write_to_zarr import write_to_zarr as _write_to_zarr
-        return _write_to_zarr(path, 
+        from .utils.to_zarr import to_zarr as _to_zarr
+        return _to_zarr(path, 
                       self.data, 
                       self.metadata, 
                       compressor=compressor, 

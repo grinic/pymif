@@ -94,7 +94,7 @@ import pymif.microscope_manager as mm
 
 dataset = mm.ViventisManager("path/to/Position_1")
 dataset.build_pyramid(num_levels=3)
-dataset.write("output.zarr")
+dataset.to_zarr("output.zarr")
 dataset_zarr = mm.ZarrManager("output.zarr")
 viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
 ```
@@ -141,7 +141,8 @@ Tuple[List[dask.array], Dict[str, Any]]
 
 You will automatically inherit all `MicroscopeManager` methods, including:
 - `build_pyramid()`, 
-- `write()`, 
+- `to_zarr()`, 
 - `visualize()`,
 - `reorder_channels()`,
-- `update_metadata()`
+- `update_metadata()`,
+- ...
