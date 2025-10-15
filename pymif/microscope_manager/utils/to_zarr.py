@@ -18,8 +18,8 @@ DEFAULT_COLORS = [
     "808080",  # Gray
 ]
 
-def write(
-    path: str,
+def to_zarr(
+    root: zarr.Group,
     data_levels: List[da.Array],
     metadata: Dict[str, Any],
     compressor: Any =None,
@@ -32,8 +32,8 @@ def write(
 
     Parameters
     ----------
-        path : str
-            Destination path for the output data.
+        root : zarr.Group
+            Destination root for the output data.
         data_levels : List[da.Array]
             List of Dask arrays representing image data.
         metadata : Dict[str, Any]
@@ -55,13 +55,10 @@ def write(
         if compressor.lower() == "gzip":
             compressor = GZip(level=compressor_level)
         
-    store_path = Path(path)
+    store_path = Path(root.store.path)
     if store_path.exists() and overwrite:
         import shutil
         shutil.rmtree(store_path)
-
-    store = zarr.NestedDirectoryStore(str(store_path))
-    root_group = zarr.group(store=store, overwrite=True)
 
     scales = metadata["scales"]  # [[1,0.173,0.173], [2,0.346,0.346], ...]
     axes_labels = metadata["axes"]
@@ -114,7 +111,7 @@ def write(
     print("Writing pyramid.")
     write_multiscale(
         pyramid=data_levels,
-        group=root_group,
+        group=root,
         axes=axes,
         coordinate_transformations=coordinate_transformations,
         storage_options={"compressor": compressor},
@@ -150,7 +147,7 @@ def write(
         "family": "linear",
     } for i in range(C)]
 
-    root_group.attrs["multiscales"] = [{
+    root.attrs["multiscales"] = [{
         # "version": CurrentFormat.version,
         "name": metadata.get("name", "OME-Zarr image"),
         "datasets": [
@@ -164,7 +161,7 @@ def write(
         "type": "image",
     }]
 
-    root_group.attrs["omero"] = {
+    root.attrs["omero"] = {
         "channels": channels,
         "rdefs": {"model": "color"}
     }
