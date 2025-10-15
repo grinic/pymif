@@ -1,4 +1,5 @@
 from typing import Tuple, List, Dict, Any, Optional, Union
+from pathlib import Path
 import numpy as np
 import dask.array as da
 from .microscope_manager import MicroscopeManager
@@ -254,12 +255,12 @@ class ZarrManager(MicroscopeManager):
             print(results)
             return results
         
-        multiscale_paths = discover_multiscales(zm.root)
+        multiscale_paths = discover_multiscales(self.root)
         print(multiscale_paths)
         
         for gpath in multiscale_paths:
             # open each group individually via napari-ome-zarr
-            full_path = Path(zm.path) / gpath
+            full_path = Path(self.path) / gpath
             print("open", full_path)
             viewer.open(full_path, plugin="napari-ome-zarr") 
         
