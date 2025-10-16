@@ -337,3 +337,4 @@ class ZarrManager(MicroscopeManager):
             level=level,
             group_name=group,
         )
+        
