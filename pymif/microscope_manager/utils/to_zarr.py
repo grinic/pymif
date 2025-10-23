@@ -32,8 +32,8 @@ def to_zarr(
 
     Parameters
     ----------
-        root : str
-            Destination root for the output data.
+        path : str
+            Destination path for the output data.
         data_levels : List[da.Array]
             List of Dask arrays representing image data.
         metadata : Dict[str, Any]
