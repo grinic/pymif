@@ -19,7 +19,7 @@ DEFAULT_COLORS = [
 ]
 
 def to_zarr(
-    root: str,
+    path: str,
     data_levels: List[da.Array],
     metadata: Dict[str, Any],
     compressor: Any =None,
@@ -48,6 +48,8 @@ def to_zarr(
             whether to use dask distribute to parallelize (default: False).
     """
     print("Start writing dataset.")
+
+    root = zarr.open(zarr.NestedDirectoryStore(path), mode="w")
     
     if isinstance(compressor, str):
         if compressor.lower() == "blosc":
@@ -55,7 +57,7 @@ def to_zarr(
         if compressor.lower() == "gzip":
             compressor = GZip(level=compressor_level)
         
-    store_path = Path(root)
+    store_path = Path(root.store.path)
     if store_path.exists() and overwrite:
         import shutil
         shutil.rmtree(store_path)
