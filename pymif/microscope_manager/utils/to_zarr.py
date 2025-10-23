@@ -19,7 +19,7 @@ DEFAULT_COLORS = [
 ]
 
 def to_zarr(
-    root: zarr.Group,
+    root: str,
     data_levels: List[da.Array],
     metadata: Dict[str, Any],
     compressor: Any =None,
@@ -32,7 +32,7 @@ def to_zarr(
 
     Parameters
     ----------
-        root : zarr.Group
+        root : str
             Destination root for the output data.
         data_levels : List[da.Array]
             List of Dask arrays representing image data.
@@ -55,7 +55,7 @@ def to_zarr(
         if compressor.lower() == "gzip":
             compressor = GZip(level=compressor_level)
         
-    store_path = Path(root.store.path)
+    store_path = Path(root)
     if store_path.exists() and overwrite:
         import shutil
         shutil.rmtree(store_path)
