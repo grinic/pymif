@@ -34,6 +34,7 @@ class ZeissManager(MicroscopeManager):
         self.path = path
         
         czi = BioImage(path, reconstruct_mosaic=True, use_aicspylibczi=False)
+        self.scenes = czi.scenes
         if scene_name == "":
             self.scene_index = scene_index
             assert scene_index<len(czi.scenes), ValueError(f"Invalid scene index {scene_index}, only {len(czi.scenes)} scenes available: {czi.scenes}")
