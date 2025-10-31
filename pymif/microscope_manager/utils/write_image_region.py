@@ -209,7 +209,7 @@ def _zoom_dask(arr: da.Array, scale: float) -> da.Array:
     # Make sure zoom doesn't reduce any dimension below 1
     for i, f in enumerate(factors):
         if arr.shape[i] * f < 1:
-            factors[i] = 1.0
+            factors[i] = 1
 
     # Apply zoom blockwise
     import scipy

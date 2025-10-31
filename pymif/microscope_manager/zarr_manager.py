@@ -54,8 +54,11 @@ class ZarrManager(MicroscopeManager):
 
         # If path exists and we're in read mode, read it
         if os.path.exists(self.path):
-            self.root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
-            self.read()
+            if mode in ("r", "a"):
+                self.root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
+                self.read()
+            else:
+                raise FileNotFoundError(f"Zarr path {self.path} exists and mode='{mode}' is write-only. Please select mode='r' or 'a'.")
         else:
             if mode in ("w", "a"):
                 self.root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
@@ -63,7 +66,7 @@ class ZarrManager(MicroscopeManager):
                 _create_empty_dataset(self.root,
                                       self.metadata)
             else:
-                raise FileNotFoundError(f"Zarr path {self.path} does not exist and mode='{mode}' is read-only.")
+                raise FileNotFoundError(f"Zarr path {self.path} does not exist and mode='{mode}' is read-only. Please select mode='w' or 'a'.")
         
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
         """
