@@ -139,7 +139,7 @@ def to_zarr(
         "color": _normalize_color(ch_colors[i]),
         "window": {
             "start": 0,
-            "end": 1500,
+            "end": 65000,
             "min": 0,
             "max": 65535
         },
