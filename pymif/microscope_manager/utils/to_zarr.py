@@ -53,9 +53,9 @@ def to_zarr(
     
     if isinstance(compressor, str):
         if compressor.lower() == "blosc":
-            compressor = Blosc(cname="zstd", clevel=compressor_level, shuffle=Blosc.BITSHUFFLE)
+            compressor_fun = Blosc(cname="zstd", clevel=compressor_level, shuffle=Blosc.BITSHUFFLE)
         if compressor.lower() == "gzip":
-            compressor = GZip(level=compressor_level)
+            compressor_fun = GZip(level=compressor_level)
         
     store_path = Path(root.store.path)
     if store_path.exists() and overwrite:
@@ -116,7 +116,7 @@ def to_zarr(
         group=root,
         axes=axes,
         coordinate_transformations=coordinate_transformations,
-        storage_options={"compressor": compressor},
+        storage_options={"compressor": compressor_fun},
     )
 
     # OMERO metadata
