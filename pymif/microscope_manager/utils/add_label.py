@@ -98,7 +98,7 @@ def add_label(
     label_grp = labels_grp.create_group(label_name)
 
     label_grp.attrs["image-label"] = {
-            "version": "0.4",
+            "version": "0.5",
             "source": {"image": "../../"}
     }
     write_multiscale(

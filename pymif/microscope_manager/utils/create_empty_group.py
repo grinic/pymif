@@ -1,4 +1,5 @@
 from typing import Dict, Any
+from ome_zarr.writer import write_multiscale, add_metadata
 import zarr
 
 def create_empty_group(
@@ -85,19 +86,19 @@ def create_empty_group(
             shape=shape,
             chunks=chunk,
             dtype=dtype,
-            compressor=None,
-            write_empty_chunks=False,  # defer physical chunk creation
+            # compressor=None,
+            # write_empty_chunks=False,  # defer physical chunk creation
         )
 
     # Add multiscale metadata
     multiscale_entry = {
+        "version": "0.5",
         "name": group_name,
         "datasets": [{"path": str(i), "coordinateTransformations": coordinate_transformations[i]} for i in range(len(sizes))],
         "axes": axes,
-        "version": "0.4",
     }
 
-    grp.attrs["multiscales"] = [multiscale_entry]
+    grp.attrs["ome"]= {"multiscales": [multiscale_entry]}
 
     # Register in root so Napari can see it
     if is_label:
@@ -111,7 +112,7 @@ def create_empty_group(
             root.attrs["labels"] = labels_attr
     else:
         # For images, append to root multiscales if not already present
-        root_multiscales = root.attrs.get("multiscales", [])
+        root_multiscales = root.attrs.get("ome").get("multiscales", [])
         root_multiscales.append({
             "name": group_name,
             "path": grp.path,
@@ -119,7 +120,7 @@ def create_empty_group(
             "axes": axes,
             "type": "image",
         })
-        root.attrs["multiscales"] = root_multiscales
+        root.attrs.get("ome")["multiscales"] = root_multiscales
 
         # Optional OMERO metadata for images
         C = sizes[0][axes_labels.index("c")] if "c" in axes_labels else 1
@@ -133,9 +134,31 @@ def create_empty_group(
                 if len(color) == 6:
                     return color.upper()
             return "FFFFFF"
-        channels = [{"label": ch_names[i], "color": _normalize_color(ch_colors[i]), "window": {"start":0,"end":1500,"min":0,"max":65535},"active":True,"inverted":False,"coefficient":1.0,"family":"linear"} for i in range(C)]
-        grp.attrs["omero"] = {"channels": channels, "rdefs": {"model":"color"}}
+        channels = [{
+            "label": ch_names[i], 
+            "color": _normalize_color(ch_colors[i]), 
+            "window": {
+                "start":0,
+                "end":1500,
+                "min":0,
+                "max":65535
+            },
+            "active":True,
+            # "inverted":False,
+            # "coefficient":1.0,
+            # "family":"linear"
+        } for i in range(C) ]
+        
+        add_metadata(
+            grp,
+            {"omero":{
+                    "channels": channels,
+                    # "rdefs": {"model": "color"}
+                }
+            }
+        )
+
         grp.attrs["image-source"] = {"source":{"image":"../"}}
 
-    print(f"[INFO] Created empty {'label' if is_label else 'image'} group '{grp.path}' in store '{root.store.path}'")
+    print(f"[INFO] Created empty {'label' if is_label else 'image'} group '{grp.path}' in store '{root.store}'")
     return grp

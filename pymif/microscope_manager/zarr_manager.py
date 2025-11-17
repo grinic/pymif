@@ -155,7 +155,7 @@ class ZarrManager(MicroscopeManager):
 
     def _load_group(self, name):
         group = self.root[name]
-        multiscale = group.attrs.get("multiscales", [{}])[0]
+        multiscale = group.attrs.get("ome").get("multiscales", [{}])[0]
         datasets = multiscale.get("datasets", [])
         arrays = [da.from_zarr(group[ds["path"]]) for ds in datasets]
         return arrays
@@ -180,7 +180,7 @@ class ZarrManager(MicroscopeManager):
         labels_grp = self.root["labels"]
         for label_name, label_grp in labels_grp.groups():
             # Expect label_grp to have a multiscale structure similar to images
-            label_multiscales = label_grp.attrs.get("multiscales", [])
+            label_multiscales = label_grp.attrs.get("ome").get("multiscales", [])
             if not label_multiscales:
                 continue
 
