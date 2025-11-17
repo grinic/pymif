@@ -3,7 +3,7 @@ from dask.distributed import Client
 from dask.diagnostics import ProgressBar
 from numcodecs import Blosc, GZip
 from typing import List, Dict, Any
-from ome_zarr.writer import write_multiscale
+from ome_zarr.writer import write_multiscale, add_metadata
 import zarr
 from pathlib import Path
 
@@ -49,15 +49,16 @@ def to_zarr(
     """
     print("Start writing dataset.")
 
-    root = zarr.open(zarr.NestedDirectoryStore(path), mode="w")
+    root = zarr.open(zarr.storage.LocalStore(path), mode="w")
     
+    compressor_fun = None
     if isinstance(compressor, str):
         if compressor.lower() == "blosc":
             compressor_fun = Blosc(cname="zstd", clevel=compressor_level, shuffle=Blosc.BITSHUFFLE)
         if compressor.lower() == "gzip":
             compressor_fun = GZip(level=compressor_level)
         
-    store_path = Path(root.store.path)
+    store_path = Path(path)
     if store_path.exists() and overwrite:
         import shutil
         shutil.rmtree(store_path)
@@ -144,27 +145,53 @@ def to_zarr(
             "max": 65535
         },
         "active": True,
-        "inverted": False,
-        "coefficient": 1.0,
-        "family": "linear",
+        # "inverted": False,
+        # "coefficient": 1.0,
+        # "family": "linear",
     } for i in range(C)]
 
-    root.attrs["multiscales"] = [{
-        # "version": CurrentFormat.version,
-        "name": metadata.get("name", "OME-Zarr image"),
-        "datasets": [
-            {
-                "path": str(i),
-                "coordinateTransformations": coordinate_transformations[i],
-            }
-            for i in range(len(data_levels))
-        ],
-        "axes": axes,
-        "type": "image",
-    }]
+    # root.attrs["multiscales"] = [{
+    #     # "version": CurrentFormat.version,
+    #     "name": metadata.get("name", "OME-Zarr image"),
+    #     "datasets": [
+    #         {
+    #             "path": str(i),
+    #             "coordinateTransformations": coordinate_transformations[i],
+    #         }
+    #         for i in range(len(data_levels))
+    #     ],
+    #     "axes": axes,
+    #     "type": "image",
+    # }]
 
-    root.attrs["omero"] = {
-        "channels": channels,
-        "rdefs": {"model": "color"}
-    }
+    # root.attrs["omero"] = {
+    #     "channels": channels,
+    #     "rdefs": {"model": "color"}
+    # }
+
+    ############################
+
+    # transformations = [
+    #     [{"type": "scale", "scale": [1.0, 1.0, 1.0]}],
+    #     [{"type": "scale", "scale": [1.0, 2.0, 2.0]}],
+    #     [{"type": "scale", "scale": [1.0, 4.0, 4.0]}]
+    # ]
+    # datasets = []
+    # for p, t in zip(range(len(data_levels)), coordinate_transformations):
+    #     datasets.append({"path": p, "coordinateTransformations": t})
+
+    # from ome_zarr.writer import write_multiscales_metadata, add_metadata
+    # write_multiscales_metadata(root,
+    #                            datasets,
+    #                            axes=axes
+    #                           )
+    
+    add_metadata(
+        root,
+        {"omero":{
+                "channels": channels,
+                # "rdefs": {"model": "color"}
+            }
+        }
+    )
 

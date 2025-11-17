@@ -4,7 +4,6 @@ import numpy as np
 import dask.array as da
 from .microscope_manager import MicroscopeManager
 import zarr
-from zarr.storage import NestedDirectoryStore
 import napari
 import os
 
@@ -55,13 +54,13 @@ class ZarrManager(MicroscopeManager):
         # If path exists and we're in read mode, read it
         if os.path.exists(self.path):
             if mode in ("r", "a"):
-                self.root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
+                self.root = zarr.open(zarr.storage.LocalStore(self.path), mode=self.mode)
                 self.read()
             else:
                 raise FileNotFoundError(f"Zarr path {self.path} exists and mode='{mode}' is write-only. Please select mode='r' or 'a'.")
         else:
             if mode in ("w", "a"):
-                self.root = zarr.open(zarr.NestedDirectoryStore(self.path), mode=self.mode)
+                self.root = zarr.open(zarr.storage.LocalStore(self.path), mode=self.mode)
                 from .utils.create_empty_dataset import create_empty_dataset as _create_empty_dataset
                 _create_empty_dataset(self.root,
                                       self.metadata)
@@ -90,7 +89,7 @@ class ZarrManager(MicroscopeManager):
             If the dataset structure is invalid or lacks required metadata.
         """
         
-        image_meta = self.root.attrs.asdict()
+        image_meta = self.root.attrs.asdict().get("ome")
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
         omero = image_meta.get("omero", {})
