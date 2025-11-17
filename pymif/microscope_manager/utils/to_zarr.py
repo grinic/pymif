@@ -149,42 +149,6 @@ def to_zarr(
         # "coefficient": 1.0,
         # "family": "linear",
     } for i in range(C)]
-
-    # root.attrs["multiscales"] = [{
-    #     # "version": CurrentFormat.version,
-    #     "name": metadata.get("name", "OME-Zarr image"),
-    #     "datasets": [
-    #         {
-    #             "path": str(i),
-    #             "coordinateTransformations": coordinate_transformations[i],
-    #         }
-    #         for i in range(len(data_levels))
-    #     ],
-    #     "axes": axes,
-    #     "type": "image",
-    # }]
-
-    # root.attrs["omero"] = {
-    #     "channels": channels,
-    #     "rdefs": {"model": "color"}
-    # }
-
-    ############################
-
-    # transformations = [
-    #     [{"type": "scale", "scale": [1.0, 1.0, 1.0]}],
-    #     [{"type": "scale", "scale": [1.0, 2.0, 2.0]}],
-    #     [{"type": "scale", "scale": [1.0, 4.0, 4.0]}]
-    # ]
-    # datasets = []
-    # for p, t in zip(range(len(data_levels)), coordinate_transformations):
-    #     datasets.append({"path": p, "coordinateTransformations": t})
-
-    # from ome_zarr.writer import write_multiscales_metadata, add_metadata
-    # write_multiscales_metadata(root,
-    #                            datasets,
-    #                            axes=axes
-    #                           )
     
     add_metadata(
         root,
