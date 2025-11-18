@@ -51,6 +51,7 @@ def to_zarr(
 
     root = zarr.open(zarr.NestedDirectoryStore(path), mode="w")
     
+    compressor_fun = None
     if isinstance(compressor, str):
         if compressor.lower() == "blosc":
             compressor_fun = Blosc(cname="zstd", clevel=compressor_level, shuffle=Blosc.BITSHUFFLE)
