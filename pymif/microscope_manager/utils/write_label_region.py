@@ -57,7 +57,7 @@ def write_label_region(
         return
 
     # Get multiscales metadata
-    multiscales = group.attrs.get("multiscales")
+    multiscales = group.attrs.get("ome").get("multiscales")
     if not multiscales:
         warnings.warn(
             f"No 'multiscales' attribute found in group '{group_name or '/'}'. "

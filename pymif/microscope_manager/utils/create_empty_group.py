@@ -42,7 +42,7 @@ def create_empty_group(
     scales = metadata.get("scales", [])
     time_increment = metadata.get("time_increment", 1.0)
     time_increment_unit = metadata.get("time_increment_unit", "")
-    axes_labels = metadata["axes"]
+    axes_labels = "tczyx" if not is_label else "tzyx"
     units = metadata.get("units", [])
 
     # Build coordinate transformations
@@ -50,7 +50,7 @@ def create_empty_group(
         [
             {
                 "type": "scale",
-                "scale": [time_increment] + ([1] if "c" in axes_labels and not is_label else []) + list(scale),
+                "scale": [time_increment] + ([1] if not is_label else []) + list(scale),
             }
         ]
         for scale in scales
@@ -102,14 +102,25 @@ def create_empty_group(
 
     # Register in root so Napari can see it
     if is_label:
-        grp.attrs["image-label"] = {"source": {"image": "../../"}}  # label points to root image
-        labels_attr = root.attrs.get("labels", [])
+        d = {}
+        for k in grp.attrs["ome"].keys():
+            # print(k, root.attrs["ome"][k])
+            d[k] = grp.attrs["ome"][k]
+        d["image-label"] = {"source": {"image": "../../"}}  # label points to root image
+        grp.attrs["ome"] = d
+        labels_attr = root.attrs.get("ome").get("labels", [])
         if not isinstance(labels_attr, list):
             labels_attr = []
         label_path = f"labels/{group_name}"
+        d = {}
+        for k in root.attrs["ome"].keys():
+            # print(k, root.attrs["ome"][k])
+            d[k] = root.attrs["ome"][k]
         if label_path not in labels_attr:
             labels_attr.append(label_path)
-            root.attrs["labels"] = labels_attr
+            d["labels"] = labels_attr
+        root.attrs["ome"] = d
+
     else:
         # For images, append to root multiscales if not already present
         root_multiscales = root.attrs.get("ome").get("multiscales", [])
@@ -158,7 +169,7 @@ def create_empty_group(
             }
         )
 
-        grp.attrs["image-source"] = {"source":{"image":"../"}}
+        grp.attrs.get("ome")["image-source"] = {"source":{"image":"../"}}
 
     print(f"[INFO] Created empty {'label' if is_label else 'image'} group '{grp.path}' in store '{root.store}'")
     return grp
