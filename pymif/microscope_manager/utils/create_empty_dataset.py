@@ -1,5 +1,6 @@
 from typing import Dict, Any
 import zarr
+# from ome_zarr.format import CurrentFormat
 
 def create_empty_dataset(
     root: zarr.Group,
@@ -67,8 +68,8 @@ def create_empty_dataset(
             shape=shape,
             chunks=chunk,
             dtype=dtype,
-            compressor=None,
-            write_empty_chunks=False,  # ✅ prevents physical chunk creation
+            # compressor=None,
+            # write_empty_chunks=False,  # ✅ prevents physical chunk creation
         )
         datasets.append({"path": str(i)})
 
@@ -102,24 +103,27 @@ def create_empty_dataset(
         "family": "linear",
     } for i in range(C)]
 
-    root.attrs["multiscales"] = [{
-        # "version": CurrentFormat.version,
-        "name": metadata.get("name", "OME-Zarr image"),
-        "datasets": [
-            {
-                "path": str(i),
-                "coordinateTransformations": coordinate_transformations[i],
-            }
-            for i in range(len(sizes))
-        ],
-        "axes": axes,
-        "type": "image",
-    }]
 
-    root.attrs["omero"] = {
-        "channels": channels,
-        "rdefs": {"model": "color"}
+    root.attrs["ome"] = {
+        "version": "0.5",
+        "multiscales": [{
+            "name": metadata.get("name", "OME-Zarr image"),
+            "datasets": [
+                {
+                    "path": str(i),
+                    "coordinateTransformations": coordinate_transformations[i],
+                }
+                for i in range(len(sizes))
+            ],
+            "axes": axes,
+            "type": "image",
+        }],
+        "omero": {
+            "channels": channels,
+            "rdefs": {"model": "color"}
+        }
     }
 
-    print(f"[INFO] Created empty OME-Zarr dataset at {root.store.path}.")
+
+    print(f"[INFO] Created empty OME-Zarr dataset at {root.store}.")
 

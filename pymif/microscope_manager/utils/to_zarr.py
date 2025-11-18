@@ -118,6 +118,7 @@ def to_zarr(
         axes=axes,
         coordinate_transformations=coordinate_transformations,
         storage_options={"compressor": compressor_fun},
+        name=metadata.get("name", None),
     )
 
     # OMERO metadata
@@ -145,16 +146,16 @@ def to_zarr(
             "max": 65535
         },
         "active": True,
-        # "inverted": False,
-        # "coefficient": 1.0,
-        # "family": "linear",
+        "inverted": False,
+        "coefficient": 1.0,
+        "family": "linear",
     } for i in range(C)]
     
     add_metadata(
         root,
         {"omero":{
                 "channels": channels,
-                # "rdefs": {"model": "color"}
+                "rdefs": {"model": "color"}
             }
         }
     )
