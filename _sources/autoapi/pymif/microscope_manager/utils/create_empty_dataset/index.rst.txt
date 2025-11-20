@@ -1,0 +1,22 @@
+pymif.microscope_manager.utils.create_empty_dataset
+===================================================
+
+.. py:module:: pymif.microscope_manager.utils.create_empty_dataset
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.create_empty_dataset.create_empty_dataset
+
+
+Module Contents
+---------------
+
+.. py:function:: create_empty_dataset(root: zarr.Group, metadata: Dict[str, Any])
+
+   Create an empty OME-Zarr dataset using provided metadata (lazy initialization).
+
+
