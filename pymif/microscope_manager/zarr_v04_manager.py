@@ -129,6 +129,7 @@ class ZarrV04Manager(MicroscopeManager):
         
         ### optional, read other groups
         self.groups = {}
+        self.labels = {}
         for name in self.root.group_keys():
             if name == "labels":
                 self.labels = self._load_labels()
