@@ -2,6 +2,8 @@
 
 **PyMIF** (source code [here](https://github.com/grinic/pymif)) is a modular Python package to read, visualize, and write multiscale (pyramidal) microscopy image data from a variety of microscope platforms available at the [Mesoscopic Imaging Facility (MIF)](https://www.embl.org/groups/mesoscopic-imaging-facility/) into the [OME-NGFF (Zarr)](https://ngff.openmicroscopy.org/) format.
 
+**NOTE**: As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older version of PyMIF (e.g. 0.2.4) can still be loaded using the manager `ZarrV04Manager` as shown in [examples](https://github.com/grinic/pymif/tree/main/examples).
+
 ---
 
 ## 📦 Features
@@ -39,13 +41,19 @@ pymif/
 │   ├── opera_manager.py
 │   ├── zeiss_manager.py
 │   ├── zarr_manager.py
+│   ├── zarr_v04_manager.py
 │   ├── array_manager.py
 │   ├── microscope_manager.py
 │   └── utils/
 │    ├── pyramid.py
 │    ├── visualize.py
 │    ├── add_labels.py
-│    └── write.py
+│    ├── subset.py
+│    ├── to_zarr.py
+│    ├── write_image_region.py
+│    ├── write_label_region.py
+│    ├── create_empty_dataset.py
+│    └── create_empty_group.py
 │
 ├── examples/
 | ├── example_luxendo.ipynb
@@ -53,7 +61,8 @@ pymif/
 | ├── example_opera.ipynb
 | ├── example_zeiss.ipynb
 | ├── example_zarr.ipynb
-│ └── example_array.ipynb
+| ├── example_array.ipynb
+│ └── ...
 │
 ├── tests/
 │ └── ...
@@ -82,8 +91,10 @@ Installation is then done by cloning the repository:
 ```bash
 git clone https://github.com/grinic/pymif.git
 cd pymif
-python -m pip install -e .
+python -m pip install .
 ```
+
+**NOTE**: Use the `-e` option if you want to use the download as installation folder.
 
 ### 📚 Example Usage
 

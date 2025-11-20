@@ -6,11 +6,11 @@ with open("requirements.txt") as f:
 
 setup(
     name="pymif",
-    version="0.2.2",
+    version="0.3.0",
     description="A collection of functions in Python for MIF users.",
     author="Nicola Gritti",
     author_email="nicola.gritti@embl.es",
     packages=find_packages(),
     install_requires=requirements,
-    python_requires=">=3.8",
+    python_requires=">=3.11",
 )
