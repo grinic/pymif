@@ -97,10 +97,6 @@ def add_label(
     
     label_grp = labels_grp.create_group(label_name)
 
-    label_grp.attrs["image-label"] = {
-            "version": "0.4",
-            "source": {"image": "../../"}
-    }
     write_multiscale(
         pyramid=label_levels,
         group=label_grp,
@@ -109,14 +105,29 @@ def add_label(
         # storage_options={"compressor": compressor},
     )
 
+    d = {}
+    for k in label_grp.attrs["ome"].keys():
+        # print(k, root.attrs["ome"][k])
+        d[k] = label_grp.attrs["ome"][k]
+    d["image-label"] = {"source": {"image": "../../"}}  # label points to root image
+    label_grp.attrs["ome"] = d
+
     # Check if label already listed
     # Update labels list at the root (just names, not paths)
     labels_attr = root.attrs.get("labels", [])
     if not isinstance(labels_attr, list):
         labels_attr = []
-    # Check if label already listed
-    if not any(lbl == f"labels/{label_name}" for lbl in labels_attr):
-        labels_attr.append(f"labels/{label_name}")
+
+    labels_attr = root.attrs.get("ome").get("labels", [])
+    if not isinstance(labels_attr, list):
+        labels_attr = []
+    label_path = f"labels/{label_name}"
+    d = {}
+    for k in root.attrs["ome"].keys():
+        # print(k, root.attrs["ome"][k])
+        d[k] = root.attrs["ome"][k]
+    if label_path not in labels_attr:
+        labels_attr.append(label_path)
+        d["labels"] = labels_attr
+    root.attrs["ome"] = d
     
-    # Update root attributes with full label list
-    root.attrs["labels"] = labels_attr

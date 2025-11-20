@@ -7,9 +7,9 @@ import zarr
 import napari
 import os
 
-class ZarrManager(MicroscopeManager):
+class ZarrV04Manager(MicroscopeManager):
     """
-    A manager class for reading and handling OME-Zarr datasets.
+    A manager class for reading and handling OME-Zarr V0.4 datasets.
 
     This class reads NGFF-compliant multiscale image data along with
     metadata and optional label layers from a Zarr directory. It supports
@@ -28,7 +28,6 @@ class ZarrManager(MicroscopeManager):
     def __init__(self, 
                  path,
                  chunks: Tuple[int, ...] = None,
-                 mode: str = "r",
                  metadata: dict[str, Any] = None):
         """
         Initialize the ZarrManager.
@@ -46,26 +45,14 @@ class ZarrManager(MicroscopeManager):
         super().__init__()
         self.path = path
         self.chunks = chunks
-        self.mode = mode
+        self.mode = "r"
         self.metadata = metadata
         
         # Access raw NGFF metadata
 
         # If path exists and we're in read mode, read it
-        if os.path.exists(self.path):
-            if mode in ("r", "a"):
-                self.root = zarr.open(zarr.storage.LocalStore(self.path), mode=self.mode)
-                self.read()
-            else:
-                raise FileNotFoundError(f"Zarr path {self.path} exists and mode='{mode}' is write-only. Please select mode='r' or 'a'.")
-        else:
-            if mode in ("w", "a"):
-                self.root = zarr.open(zarr.storage.LocalStore(self.path), mode=self.mode)
-                from .utils.create_empty_dataset import create_empty_dataset as _create_empty_dataset
-                _create_empty_dataset(self.root,
-                                      self.metadata)
-            else:
-                raise FileNotFoundError(f"Zarr path {self.path} does not exist and mode='{mode}' is read-only. Please select mode='w' or 'a'.")
+        self.root = zarr.open(zarr.storage.LocalStore(self.path), mode=self.mode)
+        self.read()
         
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
         """
@@ -89,7 +76,7 @@ class ZarrManager(MicroscopeManager):
             If the dataset structure is invalid or lacks required metadata.
         """
         
-        image_meta = self.root.attrs.asdict().get("ome")
+        image_meta = self.root.attrs.asdict()
         multiscales = image_meta.get("multiscales", [{}])[0]
         datasets = multiscales.get("datasets", [])
         omero = image_meta.get("omero", {})
@@ -142,7 +129,6 @@ class ZarrManager(MicroscopeManager):
         
         ### optional, read other groups
         self.groups = {}
-        self.labels = {}
         for name in self.root.group_keys():
             if name == "labels":
                 self.labels = self._load_labels()
@@ -156,7 +142,7 @@ class ZarrManager(MicroscopeManager):
 
     def _load_group(self, name):
         group = self.root[name]
-        multiscale = group.attrs.get("ome").get("multiscales", [{}])[0]
+        multiscale = group.attrs.get("multiscales", [{}])[0]
         datasets = multiscale.get("datasets", [])
         arrays = [da.from_zarr(group[ds["path"]]) for ds in datasets]
         return arrays
@@ -181,48 +167,13 @@ class ZarrManager(MicroscopeManager):
         labels_grp = self.root["labels"]
         for label_name, label_grp in labels_grp.groups():
             # Expect label_grp to have a multiscale structure similar to images
-            label_multiscales = label_grp.attrs.get("ome").get("multiscales", [])
+            label_multiscales = label_grp.attrs.get("multiscales", [])
             if not label_multiscales:
                 continue
 
             label_datasets = label_multiscales[0].get("datasets", [])
             labels[label_name] = [da.from_zarr(label_grp[ds["path"]]) for ds in label_datasets]
         return labels
-        
-    def add_label(self, 
-                    label_levels: List[da.Array],
-                    label_name: str = "new_label",
-                    compressor: Any = None, 
-                    compressor_level: Any = 3, 
-                    parallelize: Any = False) -> None:
-        """
-        Add a label layer to the Zarr dataset.
-
-        Parameters
-        ----------
-        label_levels : List[dask.array.Array]
-            A list of arrays representing a label image pyramid.
-        label_name : str, optional
-            Name of the label group (default is "new_label").
-        compressor : Any, optional
-            Compression method to use when writing labels.
-        compressor_level : Any, optional
-            Compression level to apply (default: 3).
-        parallelize : bool, optional
-            If True, label data is written in parallel.
-        """
-        
-        from .utils.add_label import add_label as _add_label
-        return _add_label(
-                        root=self.root,
-                        mode=self.mode, 
-                        label_levels=label_levels, 
-                        label_name=label_name,
-                        metadata=self.metadata, 
-                        compressor=compressor, 
-                        compressor_level=compressor_level,
-                        parallelize=parallelize
-                      )
         
     def visualize_zarr(self,
             viewer: Optional[napari.Viewer] = None,
@@ -269,75 +220,3 @@ class ZarrManager(MicroscopeManager):
         
         return viewer
     
-    def create_empty_group(
-            self,
-            group_name: str,
-            metadata: Dict[str, Any],
-            is_label: bool = False,
-    ):
-        from .utils.create_empty_group import create_empty_group as _create_empty_group
-        return _create_empty_group(
-            root = self.root,
-            group_name = group_name,
-            metadata = metadata,
-            is_label = is_label,
-        )
-
-    def write_image_region(
-        self,
-        data,
-        t: int | slice = slice(None),
-        c: int | slice = slice(None),
-        z: int | slice = slice(None),
-        y: int | slice = slice(None),
-        x: int | slice = slice(None),
-        level: int = 0,
-        group: Optional[str] = None,
-    ):
-        """
-        Public method to write or update a region in the dataset or sub-group.
-
-        Parameters
-        ----------
-        data : Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]]
-            Arrays representing an image region or its pyramid.
-        t, c, z, y, x : int or slice
-            Slices for each dimension.
-        level : int
-            The pyramid level to write to (if `data` is a single array).
-        group_name : str, optional
-            Name of the group inside the root.       
-        """
-        from .utils.write_image_region import write_image_region as _write_image_region
-        return _write_image_region(
-            root=self.root,
-            mode=self.mode,
-            data=data,
-            t=t, c=c, z=z, y=y, x=x,
-            level=level,
-            group_name=group,
-        )
-
-    def write_label_region(
-        self,
-        data,
-        t: int | slice = slice(None),
-        z: int | slice = slice(None),
-        y: int | slice = slice(None),
-        x: int | slice = slice(None),
-        level: int = 0,
-        group: str = None,
-    ):
-        """
-        Public method to write or update a region in the dataset or sub-group.
-        """
-        from .utils.write_label_region import write_label_region as _write_label_region
-        return _write_label_region(
-            root=self.root,
-            mode=self.mode,
-            data=data,
-            t=t, z=z, y=y, x=x,
-            level=level,
-            group_name=group,
-        )
-        

@@ -3,7 +3,7 @@ from dask.distributed import Client
 from dask.diagnostics import ProgressBar
 from numcodecs import Blosc, GZip
 from typing import List, Dict, Any
-from ome_zarr.writer import write_multiscale
+from ome_zarr.writer import write_multiscale, add_metadata
 import zarr
 from pathlib import Path
 
@@ -49,7 +49,7 @@ def to_zarr(
     """
     print("Start writing dataset.")
 
-    root = zarr.open(zarr.NestedDirectoryStore(path), mode="w")
+    root = zarr.open(zarr.storage.LocalStore(path), mode="w")
     
     compressor_fun = None
     if isinstance(compressor, str):
@@ -58,7 +58,7 @@ def to_zarr(
         if compressor.lower() == "gzip":
             compressor_fun = GZip(level=compressor_level)
         
-    store_path = Path(root.store.path)
+    store_path = Path(path)
     if store_path.exists() and overwrite:
         import shutil
         shutil.rmtree(store_path)
@@ -118,6 +118,7 @@ def to_zarr(
         axes=axes,
         coordinate_transformations=coordinate_transformations,
         storage_options={"compressor": compressor_fun},
+        name=metadata.get("name", None),
     )
 
     # OMERO metadata
@@ -149,23 +150,13 @@ def to_zarr(
         "coefficient": 1.0,
         "family": "linear",
     } for i in range(C)]
-
-    root.attrs["multiscales"] = [{
-        # "version": CurrentFormat.version,
-        "name": metadata.get("name", "OME-Zarr image"),
-        "datasets": [
-            {
-                "path": str(i),
-                "coordinateTransformations": coordinate_transformations[i],
+    
+    add_metadata(
+        root,
+        {"omero":{
+                "channels": channels,
+                "rdefs": {"model": "color"}
             }
-            for i in range(len(data_levels))
-        ],
-        "axes": axes,
-        "type": "image",
-    }]
-
-    root.attrs["omero"] = {
-        "channels": channels,
-        "rdefs": {"model": "color"}
-    }
+        }
+    )
 

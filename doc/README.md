@@ -73,7 +73,7 @@ pymif/
 It is recommended to install pymif in a clean conda environment:
 
 ```bash
-conda create -n pymif python=3.10
+conda create -n pymif python=3.12
 conda activate pymif
 ```
 
