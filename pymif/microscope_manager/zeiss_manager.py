@@ -4,6 +4,7 @@ from .microscope_manager import MicroscopeManager
 # from bioio_czi.aicspylibczi_reader.reader import Reader as AicsPyLibCziReader
 # from bioio_czi.pylibczirw_reader.reader import Reader as PyLibCziReader
 from bioio import BioImage
+import numpy as np
 
 class ZeissManager(MicroscopeManager):
     """
@@ -104,7 +105,7 @@ class ZeissManager(MicroscopeManager):
         
         units = ["micrometer"] * 3
         
-        time_increment = float(czi.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/Value") or 1.0)
+        time_increment = np.clip( float(czi.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/Value") or 1.0), 1.0 )
         time_unit = czi.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/DefaultUnitFormat") or "s"
 
         # Channels
