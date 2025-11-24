@@ -142,7 +142,7 @@ def to_zarr(
         "color": _normalize_color(ch_colors[i]),
         "window": {
             "start": 0,
-            "end": int(np.clip( 2*np.max(data_levels[-1][-1,i,...].compute()), 100, 65535 )),
+            "end": 65535,
             "min": 0,
             "max": 65535
         },
