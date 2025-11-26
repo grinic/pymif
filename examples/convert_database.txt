@@ -1,0 +1,5 @@
+input   microscope  output  max_size(MB)
+/g/mif/common/MIF_dataset_collection/Opera/Marco_Andres/2C-430Z.ome.tiff    opera   /g/mif/common/MIF_dataset_collection/Opera/Marco_Andres/2C-430Z_1.zarr  100
+/g/mif/common/MIF_dataset_collection/Opera/Marco_Andres/2C-430Z.ome.tiff    opera   /g/mif/common/MIF_dataset_collection/Opera/Marco_Andres/2C-430Z_2.zarr  100
+/g/mif/common/MIF_dataset_collection/Opera/Marco_Andres/2C-430Z.ome.tiff    opera   /g/mif/common/MIF_dataset_collection/Opera/Marco_Andres/2C-430Z_3.zarr  100
+/g/mif/common/MIF_dataset_collection/Opera/Marco_Andres/2C-430Z.ome.tiff    opera   /g/mif/common/MIF_dataset_collection/Opera/Marco_Andres/2C-430Z_4.zarr  100
