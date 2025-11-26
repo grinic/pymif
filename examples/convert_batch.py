@@ -7,10 +7,13 @@
 
 import argparse
 import pymif.microscope_manager as mm
+import pandas as pd
 import os
 import time
 
 def zarr_convert(input_path, zarr_path, microscope, max_size):
+    print("-"*20)
+    print(f"Converting data:\n input_path: {input_path}\n microscope: {microscope}\n output_path: {zarr_path}\n max_chunk_size(MB): {max_size}")
 
     if microscope.lower()=="luxendo":
         manager = mm.LuxendoManager
@@ -25,14 +28,14 @@ def zarr_convert(input_path, zarr_path, microscope, max_size):
     elif microscope.lower()=="zarr":
         manager = mm.ZarrManager
 
-    # --- Figure out chunks dimensions ---
     dataset = manager(path=input_path)
     # --- Show metadata summary ---
     for i in dataset.metadata:
         print(f"{i.upper()}: {dataset.metadata[i]}")
-    print("CHUNK SIZE:", dataset.chunks)
-    print("DATASET SIZE (MB):", 2*dataset.metadata["size"][0][0]*dataset.metadata["size"][0][1]*dataset.metadata["size"][0][2]*dataset.metadata["size"][0][3]*dataset.metadata["size"][0][4]/1024/1024)
+    print("DATASET SIZE (GB):", 2*dataset.metadata["size"][0][0]*dataset.metadata["size"][0][1]*dataset.metadata["size"][0][2]*dataset.metadata["size"][0][3]*dataset.metadata["size"][0][4]/1024/1024/1024)
 
+    # --- Figure out chunks dimensions ---
+    # make sure each chunk does not exceed the specified size in MB
     n_chunks = [2,1,1]
     chunk_size = [
         1, 1, # T, C
@@ -52,19 +55,15 @@ def zarr_convert(input_path, zarr_path, microscope, max_size):
         size_mb = 2*chunk_size[2]*chunk_size[3]*chunk_size[4]/1024/1024
 
     print("\n")
-    print(f"Chunk size: {chunk_size}, {size_mb} MB.")
-    print(f"N chunks: {n_chunks}.")
+    print(f"CHUNKS DIMS (TCZYX): {chunk_size}")
+    print(f"CHUNKS SIZE (MB): {size_mb}")
+    print(f"N CHUNKS: {n_chunks}")
 
     # --- Initialize manager ---
     dataset = manager(path=input_path, chunks=chunk_size)
 
-    # --- Show metadata summary ---
-    print("\n")
-    for i in dataset.metadata:
-        print(f"{i.upper()}: {dataset.metadata[i]}")
-    print("CHUNK SIZE:", dataset.chunks)
-
     # --- Build pyramid if not already ---
+    # make sure last layer has no dimension exceedinf 2048 (MAX_GL for 3D rendering)
     n = 1
     shape = [dataset.metadata["size"][0][2], dataset.metadata["size"][0][3], dataset.metadata["size"][0][4]] # [Y, X]
     print("\n")
@@ -97,18 +96,29 @@ def main():
 
     print(f"Running with: {args}")
 
-    import csv
-    with open(args.input_file) as f:
-        reader = csv.reader(f, delimiter="\t")
-        d = list(reader)
-    print(d)
+    lines = []
+    for line in open(args.input_file).readlines():
+        lines.append(line.strip().split())
 
-    # zarr_convert(
-    #     args.input_path, 
-    #     args.zarr_path, 
-    #     args.microscope,
-    #     args.max_size,
-    #     )
+    d = {}
+    keys = lines[0]
+    for k in keys:
+        d[k] = []
+    for a in lines[1:]:
+        for k, b in zip(keys, a):
+            d[k].append(b)
+    d = pd.DataFrame(d)
+    # print(d)
+
+    for i, v in d.iterrows():
+        # print("\n")
+        # print(v["input"])
+        zarr_convert(
+            v["input"], 
+            v["output"], 
+            v["microscope"],
+            float(v["max_size(MB)"]),
+            )
 
 
 if __name__ == "__main__":
