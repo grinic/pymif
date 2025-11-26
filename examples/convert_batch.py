@@ -2,7 +2,7 @@
 
 ###
 # To run:
-# ./test.py -i <input> -z <zarr> -m <microscope>
+# ./conert_batch.py -i <input> -z <zarr> -m <microscope>
 ###
 
 import argparse
