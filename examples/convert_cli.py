@@ -2,7 +2,8 @@
 
 ###
 # To run:
-# ./test.py -i <input> -z <zarr> -m <microscope>
+# >> conda activate pymif
+# (pymif) >> ./convert_cli.py -i <input> -z <zarr> -m <microscope>
 ###
 
 import argparse

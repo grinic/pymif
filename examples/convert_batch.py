@@ -2,7 +2,8 @@
 
 ###
 # To run:
-# ./conert_batch.py -i <input> -z <zarr> -m <microscope>
+# >> conda activate pymif
+# (pymif) >> ./convert_batch.py -i <input>
 ###
 
 import argparse
