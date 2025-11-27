@@ -98,7 +98,7 @@ def main():
         description="Command-line interface for the pymif package to convert a single dataset in zarr.\n\
                     To run:\n\
                     >> conda activate pymif\n\
-                    (pymif) >> ./convert_cli.py -i <input> -z <zarr> -m <microscope> -ms <max_size> -si <scene_index>",
+                    (pymif) >> pymif-2zarr -i <input> -z <zarr> -m <microscope> -ms <max_size> -si <scene_index>",
         formatter_class=RawTextHelpFormatter
     )
 

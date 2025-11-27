@@ -100,10 +100,10 @@ def main():
                     ">> conda activate pymif\n"
                     "(pymif) >> pymif-batch2zarr -i <input>\n"
                     "The <input> txt file should be of the form:\n\n"
-                    "input   microscope  output  max_size(MB)    scene_index\n"
-                    "/path/to/input1    opera   /path/to/zarr1  100 0\n"
-                    "/path/to/input2    viventis   /path/to/zarr2  100 0\n"
-                    "/path/to/input3    zeiss   /path/to/zarr2  100 1\n",
+                    "input              microscope      output              max_size(MB)    scene_index\n"
+                    "/path/to/input1    opera           /path/to/zarr1      100             0\n"
+                    "/path/to/input2    viventis        /path/to/zarr2      100             0\n"
+                    "/path/to/input3    zeiss           /path/to/zarr2      100             1\n",
         formatter_class=RawTextHelpFormatter
     )
 
