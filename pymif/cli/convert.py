@@ -1,17 +1,17 @@
-#!/usr/bin/env python3
-
-###
-# To run:
-# >> conda activate pymif
-# (pymif) >> ./convert_cli.py -i <input> -z <zarr> -m <microscope>
-###
+"""
+Command-line interface for the pymif package to convert a single dataset
+To run:
+>> conda activate pymif
+(pymif) >> ./convert_cli.py -i <input> -z <zarr> -m <microscope>
+"""
 
 import argparse
+from argparse import RawTextHelpFormatter
 import pymif.microscope_manager as mm
 import os
 import time
 
-def zarr_convert(input_path, zarr_path, microscope, max_size):
+def zarr_convert(input_path, zarr_path, microscope, max_size, scene_index=-1):
 
     if microscope.lower()=="luxendo":
         manager = mm.LuxendoManager
@@ -27,7 +27,10 @@ def zarr_convert(input_path, zarr_path, microscope, max_size):
         manager = mm.ZarrManager
 
     # --- Figure out chunks dimensions ---
-    dataset = manager(path=input_path)
+    if microscope.lower() == "zeiss":
+        dataset = manager(path=input_path,scene_index=scene_index)
+    else:
+        dataset = manager(path=input_path)
     # --- Show metadata summary ---
     for i in dataset.metadata:
         print(f"{i.upper()}: {dataset.metadata[i]}")
@@ -57,7 +60,10 @@ def zarr_convert(input_path, zarr_path, microscope, max_size):
     print(f"N chunks: {n_chunks}.")
 
     # --- Initialize manager ---
-    dataset = manager(path=input_path, chunks=chunk_size)
+    if microscope.lower() == "zeiss":
+        dataset = manager(path=input_path,scene_index=scene_index, chunks=chunk_size)
+    else:
+        dataset = manager(path=input_path, chunks=chunk_size)
 
     # --- Show metadata summary ---
     print("\n")
@@ -89,7 +95,11 @@ def zarr_convert(input_path, zarr_path, microscope, max_size):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Process an image with scaling."
+        description="Command-line interface for the pymif package to convert a single dataset in zarr.\n\
+                    To run:\n\
+                    >> conda activate pymif\n\
+                    (pymif) >> ./convert_cli.py -i <input> -z <zarr> -m <microscope> -ms <max_size> -si <scene_index>",
+        formatter_class=RawTextHelpFormatter
     )
 
     parser.add_argument("--input_path", "-i", required=True, help="Path to the input file.")
@@ -97,6 +107,7 @@ def main():
     parser.add_argument("--microscope", "-m", required=True, 
                         help="Microscope. One of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\".")
     parser.add_argument("--max_size", "-ms", required=False, default=100, help="Max chunk size in MB.")
+    parser.add_argument("--scene_index", "-si", required=False, default=0, help="Scene index for .czi files.")
 
     args = parser.parse_args()
 
@@ -107,6 +118,7 @@ def main():
         args.zarr_path, 
         args.microscope,
         args.max_size,
+        args.scene_index,
         )
 
 

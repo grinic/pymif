@@ -13,4 +13,10 @@ setup(
     packages=find_packages(),
     install_requires=requirements,
     python_requires=">=3.11",
+    entry_points={
+        "console_scripts": [
+            "pymif-batch2zarr = pymif.cli.convert_batch:main",
+            "pymif-2zarr = pymif.cli.convert:main",
+        ]
+    },
 )

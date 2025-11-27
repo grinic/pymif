@@ -23,6 +23,7 @@
   - Nested directory layout
   - Full NGFF + OMERO metadata (channel names, colors, scales, units)
   - Optional parallelization with `dask-distribute`
+- ✅ Command line interface (CLI) available for batch conversion.
 - ✅ Visualize pyramids in **Napari** using `napari-ome-zarr` plugin:
   - Using lazy loading for fast visualization, or
   - Using *in-memory* loading of any resolution layer for interactivity.
@@ -115,6 +116,33 @@ viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
 
 
 For more examples, see [examples](https://github.com/grinic/pymif/tree/main/examples).
+
+### 📚 Example CLI Usage
+
+Two CLI commands are available upon activation of the environment:
+
+```bash
+conda activate pymif
+pymif-2zarr -i <input> -z <zarr_output> -m <microscope> -ms <max_chunk_size_MB> -si <scene_index_czi>
+```
+
+converts a single dataset into the corresponding output zarr.
+
+```bash
+conda activate pymif
+pymif-batch2zarr -i <input.txt>
+```
+
+converts all datasets specified in an .txt file that has the form:
+
+```
+input                microscope   output    max_size(MB)    scene_index
+dataset1.ome.tiff    opera        d1.zarr   100             0
+dataset2             viventis     d2.zarr   100             0
+dataset3.czi         zeiss        d3.zarr   100             2
+...
+```
+
 
 ### 🧪 Running Tests
 
