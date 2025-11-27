@@ -1,18 +1,18 @@
-#!/usr/bin/env python3
-
-###
-# To run:
-# >> conda activate pymif
-# (pymif) >> ./convert_batch.py -i <input>
-###
+"""
+Command-line interface for the pymif package.
+To run:
+>> conda activate pymif
+(pymif) >> ./convert_batch.py -i <input>
+"""
 
 import argparse
+from argparse import RawTextHelpFormatter
 import pymif.microscope_manager as mm
 import pandas as pd
 import os
 import time
 
-def zarr_convert(input_path, zarr_path, microscope, max_size):
+def zarr_convert(input_path, zarr_path, microscope, max_size, scene_index=-1):
     print("-"*20)
     print(f"Converting data:\n input_path: {input_path}\n microscope: {microscope}\n output_path: {zarr_path}\n max_chunk_size(MB): {max_size}")
 
@@ -29,7 +29,11 @@ def zarr_convert(input_path, zarr_path, microscope, max_size):
     elif microscope.lower()=="zarr":
         manager = mm.ZarrManager
 
-    dataset = manager(path=input_path)
+    if microscope.lower() == "zeiss":
+        dataset = manager(path=input_path,scene_index=scene_index)
+    else:
+        dataset = manager(path=input_path)
+
     # --- Show metadata summary ---
     for i in dataset.metadata:
         print(f"{i.upper()}: {dataset.metadata[i]}")
@@ -61,7 +65,10 @@ def zarr_convert(input_path, zarr_path, microscope, max_size):
     print(f"N CHUNKS: {n_chunks}")
 
     # --- Initialize manager ---
-    dataset = manager(path=input_path, chunks=chunk_size)
+    if microscope.lower() == "zeiss":
+        dataset = manager(path=input_path,scene_index=scene_index, chunks=chunk_size)
+    else:
+        dataset = manager(path=input_path, chunks=chunk_size)
 
     # --- Build pyramid if not already ---
     # make sure last layer has no dimension exceedinf 2048 (MAX_GL for 3D rendering)
@@ -88,7 +95,16 @@ def zarr_convert(input_path, zarr_path, microscope, max_size):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Process an image with scaling."
+        description="Command-line interface for the pymif package.\n\n"
+                    "To run:\n"
+                    ">> conda activate pymif\n"
+                    "(pymif) >> pymif-batch2zarr -i <input>\n"
+                    "The <input> txt file should be of the form:\n\n"
+                    "input   microscope  output  max_size(MB)    scene_index\n"
+                    "/path/to/input1    opera   /path/to/zarr1  100 0\n"
+                    "/path/to/input2    viventis   /path/to/zarr2  100 0\n"
+                    "/path/to/input3    zeiss   /path/to/zarr2  100 1\n",
+        formatter_class=RawTextHelpFormatter
     )
 
     parser.add_argument("--input_file", "-i", required=True, help="Path to the input file.")
@@ -119,6 +135,7 @@ def main():
             v["output"], 
             v["microscope"],
             float(v["max_size(MB)"]),
+            int(v["scene_index"])
             )
 
 
