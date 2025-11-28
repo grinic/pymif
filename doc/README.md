@@ -80,7 +80,7 @@ pymif/
 
 ### 📥 Installation
 
-It is recommended to install pymif in a clean conda environment:
+It is recommended to install [miniforge3](https://github.com/conda-forge/miniforge) as Python distribution and pymif in a clean conda environment:
 
 ```bash
 conda create -n pymif python=3.12
@@ -92,10 +92,10 @@ Installation is then done by cloning the repository:
 ```bash
 git clone https://github.com/grinic/pymif.git
 cd pymif
-python -m pip install .
+pip install .
 ```
 
-**NOTE**: Use the `-e` option if you want to use the download as installation folder.
+**NOTE**: Use the `-e` (editable) option if you want to use the download as installation folder.
 
 ### 📚 Example Usage
 
