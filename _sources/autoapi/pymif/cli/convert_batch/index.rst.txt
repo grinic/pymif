@@ -1,0 +1,30 @@
+pymif.cli.convert_batch
+=======================
+
+.. py:module:: pymif.cli.convert_batch
+
+.. autoapi-nested-parse::
+
+   Command-line interface for the pymif package.
+   To run:
+   >> conda activate pymif
+   (pymif) >> ./convert_batch.py -i <input>
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.cli.convert_batch.zarr_convert
+   pymif.cli.convert_batch.main
+
+
+Module Contents
+---------------
+
+.. py:function:: zarr_convert(input_path, zarr_path, microscope, max_size, scene_index=-1)
+
+.. py:function:: main()
+

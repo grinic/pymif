@@ -1,0 +1,16 @@
+pymif.cli
+=========
+
+.. py:module:: pymif.cli
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/pymif/cli/convert/index
+   /autoapi/pymif/cli/convert_batch/index
+
+

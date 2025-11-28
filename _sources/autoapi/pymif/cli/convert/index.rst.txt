@@ -1,0 +1,30 @@
+pymif.cli.convert
+=================
+
+.. py:module:: pymif.cli.convert
+
+.. autoapi-nested-parse::
+
+   Command-line interface for the pymif package to convert a single dataset
+   To run:
+   >> conda activate pymif
+   (pymif) >> ./convert_cli.py -i <input> -z <zarr> -m <microscope>
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.cli.convert.zarr_convert
+   pymif.cli.convert.main
+
+
+Module Contents
+---------------
+
+.. py:function:: zarr_convert(input_path, zarr_path, microscope, max_size, scene_index=-1)
+
+.. py:function:: main()
+
