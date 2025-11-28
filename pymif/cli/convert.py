@@ -117,8 +117,8 @@ def main():
         args.input_path, 
         args.zarr_path, 
         args.microscope,
-        args.max_size,
-        args.scene_index,
+        float(args.max_size),
+        int(args.scene_index),
         )
 
 

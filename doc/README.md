@@ -143,7 +143,6 @@ dataset3.czi         zeiss        d3.zarr   100             2
 ...
 ```
 
-
 ### 🧪 Running Tests
 
 ```bash
