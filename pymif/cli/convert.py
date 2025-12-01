@@ -106,20 +106,20 @@ def zarr_convert(
                         )
 
     # --- Modify metadata according to optional parameters ---
-    """
-    Metadata format:
-    metadata = {
-            # "size": [(size_t, size_c, size_z, size_y, size_x)], # can't change
-            # "scales": scales, # can't change
-            # "units": units, # can't change
-            # "time_increment": time_increment, # can't change
-            # "time_increment_unit": time_unit, # can't change
-            "channel_names": channel_names,
-            "channel_colors": channel_colors,
-            # "dtype": pixels.attrib.get("Type", "uint16"), # can't change
-            # "axes": "tczyx" # can't change
-        }
-    """
+    
+    # Metadata format:
+    # metadata = {
+    #         # "size": [(size_t, size_c, size_z, size_y, size_x)], # can't change
+    #         # "scales": scales, # can't change
+    #         # "units": units, # can't change
+    #         # "time_increment": time_increment, # can't change
+    #         # "time_increment_unit": time_unit, # can't change
+    #         "channel_names": channel_names,
+    #         "channel_colors": channel_colors,
+    #         # "dtype": pixels.attrib.get("Type", "uint16"), # can't change
+    #         # "axes": "tczyx" # can't change
+    #     }
+
     metadata = {}
     if channel_names:
         if len(channel_names)!=dataset.metadata["size"][0][1]:
