@@ -22,6 +22,12 @@ def zarr_convert(
         channel_colors : Optional[List[str]] = None,
         ):
 
+    if not os.path.exists(input_path):
+        TypeError(f"Input path {input_path} not found.")
+
+    if os.path.exists(zarr_path):
+        TypeError(f"Zarr path {zarr_path} already exists! Overwriting is not implemented. Please delete {zarr_path} manually or choose another \"zarr_path\".")
+
     if microscope.lower()=="luxendo":
         manager = mm.LuxendoManager
     elif microscope.lower()=="opera":
@@ -34,12 +40,15 @@ def zarr_convert(
         manager = mm.ZarrV04Manager
     elif microscope.lower()=="zarr":
         manager = mm.ZarrManager
+    else:
+        TypeError(f"Microscope {microscope} not recognized. Should be one of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\".")
 
     # --- Figure out chunks dimensions ---
     if microscope.lower() == "zeiss":
-        dataset = manager(path=input_path,scene_index=scene_index)
+        dataset = manager(path=input_path, scene_index=scene_index)
     else:
         dataset = manager(path=input_path)
+        
     # --- Show metadata summary ---
     for i in dataset.metadata:
         print(f"{i.upper()}: {dataset.metadata[i]}")
@@ -70,7 +79,7 @@ def zarr_convert(
 
     # --- Initialize manager ---
     if microscope.lower() == "zeiss":
-        dataset = manager(path=input_path,scene_index=scene_index, chunks=chunk_size)
+        dataset = manager(path=input_path, scene_index=scene_index, chunks=chunk_size)
     else:
         dataset = manager(path=input_path, chunks=chunk_size)
 
@@ -80,7 +89,7 @@ def zarr_convert(
         print(f"{i.upper()}: {dataset.metadata[i]}")
     print("CHUNK SIZE:", dataset.chunks)
 
-    # --- Build pyramid if not already ---
+    # --- Build pyramid ---
     n = 1
     shape = [dataset.metadata["size"][0][2], dataset.metadata["size"][0][3], dataset.metadata["size"][0][4]] # [Y, X]
     print("\n")
@@ -100,24 +109,27 @@ def zarr_convert(
     """
     Metadata format:
     metadata = {
-            "size": [(size_t, size_c, size_z, size_y, size_x)],
-            "scales": scales,
-            "units": units,
-            "time_increment": time_increment,
-            "time_increment_unit": time_unit,
+            # "size": [(size_t, size_c, size_z, size_y, size_x)], # can't change
+            # "scales": scales, # can't change
+            # "units": units, # can't change
+            # "time_increment": time_increment, # can't change
+            # "time_increment_unit": time_unit, # can't change
             "channel_names": channel_names,
             "channel_colors": channel_colors,
-            "dtype": pixels.attrib.get("Type", "uint16"),
-            "axes": "tczyx"
+            # "dtype": pixels.attrib.get("Type", "uint16"), # can't change
+            # "axes": "tczyx" # can't change
         }
     """
     metadata = {}
     if channel_names:
+        if len(channel_names)!=dataset.metadata["size"][0][1]:
+            TypeError(f"Length of channel_names={channel_names} does not match dataset channels of length={dataset.metadata["size"][0][1]}.")
         metadata["channel_names"] = channel_names
         if channel_colors:
+            if len(channel_colors)!=dataset.metadata["size"][0][1]:
+                TypeError(f"Length of channel_colors={channel_colors} does not match dataset channels of length={dataset.metadata["size"][0][1]}.")
             metadata["channel_colors"] = channel_colors
-            dataset.update_metadata(metadata)
-
+    dataset.update_metadata(metadata)
 
     # --- Write to OME-Zarr format ---
     dataset.to_zarr(zarr_path)
@@ -127,10 +139,7 @@ def zarr_convert(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Command-line interface for the pymif package to convert a single dataset in zarr.\n\
-                    To run:\n\
-                    >> conda activate pymif\n\
-                    (pymif) >> pymif-2zarr -i <input> -z <zarr> -m <microscope> -ms <max_size> -si <scene_index>",
+        description="Command-line interface for the pymif package to convert a single dataset in zarr.",
         formatter_class=RawTextHelpFormatter
     )
 
@@ -138,8 +147,11 @@ def main():
     parser.add_argument("--zarr_path", "-z", required=True, help="Path to the output zarr.")
     parser.add_argument("--microscope", "-m", required=True, 
                         help="Microscope. One of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\".")
+    
     parser.add_argument("--max_size", "-ms", required=False, default=100, help="Max chunk size in MB.")
-    parser.add_argument("--scene_index", "-si", required=False, default=0, help="Scene index for .czi files.")
+    parser.add_argument("--scene_index", "-si", required=False, default=-1, help="Scene index for .czi files.")
+    parser.add_argument("--channel_names", "-cn", required=False, default=None, help="Name of channels.")
+    parser.add_argument("--channel_colors", "-cc", required=False, default=None, help="Colors of channels (hex code).")
 
     args = parser.parse_args()
 
@@ -151,6 +163,8 @@ def main():
         args.microscope,
         float(args.max_size),
         int(args.scene_index),
+        args.channel_names,
+        args.channel_colors
         )
 
 
