@@ -9,8 +9,39 @@ import argparse
 from argparse import RawTextHelpFormatter
 import pymif.microscope_manager as mm
 import os
+import re
 import time
 from typing import List, Dict, Any, Optional
+from matplotlib.colors import cnames
+
+HEX_PATTERN = re.compile(r'^#?[0-9a-fA-F]{6}$')
+
+def parse_color(value: str) -> str:
+    """Parse a CLI color input:
+    - Accept 6-digit hex codes (# optional)
+    - Accept color names from matplotlib.colors.cnames
+    - Raise a meaningful error if invalid
+    """
+
+    v = value.strip()
+
+    # --- 1) Hex code (with or without #) ---
+    if HEX_PATTERN.match(v):
+        return v.replace("#", "").upper()
+
+    # --- 2) Matplotlib named color ---
+    lower = v.lower()
+    if lower in cnames:
+        # cnames returns a hex string with '#', e.g. "#ff00ff"
+        return cnames[lower].replace("#", "").upper()
+
+    # --- 3) Fail: report detailed reason ---
+    raise argparse.ArgumentTypeError(
+        f"Invalid color '{value}'. "
+        f"Must be:\n"
+        f"  • A 6-digit hex code (e.g. FF00FF or #ff00ff), OR\n"
+        f"  • A valid color name from matplotlib ({', '.join(list(cnames.keys())[:10])}, ...)"
+    )
 
 def zarr_convert(
         input_path, 
@@ -144,15 +175,36 @@ def main():
         formatter_class=RawTextHelpFormatter
     )
 
-    parser.add_argument("--input_path", "-i", required=True, help="Path to the input file.")
-    parser.add_argument("--zarr_path", "-z", required=True, help="Path to the output zarr.")
-    parser.add_argument("--microscope", "-m", required=True, 
-                        help="Microscope. One of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\".")
+    parser.add_argument("--input_path", "-i", 
+                        required=True, 
+                        help="Path to the input file."
+                        )
+    parser.add_argument("--zarr_path", "-z", 
+                        required=True, 
+                        help="Path to the output zarr."
+                        )
+    parser.add_argument("--microscope", "-m", 
+                        required=True, 
+                        help="Microscope. One of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\"."
+                        )
     
-    parser.add_argument("--max_size", "-ms", required=False, default=100, help="Max chunk size in MB.")
-    parser.add_argument("--scene_index", "-si", required=False, default=-1, help="Scene index for .czi files.")
-    parser.add_argument("--channel_names", "-cn", required=False, default=None, help="Name of channels.")
-    parser.add_argument("--channel_colors", "-cc", required=False, default=None, help="Colors of channels (hex code).")
+    parser.add_argument("--max_size", "-ms", 
+                        required=False, default=100, 
+                        help="Max chunk size in MB."
+                        )
+    parser.add_argument("--scene_index", "-si", 
+                        required=False, default=-1, 
+                        help="Scene index for .czi files."
+                        )
+    parser.add_argument("--channel_names", "-cn", 
+                        required=False, default=None, 
+                        nargs="+", help="Name of channels."
+                        )
+    parser.add_argument("--channel_colors", "-cc", 
+                        required=False, 
+                        type=parse_color,
+                        nargs="+", help="Colors of channels (hex or matplotlib color name)."
+                        )
 
     args = parser.parse_args()
 
