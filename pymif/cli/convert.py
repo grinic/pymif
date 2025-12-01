@@ -122,12 +122,13 @@ def zarr_convert(
 
     metadata = {}
     if channel_names:
-        if len(channel_names)!=dataset.metadata["size"][0][1]:
-            TypeError(f"Length of channel_names={channel_names} does not match dataset channels of length={dataset.metadata["size"][0][1]}.")
+        n_ch = dataset.metadata["size"][0][1]
+        if len(channel_names)!=n_ch:
+            TypeError(f"Length of channel_names={channel_names} does not match dataset channels of length={n_ch}.")
         metadata["channel_names"] = channel_names
         if channel_colors:
-            if len(channel_colors)!=dataset.metadata["size"][0][1]:
-                TypeError(f"Length of channel_colors={channel_colors} does not match dataset channels of length={dataset.metadata["size"][0][1]}.")
+            if len(channel_colors)!=n_ch:
+                TypeError(f"Length of channel_colors={channel_colors} does not match dataset channels of length={n_ch}.")
             metadata["channel_colors"] = channel_colors
     dataset.update_metadata(metadata)
 
