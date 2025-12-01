@@ -10,8 +10,17 @@ from argparse import RawTextHelpFormatter
 import pymif.microscope_manager as mm
 import os
 import time
+from typing import List, Dict, Any, Optional
 
-def zarr_convert(input_path, zarr_path, microscope, max_size, scene_index=-1):
+def zarr_convert(
+        input_path, 
+        zarr_path, 
+        microscope, 
+        max_size : Optional[int] = 100, 
+        scene_index : Optional[int] = -1,
+        channel_names : Optional[List[str]] = None,
+        channel_colors : Optional[List[str]] = None,
+        ):
 
     if microscope.lower()=="luxendo":
         manager = mm.LuxendoManager
@@ -86,6 +95,29 @@ def zarr_convert(input_path, zarr_path, microscope, max_size, scene_index=-1):
                         num_levels=n, 
                         downscale_factor=2
                         )
+
+    # --- Modify metadata according to optional parameters ---
+    """
+    Metadata format:
+    metadata = {
+            "size": [(size_t, size_c, size_z, size_y, size_x)],
+            "scales": scales,
+            "units": units,
+            "time_increment": time_increment,
+            "time_increment_unit": time_unit,
+            "channel_names": channel_names,
+            "channel_colors": channel_colors,
+            "dtype": pixels.attrib.get("Type", "uint16"),
+            "axes": "tczyx"
+        }
+    """
+    metadata = {}
+    if channel_names:
+        metadata["channel_names"] = channel_names
+        if channel_colors:
+            metadata["channel_colors"] = channel_colors
+            dataset.update_metadata(metadata)
+
 
     # --- Write to OME-Zarr format ---
     dataset.to_zarr(zarr_path)
