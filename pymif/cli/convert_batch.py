@@ -18,10 +18,12 @@ description = "Command-line interface for the pymif package to batch convert sev
                 "(pymif) >>> pymif-batch2zarr -i INPUT_FILE\n\n"\
                 "The INPUT_FILE is a .csv file of the form:\n\n"\
                 " input   | microscope | output       | max_size(MB) | scene_index | channel_colors | channel_names \n"\
-                " /path/1 | opera      | /path/1.zarr | 100          | 0           | lime,white     | gfp,bf        \n"\
-                " /path/2 | viventis   | /path/2.zarr | 100          | 0           | 0000FF, FF00FF |               \n"\
-                " /path/3 | zeiss      | /path/3.zarr | 100          | 1           |                |               \n\n"\
+                " /path/1 | opera      | /path/1.zarr |              |             | lime,white     | gfp,bf        \n"\
+                " /path/2 | viventis   | /path/2.zarr | 1000         | 0           | 0000FF, FF00FF |               \n"\
+                " /path/3 | luxendo    | /path/4.zarr |              |             | lime, ff00ff   |               \n"\
+                " /path/4 | zeiss      | /path/5.zarr | 100          | 1           |                |               \n\n"\
                 "All column headers are mandatory, but values can be empty\n"\
+                "channel_colors can be hex code or valid matplotlib colors.\n"\
                 "An example .csv file can be found in \"pymif/examples\" folder."\
 
 def main():

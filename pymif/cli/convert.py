@@ -31,25 +31,25 @@ def main():
                         )
     parser.add_argument("--microscope", "-m", 
                         required=True, 
-                        help="Microscope. One of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\"."
+                        help="Microscope.\nOne of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\"."
                         )
     
     parser.add_argument("--max_size", "-ms", 
                         required=False, default=100, 
-                        help="Max chunk size in MB."
+                        help="[Optional] Max chunk size in MB. \nDefault: 100"
                         )
     parser.add_argument("--scene_index", "-si", 
                         required=False, default=-1, 
-                        help="Scene index for .czi files."
+                        help="[Optional] Scene index for .czi files. \nDefault: -1"
                         )
     parser.add_argument("--channel_names", "-cn", 
                         required=False, default=None, 
-                        nargs="+", help="Name of channels."
+                        nargs="+", help="[Optional] Name of channels.\nExample \"-cn bf gfp rfp\"\nDefault: None"
                         )
     parser.add_argument("--channel_colors", "-cc", 
                         required=False, 
                         type=parse_color, default=None,
-                        nargs="+", help="Colors of channels (hex or matplotlib color name)."
+                        nargs="+", help="[Optional] Colors of channels (hex or matplotlib color name)\nExample: \"-cc 0000FF cyan 00ff00\")\nDefault: None"
                         )
 
     args = parser.parse_args()
