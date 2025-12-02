@@ -1,2 +1,0 @@
-input   microscope  output  max_size(MB)    scene_index
-//mif.embl.es/mif/common/MIF_dataset_collection/Opera/Marco_Andres/2C-430Z.ome.tiff    opera   //mif.embl.es/mif/common/MIF_dataset_collection/Opera/Marco_Andres/2C-430Z_1.zarr  100 0
