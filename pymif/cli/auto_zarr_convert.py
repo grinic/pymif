@@ -11,8 +11,11 @@ HEX_PATTERN = re.compile(r'^#?[0-9a-fA-F]{6}$')
 
 def parse_color(value: str) -> str:
     """Parse a CLI color input:
+
     - Accept 6-digit hex codes (# optional)
+
     - Accept color names from matplotlib.colors.cnames
+
     - Raise a meaningful error if invalid
     """
 
@@ -45,6 +48,33 @@ def zarr_convert(
         channel_names : Optional[List[str]] = None,
         channel_colors : Optional[List[str]] = None,
         ):
+    """Helper function for CLI to convert a dataset to zarr given some parameters.
+
+    Parameters
+    ----------
+        input_path : str
+            Input path for the data to be converted.
+        zarr_path : str
+            Output .zarr path.
+        microscope : str
+            Microscope used to acquire input data.
+            One of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\".
+        max_size : Optional[int]
+            Max chunk size in MB. \n
+            Default: 100
+        scene_index : Optional[int]
+            Scene index for .czi files. \n
+            Default: -1
+        channel_names : Optional[List[str]]
+            Name of channels.\n
+            Example: \"-cn bf gfp rfp\"\n
+            Default: None
+        channel_colors : Optional[List[str]]
+            Colors of channels (hex or matplotlib color name)\n
+            Example: \"-cc 0000FF cyan 00ff00\")\n
+            Default: None
+
+    """
 
     if microscope.lower()=="luxendo":
         manager = mm.LuxendoManager

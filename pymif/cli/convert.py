@@ -44,7 +44,7 @@ def main():
                         )
     parser.add_argument("--channel_names", "-cn", 
                         required=False, default=None, 
-                        nargs="+", help="[Optional] Name of channels.\nExample \"-cn bf gfp rfp\"\nDefault: None"
+                        nargs="+", help="[Optional] Name of channels.\nExample: \"-cn bf gfp rfp\"\nDefault: None"
                         )
     parser.add_argument("--channel_colors", "-cc", 
                         required=False, 
