@@ -1,8 +1,8 @@
 """
 Command-line interface for the pymif package to convert a single dataset
 To run:
->> conda activate pymif
-(pymif) >> ./convert_cli.py -i <input> -z <zarr> -m <microscope>
+>>> conda activate pymif
+(pymif) >>> ./convert_cli.py -i <input> -z <zarr> -m <microscope>
 """
 
 import argparse
@@ -10,8 +10,14 @@ from argparse import RawTextHelpFormatter
 from .auto_zarr_convert import zarr_convert, parse_color
 
 def main():
+    """Command-line interface for the pymif package to convert a single dataset in zarr.
+
+    More info with:
+
+    >>> pymif-2zarr --help
+    """
     parser = argparse.ArgumentParser(
-        description="Command-line interface for the pymif package to convert a single dataset in zarr.",
+        description="Command-line interface for the pymif package to convert a single dataset to zarr.",
         formatter_class=RawTextHelpFormatter
     )
 
