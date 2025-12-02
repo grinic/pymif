@@ -7,10 +7,6 @@ To run:
 
 import argparse
 from argparse import RawTextHelpFormatter
-import os
-import re
-import time
-from matplotlib.colors import cnames
 from .auto_zarr_convert import zarr_convert, parse_color
 
 def main():

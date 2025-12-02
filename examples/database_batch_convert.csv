@@ -1,0 +1,6 @@
+﻿input,microscope,output,max_size(MB),scene_index,channel_names,channel_colors
+2C-430Z.ome.tiff,opera,test1.zarr,,,,
+2C-430Z.ome.tiff,opera,test2.zarr,1000,,,
+2C-430Z.ome.tiff,opera,test3.zarr,1000,,"gfp,bf",
+2C-430Z.ome.tiff,opera,test4.zarr,1000,,"gfp, bf","lime,white"
+2C-430Z.ome.tiff,opera,test5.zarr,1000,,"gfp, bf","lime, 8080FF"

@@ -131,7 +131,7 @@ class MicroscopeManager(ABC):
 
                 Supports:
                     - channel_names (list[str])
-                    - channel_colors (list[int or str])
+                    - channel_colors (list[str]): valid matplotlib colors or hex code
                     - scales (list[tuple])
                     - time_increment (float)
                     - time_increment_unit (str)
