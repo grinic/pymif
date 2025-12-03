@@ -17,19 +17,19 @@ For more information, see [the documentation page](https://grinic.github.io/pymi
 
 ### 📥 Installation
 
-It is recommended to install [miniforge3](https://github.com/conda-forge/miniforge) as Python distribution and pymif in a clean conda environment:
+It is recommended to install [miniforge3](https://github.com/conda-forge/miniforge) as Python distribution and install PyMIF in a clean conda environment:
 
-```bash
-conda create -n pymif python=3.12
-conda activate pymif
+```console
+$ conda create -n pymif python=3.12
+$ conda activate pymif
 ```
 
 Installation is then done by cloning the repository:
 
-```bash
-git clone https://github.com/grinic/pymif.git
-cd pymif
-pip install .
+```console
+$ git clone https://github.com/grinic/pymif.git
+$ cd pymif
+$ pip install .
 ```
 
 **NOTE**: Use the `-e` (editable) option if you want to use the download as installation folder.
@@ -50,9 +50,9 @@ viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
 
 **CLI:**
 
-```bash
-conda activate pymif
-pymif 2zarr -i INPUT_FILE -m MICROSCOPE -z ZARR_OUTPUT
+```console
+$ conda activate pymif
+$ pymif 2zarr -i INPUT_FILE -m MICROSCOPE -z ZARR_OUTPUT
 ```
 
 For more examples, see [examples](https://github.com/grinic/pymif/tree/main/examples).

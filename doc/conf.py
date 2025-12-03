@@ -14,12 +14,17 @@ sys.path.insert(0, os.path.abspath("../../"))
 project = 'PyMIF'
 copyright = '2025, Nicola Gritti'
 author = 'Nicola Gritti'
-release = 'v0.1.1'
+release = 'v0.3.1'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = ['myst_parser', 'autoapi.extension', 'sphinx.ext.linkcode']
+
+myst_enable_extensions = [
+    "colon_fence",
+    # "admonition",
+]
 
 autoapi_dirs = [
     '../../pymif/pymif',
@@ -41,8 +46,6 @@ def linkcode_resolve(domain, info):
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-
-
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

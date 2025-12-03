@@ -2,8 +2,9 @@
 
 **PyMIF** (source code [here](https://github.com/grinic/pymif)) is a modular Python package to read, visualize, and write multiscale (pyramidal) microscopy image data from a variety of microscope platforms available at the [Mesoscopic Imaging Facility (MIF)](https://www.embl.org/groups/mesoscopic-imaging-facility/) into the [OME-NGFF (Zarr)](https://ngff.openmicroscopy.org/) format.
 
-> [!NOTE]
-> As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older version of PyMIF (e.g. 0.2.4) can still be loaded using the manager `ZarrV04Manager` as shown in [examples](https://github.com/grinic/pymif/tree/main/examples).
+```{note}
+As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older version of PyMIF (e.g. 0.2.4) can still be loaded using the manager `ZarrV04Manager` as shown in [examples](https://github.com/grinic/pymif/tree/main/examples).
+```
 
 ---
 
@@ -82,17 +83,17 @@ pymif/
 
 It is recommended to install [miniforge3](https://github.com/conda-forge/miniforge) as Python distribution and pymif in a clean conda environment:
 
-```bash
-conda create -n pymif python=3.12
-conda activate pymif
+```console
+$ conda create -n pymif python=3.12
+$ conda activate pymif
 ```
 
 Installation is then done by cloning the repository:
 
-```bash
-git clone https://github.com/grinic/pymif.git
-cd pymif
-pip install .
+```console
+$ git clone https://github.com/grinic/pymif.git
+$ cd pymif
+$ pip install .
 ```
 
 **NOTE**: Use the `-e` (editable) option if you want to use the download as installation folder.
@@ -121,16 +122,16 @@ For more examples, see [examples](https://github.com/grinic/pymif/tree/main/exam
 
 Command Line Interface `pymif` has two main runmodes available:
 
-```bash
-conda activate pymif
-pymif 2zarr -i INPUT -z OUTPUT -m MICROSCOPE
+```console
+$ conda activate pymif
+$ pymif 2zarr -i INPUT -z OUTPUT -m MICROSCOPE
 ```
 
 converts a single dataset into the corresponding output zarr.
 
-```bash
-conda activate pymif
-pymif batch2zarr -i INPUT
+```console
+$ conda activate pymif
+$ pymif batch2zarr -i INPUT
 ```
 
 converts all datasets specified in a .csv file that has the form:
@@ -145,13 +146,13 @@ input              | microscope  | output           | max_size(MB) | scene_index
 
 where all column headers are mandatory, but values can be empty. `channel_colors` can be hex code or valid matplotlib colors.
 
-> [!TIP]
-> Use the helps commands to get more information
-> ```bash
-> pymif -h
-> pymif 2zarr -h
-> pymif batch2zarr -h
-> ``` 
+```{tip}
+Use the help commands to get more information
+```console
+$ pymif -h
+$ pymif 2zarr -h
+$ pymif batch2zarr -h
+```
 
 ### ➕ Adding New Microscope Support and Contributing
 
