@@ -15,9 +15,21 @@ HEX_PATTERN = re.compile(r'^#?[0-9a-fA-F]{6}$')
 
 def _parse_arguments():
     # Valid type of's
-    def valid_path(x):
+    def valid_input_path(x):
         if x is not None:
             if os.path.isdir(x) or os.path.isfile(x):
+                return os.path.abspath(x)
+            else:
+                raise argparse.ArgumentTypeError(f'Input path {x} is not a valid directory')
+        else: 
+            return None
+
+    def valid_output_path(x):
+        print(x)
+        print((not os.path.isdir(x)) and (not os.path.isfile(x)))
+        if x is not None:
+            print((not os.path.isdir(x)) and (not os.path.isfile(x)))
+            if (not os.path.isdir(x)) and (not os.path.isfile(x)):
                 return os.path.abspath(x)
             else:
                 raise argparse.ArgumentTypeError(f'Output path {x} is not a valid directory')
@@ -65,7 +77,7 @@ def _parse_arguments():
     subparsers = parser.add_subparsers(
         title= 'Runmodes',
         description= """\
-            PyMIF hos TWO main runmodes, each with different and specific arguments.
+            PyMIF has TWO main runmodes, each with different and specific arguments.
             Please consult each runmode's help manual before running any of them.
             Enjoy PyMIF!
         """,
@@ -123,13 +135,13 @@ def _parse_arguments():
         '-i', '--input_path',
         required= True,
         help= 'Path to input file.',
-        type= valid_path
+        type= valid_input_path
     )
     requiredNamed.add_argument(
         '-z', '--zarr_path',
         required= True,
         help= 'Path to output zarr.',
-        type= valid_path
+        type= valid_output_path
     )
     requiredNamed.add_argument(
         '-m', '--microscope',
@@ -171,8 +183,12 @@ def _parse_arguments():
         '-i', '--input_file',
         required= True,
         help= 'Path to input file.',
-        type= valid_path
+        type= valid_input_path
     )
 
+    #####################################################################################
+    # Possible other runmodes
+
+    #####################################################################################
     args = parser.parse_args()
     return args

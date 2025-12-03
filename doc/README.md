@@ -2,7 +2,8 @@
 
 **PyMIF** (source code [here](https://github.com/grinic/pymif)) is a modular Python package to read, visualize, and write multiscale (pyramidal) microscopy image data from a variety of microscope platforms available at the [Mesoscopic Imaging Facility (MIF)](https://www.embl.org/groups/mesoscopic-imaging-facility/) into the [OME-NGFF (Zarr)](https://ngff.openmicroscopy.org/) format.
 
-**NOTE**: As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older version of PyMIF (e.g. 0.2.4) can still be loaded using the manager `ZarrV04Manager` as shown in [examples](https://github.com/grinic/pymif/tree/main/examples).
+> [!NOTE]
+> As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older version of PyMIF (e.g. 0.2.4) can still be loaded using the manager `ZarrV04Manager` as shown in [examples](https://github.com/grinic/pymif/tree/main/examples).
 
 ---
 
@@ -36,26 +37,29 @@
 ```
 pymif/
 ├── pymif
-│ └── microscope_manager
-│   ├── luxendo_manager.py
-│   ├── viventis_manager.py
-│   ├── opera_manager.py
-│   ├── zeiss_manager.py
-│   ├── zarr_manager.py
-│   ├── zarr_v04_manager.py
-│   ├── array_manager.py
-│   ├── microscope_manager.py
-│   └── utils/
-│    ├── pyramid.py
-│    ├── visualize.py
-│    ├── add_labels.py
-│    ├── subset.py
-│    ├── to_zarr.py
-│    ├── write_image_region.py
-│    ├── write_label_region.py
-│    ├── create_empty_dataset.py
-│    └── create_empty_group.py
-│
+│ ├── microscope_manager
+│ | ├── microscope_manager.py
+│ | ├── luxendo_manager.py
+│ | ├── viventis_manager.py
+│ | ├── opera_manager.py
+│ | ├── zeiss_manager.py
+│ | ├── zarr_manager.py
+│ | ├── zarr_v04_manager.py
+│ | ├── array_manager.py
+│ | └── utils/
+│ |  ├── pyramid.py
+│ |  ├── add_labels.py
+│ |  ├── subset.py
+│ |  ├── to_zarr.py
+│ |  ├── write_image_region.py
+│ |  ├── write_label_region.py
+│ |  ├── create_empty_dataset.py
+│ |  ├── create_empty_group.py
+│ |  └── ...
+│ └── cli
+|   ├── pymif.py
+|   ├── auto_zarr_convert.py
+│   └── ...
 ├── examples/
 | ├── example_luxendo.ipynb
 | ├── example_viventis.ipynb
@@ -64,10 +68,6 @@ pymif/
 | ├── example_zarr.ipynb
 | ├── example_array.ipynb
 │ └── ...
-│
-├── tests/
-│ └── ...
-│
 ├── requirements.txt
 ├── setup.py
 └── README.md
@@ -119,35 +119,39 @@ For more examples, see [examples](https://github.com/grinic/pymif/tree/main/exam
 
 ### 📚 Example CLI Usage
 
-Two CLI commands are available upon activation of the environment:
+Command Line Interface `pymif` has two main runmodes available:
 
 ```bash
 conda activate pymif
-pymif-2zarr -i <input> -z <zarr_output> -m <microscope> -ms <max_chunk_size_MB> -si <scene_index_czi>
+pymif 2zarr -i INPUT -z OUTPUT -m MICROSCOPE
 ```
 
 converts a single dataset into the corresponding output zarr.
 
 ```bash
 conda activate pymif
-pymif-batch2zarr -i <input.txt>
+pymif batch2zarr -i INPUT
 ```
 
-converts all datasets specified in an .txt file that has the form:
+converts all datasets specified in a .csv file that has the form:
 
 ```
-input                microscope   output    max_size(MB)    scene_index
-dataset1.ome.tiff    opera        d1.zarr   100             0
-dataset2             viventis     d2.zarr   100             0
-dataset3.czi         zeiss        d3.zarr   100             2
+input              | microscope  | output           | max_size(MB) | scene_index | channel_colors | channel_names
+/path/to/input_1   | opera       | /path/to/zarr_1  | 100          | 0           | lime white     | gfp bf
+/path/to/input_2   | viventis    | /path/to/zarr_2  | 100          |             | 000FF FF00FF   |
 ...
+/path/to/input_n   | viventis    | /path/to/zarr_n  | 100          | 0           |                |
 ```
 
-### 🧪 Running Tests
+where all column headers are mandatory, but values can be empty. `channel_colors` can be hex code or valid matplotlib colors.
 
-```bash
-pytest tests/
-```
+> [!TIP]
+> Use the helps commands to get more information
+> ```bash
+> pymif -h
+> pymif 2zarr -h
+> pymif batch2zarr -h
+> ``` 
 
 ### ➕ Adding New Microscope Support and Contributing
 
