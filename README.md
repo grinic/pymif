@@ -4,7 +4,8 @@
 
 For more information, see [the documentation page](https://grinic.github.io/pymif/).
 
-**NOTE**: As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older version of PyMIF (e.g. 0.2.4) can still be loaded using the manager `ZarrV04Manager` as shown in [examples](https://github.com/grinic/pymif/tree/main/examples).
+> [!NOTE]
+> As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older version of PyMIF (e.g. 0.2.4) can still be loaded using the manager `ZarrV04Manager` as shown in [examples](https://github.com/grinic/pymif/tree/main/examples).
 
 ![Demo](documentation/demo.gif)
 
@@ -35,6 +36,8 @@ pip install .
 
 ### 📚 Minimal Example Usage
 
+**Python script:**
+
 ```python
 import pymif.microscope_manager as mm
 
@@ -43,6 +46,13 @@ dataset.build_pyramid(num_levels=3)
 dataset.to_zarr("output.zarr")
 dataset_zarr = mm.ZarrManager("output.zarr")
 viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
+```
+
+**CLI:**
+
+```bash
+conda activate pymif
+pymif 2zarr -i INPUT_FILE -m MICROSCOPE -z ZARR_OUTPUT
 ```
 
 For more examples, see [examples](https://github.com/grinic/pymif/tree/main/examples).
