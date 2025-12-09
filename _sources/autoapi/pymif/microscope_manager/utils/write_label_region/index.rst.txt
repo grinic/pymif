@@ -1,0 +1,79 @@
+pymif.microscope_manager.utils.write_label_region
+=================================================
+
+.. py:module:: pymif.microscope_manager.utils.write_label_region
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.write_label_region.write_label_region
+   pymif.microscope_manager.utils.write_label_region._generate_pyramid
+   pymif.microscope_manager.utils.write_label_region._scale_index
+   pymif.microscope_manager.utils.write_label_region._zoom_numpy
+   pymif.microscope_manager.utils.write_label_region._zoom_dask
+
+
+Module Contents
+---------------
+
+.. py:function:: write_label_region(root: zarr.Group, mode: str, data: Union[numpy.ndarray, dask.array.Array, List[Union[numpy.ndarray, dask.array.Array]]], t: int | slice = slice(None), z: int | slice = slice(None), y: int | slice = slice(None), x: int | slice = slice(None), level: int = 0, group_name: str = 'labels/nuclei')
+
+   Internal function that writes data (pyramid or single array) to a zarr group.
+
+   If a single array is provided, the function will automatically generate
+   the complete pyramid by upsampling and downsampling from the given level.
+
+   Parameters
+   ----------
+   root : zarr.Group
+       The root Zarr group.
+   mode : str
+       Zarr open mode ("r+", "a", or "w"). Must allow writing.
+   data : np.ndarray, da.Array, or list thereof
+       Array(s) to write. If a list, each entry corresponds to one resolution level.
+       If a single array, pyramid levels will be generated automatically.
+   t, z, y, x : int or slice
+       Slices for each dimension.
+   level : int
+       The pyramid level to write to (if `data` is a single array).
+   group_name : str, optional
+       Name of the group inside the root (e.g. "labels/nuclei").
+
+
+.. py:function:: _generate_pyramid(ref_data: Union[numpy.ndarray, dask.array.Array], total_levels: int, ref_level: int = 0) -> List[Union[numpy.ndarray, dask.array.Array]]
+
+   Generate a full pyramid (both upscaling and downscaling) from a given level.
+
+   Parameters
+   ----------
+   ref_data : np.ndarray or dask.array.Array
+       The reference data (e.g. from level 2).
+   total_levels : int
+       Total number of levels in the pyramid.
+   ref_level : int
+       Level index of the provided `ref_data`.
+
+   Returns
+   -------
+   list of arrays
+       One array per pyramid level, from level 0 (highest res) to N-1 (lowest res).
+
+
+.. py:function:: _scale_index(index_tuple, shape, scale_factor: float)
+
+   Scale slices or ints for down/up-sampled levels.
+
+
+.. py:function:: _zoom_numpy(arr: numpy.ndarray, scale: float) -> numpy.ndarray
+
+   Simple 2x zoom or shrink using nearest-neighbor.
+
+
+.. py:function:: _zoom_dask(arr: dask.array.Array, scale: float) -> dask.array.Array
+
+   Zoom for dask arrays.
+
+
