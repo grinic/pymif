@@ -247,24 +247,25 @@ class ZarrManager(MicroscopeManager):
         # recursively find all groups with a "multiscales" attribute
         def discover_multiscales(group: zarr.Group, path=""):
             results = []
-            if "multiscales" in group.attrs:
+            image_meta = self.root.attrs.asdict().get("ome")
+            if "multiscales" in image_meta:
                 results.append(path)
-            print(results)
-            print(group.groups)
+            # print(results)
+            # print(group.groups)
             for name, sub in group.groups():
                 if "labels" not in name:
                     subpath = f"{path}/{name}" if path else name
                     results.extend(discover_multiscales(sub, path=subpath))
-            print(results)
+            # print(results)
             return results
         
         multiscale_paths = discover_multiscales(self.root)
-        print(multiscale_paths)
+        # print(multiscale_paths)
         
         for gpath in multiscale_paths:
             # open each group individually via napari-ome-zarr
             full_path = Path(self.path) / gpath
-            print("open", full_path)
+            # print("open", full_path)
             viewer.open(full_path, plugin="napari-ome-zarr") 
         
         return viewer
