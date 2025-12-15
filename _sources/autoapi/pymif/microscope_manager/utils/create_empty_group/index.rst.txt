@@ -1,0 +1,33 @@
+pymif.microscope_manager.utils.create_empty_group
+=================================================
+
+.. py:module:: pymif.microscope_manager.utils.create_empty_group
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.create_empty_group.create_empty_group
+
+
+Module Contents
+---------------
+
+.. py:function:: create_empty_group(root: zarr.Group, group_name: str, metadata: Dict[str, Any], is_label: bool = False)
+
+   Create an empty OME-Zarr image or label group using provided metadata.
+
+   Parameters
+   ----------
+   root : zarr.Group
+       root group.
+   group_name : str
+       Name of the new subgroup (e.g. "processed" or "labels/nuclei").
+   metadata : Dict[str, Any]
+       Metadata describing the dataset structure.
+   is_label : bool, optional
+       If True, create a label group inside 'labels/' instead of a new image group.
+
+
