@@ -75,7 +75,7 @@ class OperaManager(MicroscopeManager):
             channel_names.append(channel.attrib.get("Name", ""))
             color = channel.attrib.get("Color")
             if color:
-                channel_colors.append(int(color))
+                channel_colors.append(hex(int(color)))
             else:
                 channel_colors.append(0xFFFFFF)  # default white
 

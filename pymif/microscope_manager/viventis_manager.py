@@ -67,7 +67,7 @@ class ViventisManager(MicroscopeManager):
 
         channels = root.findall(".//{*}Channel")
         channel_names = [c.attrib.get("Name", f"Channel {i}") for i, c in enumerate(channels)]
-        channel_colors = [int(c.attrib.get("Color", 0)) for c in channels]
+        channel_colors = [hex(int(c.attrib.get("Color", 0))) for c in channels]
 
         dtype = str(pixels.attrib["Type"])
 

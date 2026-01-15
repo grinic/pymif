@@ -105,7 +105,7 @@ class ZarrV04Manager(MicroscopeManager):
         channels = omero.get("channels", [])
         channel_names = [ch.get("label", f"Channel {i}") for i, ch in enumerate(channels)]
         channel_colors = [ch.get("color", "FFFFFF") for ch in channels]
-        channel_colors = [int(c, 16) if isinstance(c, str) else c for c in channel_colors]
+        # channel_colors = [int(c, 16) if isinstance(c, str) else c for c in channel_colors]
 
         # Time increment
         time_increment = datasets[0].get("coordinateTransformations", [{}])[0].get("scale", None)[0]
