@@ -133,6 +133,7 @@ def to_zarr(
             return f"{color & 0xFFFFFF:06X}"  # mask to 24-bit and format
         if isinstance(color, str):
             color = color.lstrip("#-")
+            color = color.lstrip("0x-")
             if len(color) == 6:
                 return color.upper()
         return "FFFFFF"  # default fallback
