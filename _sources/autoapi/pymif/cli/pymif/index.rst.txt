@@ -1,0 +1,79 @@
+pymif.cli.pymif
+===============
+
+.. py:module:: pymif.cli.pymif
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.cli.pymif.zarr_convert
+   pymif.cli.pymif.convert_batch
+   pymif.cli.pymif.convert_single
+   pymif.cli.pymif.main
+
+
+Module Contents
+---------------
+
+.. py:function:: zarr_convert(input_path, zarr_path, microscope, max_size: Optional[int] = 100, scene_index: Optional[int] = -1, channel_names: Optional[List[str]] = None, channel_colors: Optional[List[str]] = None)
+
+   Helper function for CLI to convert a dataset to zarr given some parameters.
+
+   Parameters
+   ----------
+       input_path : str
+           Input path for the data to be converted.
+       zarr_path : str
+           Output .zarr path.
+       microscope : str
+           Microscope used to acquire input data.
+           One of "luxendo", "opera", "viventis", "zeiss", "zarrv04", "zarr".
+       max_size : Optional[int]
+           Max chunk size in MB. 
+
+           Default: 100
+       scene_index : Optional[int]
+           Scene index for .czi files. 
+
+           Default: -1
+       channel_names : Optional[List[str]]
+           Name of channels.
+
+           Example: "-cn bf gfp rfp"
+
+           Default: None
+       channel_colors : Optional[List[str]]
+           Colors of channels (hex or matplotlib color name)
+
+           Example: "-cc 0000FF cyan 00ff00")
+
+           Default: None
+
+
+
+.. py:function:: convert_batch(args)
+
+   Runmode to convert batch of imaged to zarr
+
+   Args:
+       args (args): parsed arguments
+
+
+.. py:function:: convert_single(args)
+
+   Runmode to convert a single image to zarr
+
+   Args:
+       args (args): parsed arguments
+
+
+.. py:function:: main()
+
+   Main fxn
+
+   Here the PyMIF will decide which runmode to execute based on the positional argument after pymif command.
+
+
