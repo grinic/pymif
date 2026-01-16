@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple, Optional,Sequence
+import numpy as np
+from scipy.ndimage import zoom as scipy_zoom
 import dask.array as da
 import napari
 import warnings
@@ -270,4 +272,87 @@ class MicroscopeManager(ABC):
 
         print("Dataset subset complete.")
             
+    def _rescale_array(self, arr: da.Array, zoom_factors: List[float], order: int = 1) -> da.Array:
+        from scipy.ndimage import zoom as scipy_zoom
 
+        def _zoom_block(block, block_info=None):
+            return scipy_zoom(block, zoom=zoom_factors, order=order)
+
+        # compute full new shape
+        new_shape = tuple(int(round(s * z)) for s, z in zip(arr.shape, zoom_factors))
+
+        # compute new chunks (approximate: scale each chunk size)
+        new_chunks = tuple(
+            tuple(int(round(c * z)) for c in ch)
+            for ch, z in zip(arr.chunks, zoom_factors)
+        )
+
+        rescaled = arr.map_blocks(
+            _zoom_block,
+            dtype=arr.dtype,
+            chunks=new_chunks,
+        )
+
+        # dask already infers shape from chunks, so no reshape needed
+        assert rescaled.shape == new_shape, (
+            f"Shape mismatch: expected {new_shape}, got {rescaled.shape}"
+        )
+
+        return rescaled, new_chunks
+    
+    def rescale_to_pixel_size(
+        self,
+        target_pixel_size: Dict[str, float],
+        start_level: Optional[int] = 0,
+        pyramid_levels: Optional[int] = 4,
+        downscale: Optional[int] = 2,
+        order: Optional[int] = 1,
+    ) -> Tuple[List[da.Array], dict]:
+        """
+        Rescale the image at a chosen pyramid level to a target pixel size,
+        then rebuild the pyramid.
+
+        Parameters
+        ----------
+        target_pixel_size : dict
+            Pixel size per axis, e.g. {"z": 2.0, "y": 0.5, "x": 0.5}
+        start_level : int
+            Pyramid level to rescale from (default: 0).
+        pyramid_levels : int
+            How many pyramid levels to rebuild (default: 4).
+        downscale : int
+            Downscaling factor per level (default: 2).
+        order : int
+            Interpolation order for resampling (default: 1 = linear).
+
+        Returns
+        -------
+        arrays : list of dask arrays (rescaled pyramid)
+        metadata : dict (updated)
+        """
+        scales = self.metadata["scales"][start_level]
+
+        # compute zoom factors
+        zoom_factors = [1,1,]
+        for ax, current_scale in zip("zyx", scales):
+            if ax in target_pixel_size:
+                zoom_factors.append(float(current_scale) / target_pixel_size[ax])
+            else:
+                zoom_factors.append(1.0)
+
+        zoom_factors = list(zoom_factors)
+
+        # rescale selected level lazily
+        rescaled, new_chunks = self._rescale_array(self.data[start_level], zoom_factors, order=order)
+        self.data = [rescaled]
+
+        # update metadata for rescaled dataset
+        new_metadata = self.metadata.copy()
+
+        new_metadata["scales"] = [[target_pixel_size.get(ax, sc) for ax, sc in zip("zyx", scales)]]
+        new_metadata["shapes"] = [arr.shape for arr in self.data]
+        self.metadata = new_metadata
+
+        # rebuild pyramid from rescaled
+        from .utils.pyramid import build_pyramid as _build_pyramid
+        self.data, self.metadata = _build_pyramid(self.data, self.metadata, num_levels=pyramid_levels, downscale_factor=downscale)
