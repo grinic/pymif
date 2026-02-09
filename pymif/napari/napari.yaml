@@ -5,17 +5,17 @@ contributions:
     - id: pymif.make_overview
       python_name: pymif.napari._overview_widget:make_overview_widget
       title: Overview Generator
-    - id: pymif.fake
+    - id: pymif.template
       python_name: pymif.napari._overview_widget:make_overview_widget
-      title: Fake Plugin
+      title: Template
   widgets:
     - command: pymif.make_overview
       display_name: Overview Generator
-    - command: pymif.fake
+    - command: pymif.template
       display_name: Fake Plugin
   menus:
     "napari/menu/plugins":
       - submenu: PyMIF
         items:
           - command: pymif.make_overview
-          - command: pymif.fake
+          - command: pymif.template
