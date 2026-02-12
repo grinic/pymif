@@ -105,7 +105,7 @@ class ZeissManager(MicroscopeManager):
         
         units = ["micrometer"] * 3
         
-        time_increment = np.clip( float(czi.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/Value") or 1.0), 1.0 )
+        time_increment = np.clip( float(czi.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/Value") or 1.0), 1.0, None )
         time_unit = czi.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/DefaultUnitFormat") or "s"
 
         # Channels
