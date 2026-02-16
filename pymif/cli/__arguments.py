@@ -13,58 +13,60 @@ class MultilineDefaultsHelpFormatter(
 
 HEX_PATTERN = re.compile(r'^#?[0-9a-fA-F]{6}$')
 
-def _parse_arguments():
-    # Valid type of's
-    def valid_input_path(x):
-        if x is not None:
-            if os.path.isdir(x) or os.path.isfile(x):
-                return os.path.abspath(x)
-            else:
-                raise argparse.ArgumentTypeError(f'Input path {x} is not a valid directory')
-        else: 
-            return None
+# Valid type of's
+def valid_input_path(x):
+    if x is not None:
+        if os.path.isdir(x) or os.path.isfile(x):
+            return os.path.abspath(x)
+        else:
+            raise argparse.ArgumentTypeError(f'Input path {x} is not a valid directory')
+    else: 
+        return None
 
-    def valid_output_path(x):
-        print(x)
+def valid_output_path(x):
+    print(x)
+    print((not os.path.isdir(x)) and (not os.path.isfile(x)))
+    if x is not None:
         print((not os.path.isdir(x)) and (not os.path.isfile(x)))
-        if x is not None:
-            print((not os.path.isdir(x)) and (not os.path.isfile(x)))
-            if (not os.path.isdir(x)) and (not os.path.isfile(x)):
-                return os.path.abspath(x)
-            else:
-                raise argparse.ArgumentTypeError(f'Output path {x} is not a valid directory')
-        else: 
-            return None
+        if (not os.path.isdir(x)) and (not os.path.isfile(x)):
+            return os.path.abspath(x)
+        else:
+            raise argparse.ArgumentTypeError(f'Output path {x} is not a valid directory')
+    else: 
+        return None
 
-    def parse_color(value: str) -> str:
-        """Parse a CLI color input:
+def parse_color(value: str) -> str:
+    """Parse a CLI color input:
 
-        - Accept 6-digit hex codes (# optional)
+    - Accept 6-digit hex codes (# optional)
 
-        - Accept color names from matplotlib.colors.cnames
+    - Accept color names from matplotlib.colors.cnames
 
-        - Raise a meaningful error if invalid
-        """
+    - Raise a meaningful error if invalid
+    """
 
-        v = value.strip()
+    v = value.strip()
 
-        # --- 1) Hex code (with or without #) ---
-        if HEX_PATTERN.match(v):
-            return v.replace("#", "").upper()
+    # --- 1) Hex code (with or without #) ---
+    if HEX_PATTERN.match(v):
+        return v.replace("#", "").upper()
 
-        # --- 2) Matplotlib named color ---
-        lower = v.lower()
-        if lower in cnames:
-            # cnames returns a hex string with '#', e.g. "#ff00ff"
-            return cnames[lower].replace("#", "").upper()
+    # --- 2) Matplotlib named color ---
+    lower = v.lower()
+    if lower in cnames:
+        # cnames returns a hex string with '#', e.g. "#ff00ff"
+        return cnames[lower].replace("#", "").upper()
 
-        # --- 3) Fail: report detailed reason ---
-        raise argparse.ArgumentTypeError(
-            f"Invalid color '{value}'. "
-            f"Must be:\n"
-            f"  • A 6-digit hex code (e.g. FF00FF or #ff00ff), OR\n"
-            f"  • A valid color name from matplotlib ({', '.join(list(cnames.keys())[:10])}, ...)"
-        )
+    # --- 3) Fail: report detailed reason ---
+    raise argparse.ArgumentTypeError(
+        f"Invalid color '{value}'. "
+        f"Must be:\n"
+        f"  • A 6-digit hex code (e.g. FF00FF or #ff00ff), OR\n"
+        f"  • A valid color name from matplotlib ({', '.join(list(cnames.keys())[:10])}, ...)"
+    )
+
+def _parse_arguments():
+
      
     parser = argparse.ArgumentParser(
         description= """\

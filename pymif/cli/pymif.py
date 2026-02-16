@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from pymif.cli.__arguments import _parse_arguments
+from pymif.cli.__arguments import _parse_arguments, parse_color
 import pymif.microscope_manager as mm
 import pandas as pd
 
@@ -209,7 +209,7 @@ def convert_batch(args):
             print(f"\tchannel_colors: -1, defaulted to: {channel_colors}")
         else:
             channel_colors = [c.strip() for c in channel_colors.split(",")]
-            channel_colors = [_parse_arguments.parse_color(c) for c in channel_colors]
+            channel_colors = [parse_color(c) for c in channel_colors]
             print(f"\tchannel_colors: {channel_colors}")
 
         zarr_convert(

@@ -12,10 +12,14 @@ setup(
     author_email="nicola.gritti@embl.es",
     packages=find_packages(),
     install_requires=requirements,
+    include_package_data=True,
     python_requires=">=3.11",
     entry_points={
         "console_scripts": [
             'pymif = pymif.cli.pymif:main'
-        ]
+        ],
+        "napari.manifest": [
+            "pymif = pymif.napari:napari.yaml",
+        ],
     },
 )
