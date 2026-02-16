@@ -24,19 +24,6 @@ def convert_widget():
     _state = {"dataset": None}
 
     @magicgui(
-        call_button="Convert to zarr",
-        output_path={"widget_type": "FileEdit", "mode": "d"},
-    )
-    def make_convert_widget(
-        output_path: FileEdit = None,
-    ):
-        dataset = _state["dataset"]
-        if dataset is None:
-            return
-
-        dataset.to_zarr(output_path)
-
-    @magicgui(
         call_button="Visualize in napari",
         input_path={"widget_type": "FileEdit", "mode": "d"},
         scene_index={"widget_type": "SpinBox", "min": 0, "max": 100, "step": 1},
@@ -61,9 +48,61 @@ def convert_widget():
                 viewer=viewer
             )
 
+    # ---
+
+    @magicgui(
+        call_button="Convert to zarr",
+        
+        chunk_xy={"label": "Chunk XY (px)", "min": 64, "max": 2048, "step": 1, "value": 512},
+        chunk_z={"label": "Chunk Z (px)", "min": 1, "max": 256, "step": 1, "value": 16},
+        
+        chunk_mb={"label": "Chunk size (MB)", "min": 1, "max": 512, "step": 1, "value": 64},
+
+        n_levels={"label": "Resolution levels", "min": 1, "max": 10, "value": 5},
+        
+        t_start={"label": "T start", "min": 0, "step": 1, "value": 0},
+        t_end={"label": "T end", "min": 0, "step": 1, "value": 0},
+
+        channels={
+            "label": "Channels",
+            "choices": ["ch0", "ch1", "ch2"],
+            "widget_type": "Select",
+            "allow_multiple": True,
+        },
+
+        z_start={"label": "Z start", "min": 0, "step": 1, "value": 0},
+        z_end={"label": "Z end", "min": 0, "step": 1, "value": 0},
+
+        y_start={"label": "Y start", "min": 0, "step": 1, "value": 0},
+        y_end={"label": "Y end", "min": 0, "step": 1, "value": 0},
+
+        x_start={"label": "X start", "min": 0, "step": 1, "value": 0},
+        x_end={"label": "X end", "min": 0, "step": 1, "value": 0},
+
+        output_path={"widget_type": "FileEdit", "mode": "d"},
+    )
+    def make_convert_widget(
+        chunk_xy=512,
+        chunk_z=16,
+        chunk_mb=64,
+        n_levels=5,
+        t_start=0, t_end=0,
+        z_start=0, z_end=0,
+        y_start=0, y_end=0,
+        x_start=0, x_end=0,
+        channels=(),
+        output_path: FileEdit = None,
+    ):
+        dataset = _state["dataset"]
+        if dataset is None:
+            return
+
+        dataset.to_zarr(output_path)
+
     # -------------------------
     # Input path callback
     # -------------------------
+
     @make_visualize_widget.file_format.changed.connect
     def _update_mode(file_format):
         if file_format == "zeiss": 
@@ -103,13 +142,17 @@ def convert_widget():
         if path.suffix == ".zarr":
             suffix = "_1"
 
-        if path.is_file():
+        if path.is_file() or path.suffix==".zarr":
             name = path.stem          # removes extension
         else:
             name = path.name          # directory name as-is
 
         default_output = path.parent / f"{name}{suffix}.zarr"
         make_convert_widget.output_path.value = default_output
+
+        make_convert_widget.channels.choices = dataset.metadata["channel_names"]
+        make_convert_widget.channels.value = tuple(dataset.metadata["channel_names"])
+
 
     make_visualize_widget.scene_index.enabled = False
 
