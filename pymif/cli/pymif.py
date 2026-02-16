@@ -52,8 +52,10 @@ def zarr_convert(
         manager = mm.ZarrV04Manager
     elif microscope.lower()=="zarr":
         manager = mm.ZarrManager
+    elif microscope.lower()=='scape':
+        manager = mm.ScapeManager
     else:
-        TypeError(f"Microscope {microscope} not recognized. Should be one of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\".")
+        TypeError(f"Microscope {microscope} not recognized. Should be one of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\", \"scape\".")
 
     # --- Figure out chunks dimensions ---
     if microscope.lower() == "zeiss":

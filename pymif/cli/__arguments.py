@@ -147,7 +147,7 @@ def _parse_arguments():
         '-m', '--microscope',
         required= True,
         help= 'Microscope used in previous analysis.',
-        choices= ['luxendo', 'opera', 'viventis', 'opera', 'zeiss', 'zarrv04', 'zarr'],
+        choices= ['luxendo', 'opera', 'viventis', 'opera', 'zeiss', 'zarrv04', 'zarr', 'scape'],
         type= str
     )
 
