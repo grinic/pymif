@@ -56,3 +56,11 @@ $ pymif 2zarr -i INPUT_FILE -m MICROSCOPE -z ZARR_OUTPUT
 ```
 
 For more examples, see [examples](https://github.com/grinic/pymif/tree/main/examples).
+
+**Napari plugin:**
+
+A napari PyMIF plugin exists (`Pugins > PyMIF > Converter Plugin`) that allows to load data and visualize them in the viewer.
+
+Optionally, the user can define 3D ROIs, select timepoints and channels, and number of resolution layers in the pyramid, before converting the dataset into ome-zarr:
+
+![napari-demo](documentation/napari-demo.png)

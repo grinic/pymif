@@ -11,10 +11,11 @@ As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older ver
 ## 📦 Features
 
 - ✅ Read and parse image metadata from multiple microscope vendors and data formats:
-  - **Viventis** (`.ome + .tif`)
+  - **Viventis LS1** (`.ome + .tif`)
   - **Luxendo** (`.xml + .h5`)
   - **Opera PE** (`.ome.tiff`)
   - **Zeiss** (`.czi`)
+  - **Leica SCAPE** (`.ome.tiff + .xlif`)
   - **Generic OME-Zarr**
   - **Numpy or Dask array**
 - ✅ Abstract base class `MicroscopeManager` ensures uniform interface for all readers
@@ -30,50 +31,6 @@ As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older ver
   - Using lazy loading for fast visualization, or
   - Using *in-memory* loading of any resolution layer for interactivity.
 - ✅ Compatible with automated workflows and interactive exploration (Jupyter + scripts)
-
----
-
-## 🗂️ Project Structure
-
-```
-pymif/
-├── pymif
-│ ├── microscope_manager
-│ | ├── microscope_manager.py
-│ | ├── luxendo_manager.py
-│ | ├── viventis_manager.py
-│ | ├── opera_manager.py
-│ | ├── zeiss_manager.py
-│ | ├── zarr_manager.py
-│ | ├── zarr_v04_manager.py
-│ | ├── array_manager.py
-│ | └── utils/
-│ |  ├── pyramid.py
-│ |  ├── add_labels.py
-│ |  ├── subset.py
-│ |  ├── to_zarr.py
-│ |  ├── write_image_region.py
-│ |  ├── write_label_region.py
-│ |  ├── create_empty_dataset.py
-│ |  ├── create_empty_group.py
-│ |  └── ...
-│ └── cli
-|   ├── pymif.py
-|   ├── auto_zarr_convert.py
-│   └── ...
-├── examples/
-| ├── example_luxendo.ipynb
-| ├── example_viventis.ipynb
-| ├── example_opera.ipynb
-| ├── example_zeiss.ipynb
-| ├── example_zarr.ipynb
-| ├── example_array.ipynb
-│ └── ...
-├── requirements.txt
-├── setup.py
-└── README.md
-```
-
 
 ---
 
@@ -98,7 +55,9 @@ $ pip install .
 
 **NOTE**: Use the `-e` (editable) option if you want to use the download as installation folder.
 
-### 📚 Example Usage
+## 📚 Usage
+
+### Python script
 
 With the following code, we read Viventis image data and parse the corresponding metadata. Next, we build a pyramidal structure of 3 resolution layers and save it into an OME-Zarr format. Finally, we load the new dataset and visualize it in napari.
 
@@ -118,7 +77,7 @@ viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
 
 For more examples, see [examples](https://github.com/grinic/pymif/tree/main/examples).
 
-### 📚 Example CLI Usage
+### CLI
 
 Command Line Interface `pymif` has two main runmodes available:
 
@@ -154,7 +113,15 @@ $ pymif 2zarr -h
 $ pymif batch2zarr -h
 ```
 
-### ➕ Adding New Microscope Support and Contributing
+### Napari Plugin
+
+A napari PyMIF plugin exists (`Pugins > PyMIF > Converter Plugin`) that allows to load data and visualize them in the viewer.
+
+Optionally, the user can define 3D ROIs, select timepoints and channels, and number of resolution layers in the pyramid, before converting the dataset into ome-zarr:
+
+![napari-demo](../documentation/napari-demo.png)
+
+## ➕ Adding New Microscope Support and Contributing
 
 Contributions/PRs are welcome! If you would like to help and add a new format:
 

@@ -32,6 +32,8 @@ def dataset_reader(microscope):
         reader = mm.ZarrManager
     elif microscope == "zarrV04":
         reader = mm.ZarrV04Manager
+    elif microscope == "scape":
+        reader = mm.ScapeManager
     else:
         raise ValueError(f"Unsupported microscope: {microscope}")
     
@@ -308,7 +310,7 @@ def convert_widget():
         call_button="Visualize in napari",
         input_path={"widget_type": "FileEdit", "mode": "d"},
         scene_index={"widget_type": "SpinBox", "min": 0, "max": 100, "step": 1},
-        file_format={"choices": ["viventis", "opera", "luxendo", "zarrV05", "zarrV04", "zeiss"]},
+        file_format={"choices": ["viventis", "opera", "luxendo", "zarrV05", "zarrV04", "zeiss","scape"]},
     )
     def make_visualize_widget(
         file_format="zarrV05",
