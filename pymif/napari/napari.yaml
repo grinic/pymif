@@ -2,20 +2,20 @@ name: pymif
 display_name: PyMIF
 contributions:
   commands:
-    - id: pymif.make_overview
-      python_name: pymif.napari._overview_widget:make_overview_widget
+    - id: pymif.overview
+      python_name: pymif.napari._overview_widget:overview_widget
       title: Overview Generator
-    - id: pymif.make_convert
-      python_name: pymif.napari._convert_widget:make_convert_widget
+    - id: pymif.convert
+      python_name: pymif.napari._convert_widget:convert_widget
       title: Converter Plugin
   widgets:
-    - command: pymif.make_overview
+    - command: pymif.overview
       display_name: Overview Generator
-    - command: pymif.make_convert
+    - command: pymif.convert
       display_name: Converter Plugin
   menus:
     "napari/menu/plugins":
       - submenu: PyMIF
         items:
-          - command: pymif.make_overview
-          - command: pymif.make_convert
+          - command: pymif.overview
+          - command: pymif.convert

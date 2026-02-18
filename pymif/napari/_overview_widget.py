@@ -186,7 +186,7 @@ def make_overview(dataset, viewer, output_path, overview_filename="overview", ov
 # MagicGUI controls
 # -------------------------
 
-def make_overview_widget():
+def overview_widget():
     viewer = current_viewer()
     _state = {"dataset": None}
 
