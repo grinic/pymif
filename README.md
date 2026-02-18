@@ -34,9 +34,9 @@ $ pip install .
 
 **NOTE**: Use the `-e` (editable) option if you want to use the download as installation folder.
 
-### 📚 Minimal Example Usage
+## 📚 Minimal Example Usage
 
-**Python script:**
+### Python script:
 
 ```python
 import pymif.microscope_manager as mm
@@ -48,16 +48,17 @@ dataset_zarr = mm.ZarrManager("output.zarr")
 viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
 ```
 
-**CLI:**
+For more examples, see [examples](https://github.com/grinic/pymif/tree/main/examples).
+
+### CLI:
 
 ```console
 $ conda activate pymif
 $ pymif 2zarr -i INPUT_FILE -m MICROSCOPE -z ZARR_OUTPUT
+$ pymif batch2zarr -i CSV-INPUT
 ```
 
-For more examples, see [examples](https://github.com/grinic/pymif/tree/main/examples).
-
-**Napari plugin:**
+### Napari plugin:
 
 A napari PyMIF plugin exists (`Pugins > PyMIF > Converter Plugin`) that allows to load data and visualize them in the viewer.
 
