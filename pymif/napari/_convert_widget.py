@@ -37,6 +37,37 @@ def dataset_reader(microscope):
     
     return reader
 
+def get_chunk_size(dataset_size, max_size_mb=100):
+    # --- Select chunk size ---
+    n_chunks = [4,1,1]
+    chunk_size = [
+        1, 1, # T, C
+        int((dataset_size[2]/n_chunks[0])+1),  # Z
+        int((dataset_size[3]/n_chunks[1])+1),  # Y
+        int((dataset_size[4]/n_chunks[2])+1)   # X
+    ]
+    size_mb = 2*chunk_size[2]*chunk_size[3]*chunk_size[4]/1024/1024
+    while size_mb > max_size_mb:
+        n_chunks = [n_chunks[0]*2,n_chunks[1]*2,n_chunks[2]*2]
+        chunk_size = [
+            1, 1, # T, C
+            int((dataset_size[2]/n_chunks[0])+1),  # Z
+            int((dataset_size[3]/n_chunks[1])+1),  # Y
+            int((dataset_size[4]/n_chunks[2])+1)   # X
+        ]
+        size_mb = 2*chunk_size[2]*chunk_size[3]*chunk_size[4]/1024/1024
+
+    return chunk_size
+
+def get_n_levels(dataset_size):
+    n = 1
+    shape = [dataset_size[2], dataset_size[3], dataset_size[4]] # [Y, X]
+    while (shape[0]>2048) or (shape[1]>2048) or (shape[2]>2048):
+        n+=1
+        shape = [shape[0]//2, shape[1]//2, shape[2]//2]
+
+    return max(3, n)
+
 def convert_widget():
     viewer = current_viewer()
 
@@ -438,6 +469,9 @@ def convert_widget():
         else:
             dataset = reader(path)
 
+        for i in dataset.metadata:
+            print(f"{i.upper()}: {dataset.metadata[i]}")
+
         _state["dataset"] = dataset
 
         suffix = ""
@@ -454,16 +488,19 @@ def convert_widget():
 
         make_convert_widget.enabled = True
 
-        make_convert_widget.chunk_x.value = dataset.chunks[4]
+        chunk_size = get_chunk_size(dataset.metadata["size"][0], max_size_mb=100)
+        num_levels = get_n_levels(dataset.metadata["size"][0])
+
+        make_convert_widget.chunk_x.value = chunk_size[4]
         make_convert_widget.chunk_x.max = dataset.metadata["size"][0][4]
 
-        make_convert_widget.chunk_y.value = dataset.chunks[3]
+        make_convert_widget.chunk_y.value = chunk_size[3]
         make_convert_widget.chunk_y.max = dataset.metadata["size"][0][3]
 
-        make_convert_widget.chunk_z.value = dataset.chunks[2]
+        make_convert_widget.chunk_z.value = chunk_size[2]
         make_convert_widget.chunk_z.max = dataset.metadata["size"][0][2]
 
-        make_convert_widget.n_levels.value = len(dataset.data)
+        make_convert_widget.n_levels.value = num_levels
 
         make_convert_widget.t_start.value = 0
         make_convert_widget.t_start.max = dataset.metadata["size"][0][0] - 1
