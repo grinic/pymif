@@ -373,15 +373,15 @@ def convert_widget():
         output_path={"widget_type": "FileEdit", "mode": "d"},
     )
     def make_convert_widget(
-        chunk_x=512,
-        chunk_y=512,
-        chunk_z=16,
-        n_levels=5,
         t_range=(0,1000),
         z_range=(0,1000),
         y_range=(0,1000),
         x_range=(0,1000),
         channels=(),
+        chunk_x=512,
+        chunk_y=512,
+        chunk_z=16,
+        n_levels=5,
         output_path: FileEdit = None,
     ):
         print("Starting conversion...")  

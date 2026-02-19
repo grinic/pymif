@@ -214,7 +214,6 @@ class MicroscopeManager(ABC):
             self.metadata[key] = value
             print(f"✅ Updated metadata entry '{key}'")
             
-            
     def subset_dataset(self,
                     T: Optional[Sequence[int]] = None,
                     C: Optional[Sequence[int]] = None,
