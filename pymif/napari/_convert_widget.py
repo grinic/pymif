@@ -73,6 +73,18 @@ def get_n_levels(dataset_size):
 def convert_widget():
     viewer = current_viewer()
 
+    def lock_roi_in_3d(event=None):
+        if viewer.dims.ndisplay == 3:
+            viewer.layers["ROI"].editable = False
+            viewer.layers["ROI"].selectable = False
+            make_convert_widget.y_range.enabled = False
+            make_convert_widget.x_range.enabled = False
+        else:
+            viewer.layers["ROI"].editable = True
+            viewer.layers["ROI"].selectable = True
+            make_convert_widget.y_range.enabled = True
+            make_convert_widget.x_range.enabled = True
+
     def ensure_crop_layers(dataset):
         if "ROI" not in viewer.layers:
             rect = np.array([
@@ -358,10 +370,10 @@ def convert_widget():
         
         n_levels={"label": "Resolution levels", "min": 1, "max": 10, "value": 5},
         
-        t_range={"label": "T range", "widget_type": "RangeSlider", "min": 0, "max": 1000, "step": 1, "value": (0, 1000)},
-        z_range={"label": "Z range", "widget_type": "RangeSlider", "min": 0, "max": 1000, "step": 1, "value": (0, 1000)},
-        y_range={"label": "Y range", "widget_type": "RangeSlider", "min": 0, "max": 1000, "step": 1, "value": (0, 1000)},
-        x_range={"label": "X range", "widget_type": "RangeSlider", "min": 0, "max": 1000, "step": 1, "value": (0, 1000)},
+        t_range={"label": "T range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
+        z_range={"label": "Z range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
+        y_range={"label": "Y range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
+        x_range={"label": "X range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
 
         channels={
             "label": "Channels",
@@ -515,6 +527,8 @@ def convert_widget():
 
     make_visualize_widget.scene_index.enabled = False
     make_convert_widget.enabled = False
+    viewer.dims.events.ndisplay.connect(lock_roi_in_3d)
+    # lock_roi_in_3d()
 
     # -------------------------
     # Compose single dock widget
