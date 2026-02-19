@@ -181,10 +181,8 @@ def convert_widget():
 
             layer.data = [np.array([[y0, x0], [y0, x1], [y1, x1], [y1, x0]])]
 
-            make_convert_widget.y_start.value = y0
-            make_convert_widget.y_end.value = y1
-            make_convert_widget.x_start.value = x0
-            make_convert_widget.x_end.value = x1
+            make_convert_widget.y_range.value = (y0, y1)
+            make_convert_widget.x_range.value = (x0, x1)
 
             update_3d_box()
         finally:
@@ -204,8 +202,7 @@ def convert_widget():
 
             zs = sorted(int(p[0]) for p in layer.data[:2])
 
-            make_convert_widget.z_start.value = zs[0]
-            make_convert_widget.z_end.value = zs[1]
+            make_convert_widget.z_range.value = (zs[0], zs[1])
 
             update_3d_box()
         finally:
@@ -227,10 +224,10 @@ def convert_widget():
                 "x_max": dataset.metadata["size"][0][4] - 1,
             }
 
-            y0 = clamp(make_convert_widget.y_start.value, 0, b["y_max"])
-            y1 = clamp(make_convert_widget.y_end.value, 0, b["y_max"])
-            x0 = clamp(make_convert_widget.x_start.value, 0, b["x_max"])
-            x1 = clamp(make_convert_widget.x_end.value, 0, b["x_max"])
+            y0 = clamp(make_convert_widget.y_range.value[0], 0, b["y_max"])
+            y1 = clamp(make_convert_widget.y_range.value[1], 0, b["y_max"])
+            x0 = clamp(make_convert_widget.x_range.value[0], 0, b["x_max"])
+            x1 = clamp(make_convert_widget.x_range.value[1], 0, b["x_max"])
 
             y0, y1 = sorted([y0, y1])
             x0, x1 = sorted([x0, x1])
@@ -258,8 +255,8 @@ def convert_widget():
                 return
             layer = viewer.layers["Zrange"]
 
-            z0 = make_convert_widget.z_start.value
-            z1 = make_convert_widget.z_end.value
+            z0 = make_convert_widget.z_range.value[0]
+            z1 = make_convert_widget.z_range.value[1]
 
             prev_points = layer.data
 
@@ -346,13 +343,9 @@ def convert_widget():
         viewer.layers["Zrange"].events.data.connect(keep_two_zpoints)
         viewer.layers["Zrange"].events.data.connect(zpoints_to_widget)
 
-        make_convert_widget.y_start.changed.connect(widget_to_roi)
-        make_convert_widget.y_end.changed.connect(widget_to_roi)
-        make_convert_widget.x_start.changed.connect(widget_to_roi)
-        make_convert_widget.x_end.changed.connect(widget_to_roi)
-
-        make_convert_widget.z_start.changed.connect(widget_to_zpoints)
-        make_convert_widget.z_end.changed.connect(widget_to_zpoints)
+        make_convert_widget.y_range.changed.connect(widget_to_roi)
+        make_convert_widget.x_range.changed.connect(widget_to_roi)
+        make_convert_widget.z_range.changed.connect(widget_to_zpoints)
 
     # ---
 
@@ -365,8 +358,10 @@ def convert_widget():
         
         n_levels={"label": "Resolution levels", "min": 1, "max": 10, "value": 5},
         
-        t_start={"label": "T start", "min": 0, "max": 2**16, "step": 1, "value": 0},
-        t_end={"label": "T end", "min": 0, "max": 2**16, "step": 1, "value": 0},
+        t_range={"label": "T range", "widget_type": "RangeSlider", "min": 0, "max": 1000, "step": 1, "value": (0, 1000)},
+        z_range={"label": "Z range", "widget_type": "RangeSlider", "min": 0, "max": 1000, "step": 1, "value": (0, 1000)},
+        y_range={"label": "Y range", "widget_type": "RangeSlider", "min": 0, "max": 1000, "step": 1, "value": (0, 1000)},
+        x_range={"label": "X range", "widget_type": "RangeSlider", "min": 0, "max": 1000, "step": 1, "value": (0, 1000)},
 
         channels={
             "label": "Channels",
@@ -375,15 +370,6 @@ def convert_widget():
             "allow_multiple": True,
         },
 
-        z_start={"label": "Z start", "min": 0, "max": 2**16, "step": 1, "value": 0},
-        z_end={"label": "Z end", "min": 0, "max": 2**16, "step": 1, "value": 0},
-
-        y_start={"label": "Y start", "min": 0, "max": 2**16, "step": 1, "value": 0},
-        y_end={"label": "Y end", "min": 0, "max": 2**16, "step": 1, "value": 0},
-
-        x_start={"label": "X start", "min": 0, "max": 2**16, "step": 1, "value": 0},
-        x_end={"label": "X end", "min": 0, "max": 2**16, "step": 1, "value": 0},
-
         output_path={"widget_type": "FileEdit", "mode": "d"},
     )
     def make_convert_widget(
@@ -391,10 +377,10 @@ def convert_widget():
         chunk_y=512,
         chunk_z=16,
         n_levels=5,
-        t_start=0, t_end=0,
-        z_start=0, z_end=0,
-        y_start=0, y_end=0,
-        x_start=0, x_end=0,
+        t_range=(0,1000),
+        z_range=(0,1000),
+        y_range=(0,1000),
+        x_range=(0,1000),
         channels=(),
         output_path: FileEdit = None,
     ):
@@ -405,6 +391,10 @@ def convert_widget():
         scene_index = make_visualize_widget.scene_index.value
 
         chunks = (1, 1, chunk_z, chunk_y, chunk_x)
+        t_start, t_end = t_range
+        z_start, z_end = z_range
+        y_start, y_end = y_range
+        x_start, x_end = x_range
 
         if make_visualize_widget.file_format.value == "zeiss":
             dataset = reader(path, scene_index = scene_index, chunks = chunks)
@@ -504,25 +494,17 @@ def convert_widget():
 
         make_convert_widget.n_levels.value = num_levels
 
-        make_convert_widget.t_start.value = 0
-        make_convert_widget.t_start.max = dataset.metadata["size"][0][0] - 1
-        make_convert_widget.t_end.value = dataset.metadata["size"][0][0] - 1
-        make_convert_widget.t_end.max = dataset.metadata["size"][0][0] - 1
+        make_convert_widget.t_range.value = (0, dataset.metadata["size"][0][0] - 1)
+        make_convert_widget.t_range.max = dataset.metadata["size"][0][0] - 1
 
-        make_convert_widget.z_start.value = 0
-        make_convert_widget.z_start.max = dataset.metadata["size"][0][2] - 1
-        make_convert_widget.z_end.value = dataset.metadata["size"][0][2] - 1
-        make_convert_widget.z_end.max = dataset.metadata["size"][0][2] - 1
+        make_convert_widget.z_range.value = (0, dataset.metadata["size"][0][2] - 1)
+        make_convert_widget.z_range.max = dataset.metadata["size"][0][2] - 1
 
-        make_convert_widget.y_start.value = 0
-        make_convert_widget.y_start.max = dataset.metadata["size"][0][3] - 1
-        make_convert_widget.y_end.value = dataset.metadata["size"][0][3] - 1
-        make_convert_widget.y_end.max = dataset.metadata["size"][0][3] - 1
+        make_convert_widget.y_range.value = (0, dataset.metadata["size"][0][3] - 1)
+        make_convert_widget.y_range.max = dataset.metadata["size"][0][3] - 1
 
-        make_convert_widget.x_start.value = 0
-        make_convert_widget.x_start.max = dataset.metadata["size"][0][4] - 1
-        make_convert_widget.x_end.value = dataset.metadata["size"][0][4] - 1
-        make_convert_widget.x_end.max = dataset.metadata["size"][0][4] - 1
+        make_convert_widget.x_range.value = (0, dataset.metadata["size"][0][4] - 1)
+        make_convert_widget.x_range.max = dataset.metadata["size"][0][4] - 1
 
         make_convert_widget.channels.choices = dataset.metadata["channel_names"]
         make_convert_widget.channels.value = tuple(dataset.metadata["channel_names"])
