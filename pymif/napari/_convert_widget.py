@@ -495,33 +495,35 @@ def convert_widget():
         chunk_size = get_chunk_size(dataset.metadata["size"][0], max_size_mb=100)
         num_levels = get_n_levels(dataset.metadata["size"][0])
 
+        make_convert_widget.chunk_x.max = dataset.metadata["size"][0][4]+1
         make_convert_widget.chunk_x.value = chunk_size[4]
-        make_convert_widget.chunk_x.max = dataset.metadata["size"][0][4]
 
+        make_convert_widget.chunk_y.max = dataset.metadata["size"][0][3]+1
         make_convert_widget.chunk_y.value = chunk_size[3]
-        make_convert_widget.chunk_y.max = dataset.metadata["size"][0][3]
 
+        make_convert_widget.chunk_z.max = dataset.metadata["size"][0][2]+1
         make_convert_widget.chunk_z.value = chunk_size[2]
-        make_convert_widget.chunk_z.max = dataset.metadata["size"][0][2]
 
         make_convert_widget.n_levels.value = num_levels
 
-        make_convert_widget.t_range.value = (0, dataset.metadata["size"][0][0] - 1)
         make_convert_widget.t_range.max = dataset.metadata["size"][0][0] - 1
+        make_convert_widget.t_range.value = (0, dataset.metadata["size"][0][0] - 1)
 
-        make_convert_widget.z_range.value = (0, dataset.metadata["size"][0][2] - 1)
         make_convert_widget.z_range.max = dataset.metadata["size"][0][2] - 1
+        make_convert_widget.z_range.value = (0, dataset.metadata["size"][0][2] - 1)
 
-        make_convert_widget.y_range.value = (0, dataset.metadata["size"][0][3] - 1)
         make_convert_widget.y_range.max = dataset.metadata["size"][0][3] - 1
+        make_convert_widget.y_range.value = (0, dataset.metadata["size"][0][3] - 1)
 
-        make_convert_widget.x_range.value = (0, dataset.metadata["size"][0][4] - 1)
         make_convert_widget.x_range.max = dataset.metadata["size"][0][4] - 1
+        make_convert_widget.x_range.value = (0, dataset.metadata["size"][0][4] - 1)
 
         make_convert_widget.channels.choices = dataset.metadata["channel_names"]
         make_convert_widget.channels.value = tuple(dataset.metadata["channel_names"])
 
         make_convert_widget.output_path.value = default_output
+
+        viewer.layers.clear()
 
 
 
