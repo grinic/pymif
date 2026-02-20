@@ -1,13 +1,19 @@
 import os
 import napari
 from napari import current_viewer
+from datetime import datetime
+from napari.qt.threading import thread_worker
 import numpy as np
 from magicgui import magicgui
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 import pymif.microscope_manager as mm
 from magicgui.widgets import FileEdit
-from PyQt5.QtWidgets import QFileDialog, QWidget, QVBoxLayout
+import sys
+from qtpy.QtWidgets import QTextEdit
+from qtpy.QtCore import QObject, Signal
+from qtpy.QtGui import QTextCursor
+from PyQt5.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel
 from matplotlib import rc
 rc('font', size=12)
 rc('font', family='Arial')
@@ -18,6 +24,15 @@ rc('pdf', fonttype=42)
 # -------------------------
 # MagicGUI controls
 # -------------------------
+
+class EmittingStream(QObject):
+    text_written = Signal(str)
+
+    def write(self, text):
+        self.text_written.emit(str(text))
+
+    def flush(self):
+        pass
 
 def dataset_reader(microscope):
     if microscope == "zeiss":
@@ -70,9 +85,66 @@ def get_n_levels(dataset_size):
 
     return max(3, n)
 
+def _run_conversion(
+    reader,
+    path,
+    scene_index,
+    chunks,
+    t_range,
+    z_range,
+    y_range,
+    x_range,
+    channels,
+    n_levels,
+    output_path,
+    file_format,
+):
+    print("Starting conversion in background thread...")
+
+    if file_format == "zeiss":
+        dataset = reader(path, scene_index=scene_index, chunks=chunks)
+    else:
+        dataset = reader(path, chunks=chunks)
+
+    t_start, t_end = t_range
+    z_start, z_end = z_range
+    y_start, y_end = y_range
+    x_start, x_end = x_range
+
+    if len(channels) == 0:
+        channels_index = None
+    else:
+        channels_index = [
+            dataset.metadata["channel_names"].index(ch)
+            for ch in channels
+        ]
+
+    if dataset.metadata["size"][0][0] > 1:
+        dataset.subset_dataset(T=range(t_start, t_end + 1))
+
+    if dataset.metadata["size"][0][1] > 1:
+        dataset.subset_dataset(C=channels_index)
+
+    if dataset.metadata["size"][0][2] > 1:
+        dataset.subset_dataset(Z=range(z_start, z_end + 1))
+
+    dataset.subset_dataset(
+        Y=range(y_start, y_end + 1),
+        X=range(x_start, x_end + 1),
+    )
+
+    dataset.build_pyramid(num_levels=n_levels)
+    dataset.to_zarr(output_path)
+
+    return output_path
+
+@thread_worker
+def convert_worker(**kwargs):
+    return _run_conversion(**kwargs)
+
 def convert_widget():
     viewer = current_viewer()
-
+    
     def lock_roi_in_3d(event=None):
         if viewer.dims.ndisplay == 3:
             viewer.layers["ROI"].editable = False
@@ -396,11 +468,11 @@ def convert_widget():
         n_levels=5,
         output_path: FileEdit = None,
     ):
-        print("Starting conversion...")  
 
         reader = dataset_reader(make_visualize_widget.file_format.value)
         path = make_visualize_widget.input_path.value
         scene_index = make_visualize_widget.scene_index.value
+        file_format = make_visualize_widget.file_format.value
 
         chunks = (1, 1, chunk_z, chunk_y, chunk_x)
         t_start, t_end = t_range
@@ -413,37 +485,37 @@ def convert_widget():
         else:
             dataset = reader(path, chunks = chunks)  
 
-        if len(channels) == 0:
-            channels_index = None  # interpret as "all channels"
-        else:
-            channels_index = [
-                dataset.metadata["channel_names"].index(ch)
-                for ch in channels
-            ]
-        if dataset.metadata["size"][0][0] > 1:  # if only 1 timepoint, ignore time dimension
-            dataset.subset_dataset(
-                T=range(t_start, t_end+1),
+        worker = convert_worker(
+                reader=reader,
+                path=path,
+                scene_index=scene_index,
+                chunks=chunks,
+                t_range=t_range,
+                z_range=z_range,
+                y_range=y_range,
+                x_range=x_range,
+                channels=channels,
+                n_levels=n_levels,
+                output_path=output_path,
+                file_format=file_format,
             )
-        if dataset.metadata["size"][0][1] > 1:  # if only 1 channel, ignore channel dimension
-            dataset.subset_dataset(
-                C=channels_index,
-            )
+        
+        make_convert_widget.enabled = False
+        make_visualize_widget.enabled = False
 
-        if dataset.metadata["size"][0][2] > 1:  # if only 1 Z, ignore Z dimension
-            dataset.subset_dataset(
-                Z=range(z_start, z_end+1), 
-           )
+        @worker.returned.connect
+        def _on_done(result_path):
+            print(f"Conversion completed: {result_path}")
+            make_convert_widget.enabled = True
+            make_visualize_widget.enabled = True
 
-        dataset.subset_dataset(
-            Y=range(y_start, y_end+1),
-            X=range(x_start, x_end+1),
-        )
+        @worker.errored.connect
+        def _on_error(err):
+            print("Conversion failed:", err)
+            make_convert_widget.enabled = True
+            make_visualize_widget.enabled = True
 
-        dataset.build_pyramid(num_levels=n_levels)
-
-        dataset.to_zarr(output_path)
-
-        print("Conversion completed!")
+        worker.start()
 
     # -------------------------
     # Input path callback
@@ -525,8 +597,6 @@ def convert_widget():
 
         viewer.layers.clear()
 
-
-
     make_visualize_widget.scene_index.enabled = False
     make_convert_widget.enabled = False
     viewer.dims.events.ndisplay.connect(lock_roi_in_3d)
@@ -538,12 +608,87 @@ def convert_widget():
 
     container = QWidget()
     layout = QVBoxLayout(container)
+    
+    title1_label = QLabel("Dataset loading:")
+    title1_label.setStyleSheet("""
+        QLabel {
+            font-weight: bold;
+            font-size: 15px;
+            padding: 2px 0px;
+        }
+    """)
+
+    title2_label = QLabel("Dataset conversion:")
+    title2_label.setStyleSheet("""
+        QLabel {
+            font-weight: bold;
+            font-size: 15px;
+            padding: 2px 0px;
+        }
+    """)
+    layout.addWidget(title1_label)
     layout.addWidget(make_visualize_widget.native)
+    layout.addWidget(title2_label)
     layout.addWidget(make_convert_widget.native)
     # layout.addWidget(reset_roi_widget.native)
 
     # make_visualize_widget.input_path.tooltip = (
     #     "Select a folder containing OME-Zarr data (.zarr)"
     # )
+
+    log_widget = QTextEdit()
+    log_widget.setReadOnly(True)
+    log_widget.setMinimumHeight(150)
+    log_widget.setStyleSheet("""
+        QTextEdit {
+            background-color: #111;
+            color: #ddd;
+            font-family: Consolas, Menlo, monospace;
+            font-size: 12px;
+        }
+    """)
+
+    stdout_stream = EmittingStream()
+    stderr_stream = EmittingStream()
+
+    sys.stdout = stdout_stream
+    sys.stderr = stderr_stream
+
+    def append_with_time(text):
+        if not text.strip():
+            return
+
+        ts = datetime.now().strftime("[%H:%M:%S] ")
+        html = f"<span style='color:#ffffff;'>{ts}{text.rstrip()}</span>"
+
+        # insertHtml does NOT add an automatic newline like append()
+        log_widget.insertHtml(html + "<br>")  # we add exactly one <br> per line
+
+        # auto-scroll
+        cursor = log_widget.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        log_widget.setTextCursor(cursor)
+        log_widget.ensureCursorVisible()
+
+    stdout_stream.text_written.connect(append_with_time)
+    stderr_stream.text_written.connect(append_with_time)
+
+    title3_label = QLabel("PyMIF Log:")
+    title3_label.setStyleSheet("""
+        QLabel {
+            font-weight: bold;
+            font-size: 15px;
+            padding: 2px 0px;
+        }
+    """)
+
+    clear_btn = QPushButton("Clear log")
+    clear_btn.clicked.connect(log_widget.clear)
+
+    layout.addWidget(title3_label)
+    layout.addWidget(log_widget)
+    layout.addWidget(clear_btn)
+
+
 
     return container
