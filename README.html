@@ -1,0 +1,277 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PyMIF — Python code for users of the Mesoscopic Imaging Facility &mdash; PyMIF v0.3.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=bd95bda3"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="autoapi/index.html" />
+    <link rel="prev" title="PyMIF documentation" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            PyMIF
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">PyMIF — Python code for users of the Mesoscopic Imaging Facility</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#features">📦 Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-started">🚀 Getting Started</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#installation">📥 Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#usage">📚 Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#python-script">Python script</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cli">CLI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#napari-plugin">Napari Plugin</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#adding-new-microscope-support-and-contributing">➕ Adding New Microscope Support and Contributing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="autoapi/index.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PyMIF</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">PyMIF — Python code for users of the Mesoscopic Imaging Facility</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/README.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="pymif-python-code-for-users-of-the-mesoscopic-imaging-facility">
+<h1>PyMIF — Python code for users of the Mesoscopic Imaging Facility<a class="headerlink" href="#pymif-python-code-for-users-of-the-mesoscopic-imaging-facility" title="Link to this heading"></a></h1>
+<p><strong>PyMIF</strong> (source code <a class="reference external" href="https://github.com/grinic/pymif">here</a>) is a modular Python package to read, visualize, and write multiscale (pyramidal) microscopy image data from a variety of microscope platforms available at the <a class="reference external" href="https://www.embl.org/groups/mesoscopic-imaging-facility/">Mesoscopic Imaging Facility (MIF)</a> into the <a class="reference external" href="https://ngff.openmicroscopy.org/">OME-NGFF (Zarr)</a> format.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older version of PyMIF (e.g. 0.2.4) can still be loaded using the manager <code class="docutils literal notranslate"><span class="pre">ZarrV04Manager</span></code> as shown in <a class="reference external" href="https://github.com/grinic/pymif/tree/main/examples">examples</a>.</p>
+</div>
+<hr class="docutils" />
+<section id="features">
+<h2>📦 Features<a class="headerlink" href="#features" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>✅ Read and parse image metadata from multiple microscope vendors and data formats:</p>
+<ul>
+<li><p><strong>Viventis LS1</strong> (<code class="docutils literal notranslate"><span class="pre">.ome</span> <span class="pre">+</span> <span class="pre">.tif</span></code>)</p></li>
+<li><p><strong>Luxendo</strong> (<code class="docutils literal notranslate"><span class="pre">.xml</span> <span class="pre">+</span> <span class="pre">.h5</span></code>)</p></li>
+<li><p><strong>Opera PE</strong> (<code class="docutils literal notranslate"><span class="pre">.ome.tiff</span></code>)</p></li>
+<li><p><strong>Zeiss</strong> (<code class="docutils literal notranslate"><span class="pre">.czi</span></code>)</p></li>
+<li><p><strong>Leica SCAPE</strong> (<code class="docutils literal notranslate"><span class="pre">.ome.tiff</span> <span class="pre">+</span> <span class="pre">.xlif</span></code>)</p></li>
+<li><p><strong>Generic OME-Zarr</strong></p></li>
+<li><p><strong>Numpy or Dask array</strong></p></li>
+</ul>
+</li>
+<li><p>✅ Abstract base class <code class="docutils literal notranslate"><span class="pre">MicroscopeManager</span></code> ensures uniform interface for all readers</p></li>
+<li><p>✅ Lazy loading via Dask for memory-efficient processing</p></li>
+<li><p>✅ Build pyramidal (multiscale) OME-Zarr archives from raw data or existing pyramids</p></li>
+<li><p>✅ Write OME-Zarr with:</p>
+<ul>
+<li><p>Blosc or GZIP compression</p></li>
+<li><p>Nested directory layout</p></li>
+<li><p>Full NGFF + OMERO metadata (channel names, colors, scales, units)</p></li>
+<li><p>Optional parallelization with <code class="docutils literal notranslate"><span class="pre">dask-distribute</span></code></p></li>
+</ul>
+</li>
+<li><p>✅ Command line interface (CLI) available for batch conversion.</p></li>
+<li><p>✅ Visualize pyramids in <strong>Napari</strong> using <code class="docutils literal notranslate"><span class="pre">napari-ome-zarr</span></code> plugin:</p>
+<ul>
+<li><p>Using lazy loading for fast visualization, or</p></li>
+<li><p>Using <em>in-memory</em> loading of any resolution layer for interactivity.</p></li>
+</ul>
+</li>
+<li><p>✅ Compatible with automated workflows and interactive exploration (Jupyter + scripts)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="getting-started">
+<h2>🚀 Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h2>
+<section id="installation">
+<h3>📥 Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h3>
+<p>It is recommended to install <a class="reference external" href="https://github.com/conda-forge/miniforge">miniforge3</a> as Python distribution and pymif in a clean conda environment:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>pymif<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.12
+<span class="gp">$ </span>conda<span class="w"> </span>activate<span class="w"> </span>pymif
+</pre></div>
+</div>
+<p>Installation is then done by cloning the repository:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/grinic/pymif.git
+<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>pymif
+<span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>.
+</pre></div>
+</div>
+<p><strong>NOTE</strong>: Use the <code class="docutils literal notranslate"><span class="pre">-e</span></code> (editable) option if you want to use the download as installation folder.</p>
+</section>
+</section>
+<section id="usage">
+<h2>📚 Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
+<section id="python-script">
+<h3>Python script<a class="headerlink" href="#python-script" title="Link to this heading"></a></h3>
+<p>With the following code, we read Viventis image data and parse the corresponding metadata. Next, we build a pyramidal structure of 3 resolution layers and save it into an OME-Zarr format. Finally, we load the new dataset and visualize it in napari.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pymif.microscope_manager</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mm</span>
+
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">mm</span><span class="o">.</span><span class="n">ViventisManager</span><span class="p">(</span><span class="s2">&quot;path/to/Position_1&quot;</span><span class="p">)</span>
+<span class="n">dataset</span><span class="o">.</span><span class="n">build_pyramid</span><span class="p">(</span><span class="n">num_levels</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">dataset</span><span class="o">.</span><span class="n">to_zarr</span><span class="p">(</span><span class="s2">&quot;output.zarr&quot;</span><span class="p">)</span>
+<span class="n">dataset_zarr</span> <span class="o">=</span> <span class="n">mm</span><span class="o">.</span><span class="n">ZarrManager</span><span class="p">(</span><span class="s2">&quot;output.zarr&quot;</span><span class="p">)</span>
+<span class="n">viewer</span> <span class="o">=</span> <span class="n">dataset_zarr</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">start_level</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">in_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><img alt="Demo" src="_images/demo.gif" />
+<em>Demonstration of pymif usage. Data: near newborn mouse embryo (~1.5 cm long). Fluorescence signal: methylene blue + autofluorescence. Sample processed and imaged by Montserrat Coll at the Mesoscopic Imaging Facility. Video speed: 2.5X real speed.</em></p>
+<p>For more examples, see <a class="reference external" href="https://github.com/grinic/pymif/tree/main/examples">examples</a>.</p>
+</section>
+<section id="cli">
+<h3>CLI<a class="headerlink" href="#cli" title="Link to this heading"></a></h3>
+<p>Command Line Interface <code class="docutils literal notranslate"><span class="pre">pymif</span></code> has two main runmodes available:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>conda<span class="w"> </span>activate<span class="w"> </span>pymif
+<span class="gp">$ </span>pymif<span class="w"> </span>2zarr<span class="w"> </span>-i<span class="w"> </span>INPUT<span class="w"> </span>-z<span class="w"> </span>OUTPUT<span class="w"> </span>-m<span class="w"> </span>MICROSCOPE
+</pre></div>
+</div>
+<p>converts a single dataset into the corresponding output zarr.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>conda<span class="w"> </span>activate<span class="w"> </span>pymif
+<span class="gp">$ </span>pymif<span class="w"> </span>batch2zarr<span class="w"> </span>-i<span class="w"> </span>INPUT
+</pre></div>
+</div>
+<p>converts all datasets specified in a .csv file that has the form:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span>              <span class="o">|</span> <span class="n">microscope</span>  <span class="o">|</span> <span class="n">output</span>           <span class="o">|</span> <span class="n">max_size</span><span class="p">(</span><span class="n">MB</span><span class="p">)</span> <span class="o">|</span> <span class="n">scene_index</span> <span class="o">|</span> <span class="n">channel_colors</span> <span class="o">|</span> <span class="n">channel_names</span>
+<span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">input_1</span>   <span class="o">|</span> <span class="n">opera</span>       <span class="o">|</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">zarr_1</span>  <span class="o">|</span> <span class="mi">100</span>          <span class="o">|</span> <span class="mi">0</span>           <span class="o">|</span> <span class="n">lime</span> <span class="n">white</span>     <span class="o">|</span> <span class="n">gfp</span> <span class="n">bf</span>
+<span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">input_2</span>   <span class="o">|</span> <span class="n">viventis</span>    <span class="o">|</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">zarr_2</span>  <span class="o">|</span> <span class="mi">100</span>          <span class="o">|</span>             <span class="o">|</span> <span class="mi">000</span><span class="n">FF</span> <span class="n">FF00FF</span>   <span class="o">|</span>
+<span class="o">...</span>
+<span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">input_n</span>   <span class="o">|</span> <span class="n">viventis</span>    <span class="o">|</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">zarr_n</span>  <span class="o">|</span> <span class="mi">100</span>          <span class="o">|</span> <span class="mi">0</span>           <span class="o">|</span>                <span class="o">|</span>
+</pre></div>
+</div>
+<p>where all column headers are mandatory, but values can be empty. <code class="docutils literal notranslate"><span class="pre">channel_colors</span></code> can be hex code or valid matplotlib colors.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Use the help commands to get more information</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pymif<span class="w"> </span>-h
+<span class="gp">$ </span>pymif<span class="w"> </span>2zarr<span class="w"> </span>-h
+<span class="gp">$ </span>pymif<span class="w"> </span>batch2zarr<span class="w"> </span>-h
+</pre></div>
+</div>
+</div>
+</section>
+<section id="napari-plugin">
+<h3>Napari Plugin<a class="headerlink" href="#napari-plugin" title="Link to this heading"></a></h3>
+<p>A napari PyMIF plugin exists (<code class="docutils literal notranslate"><span class="pre">Pugins</span> <span class="pre">&gt;</span> <span class="pre">PyMIF</span> <span class="pre">&gt;</span> <span class="pre">Converter</span> <span class="pre">Plugin</span></code>) that allows to load data and visualize them in the viewer.</p>
+<p>Optionally, the user can define 3D ROIs, select timepoints and channels, and number of resolution layers in the pyramid, before converting the dataset into ome-zarr:</p>
+<p><img alt="napari-demo" src="_images/napari-demo.png" /></p>
+</section>
+</section>
+<section id="adding-new-microscope-support-and-contributing">
+<h2>➕ Adding New Microscope Support and Contributing<a class="headerlink" href="#adding-new-microscope-support-and-contributing" title="Link to this heading"></a></h2>
+<p>Contributions/PRs are welcome! If you would like to help and add a new format:</p>
+<ul class="simple">
+<li><p>Subclass MicroscopeManager</p></li>
+<li><p>Implement read() returning:</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">dask</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Follow this metadata schema:</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span> <span class="n">per</span> <span class="n">level</span> <span class="o">...</span><span class="p">],</span>
+  <span class="s2">&quot;scales&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span> <span class="n">per</span> <span class="n">level</span> <span class="o">...</span><span class="p">],</span>
+  <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">...</span><span class="p">),</span>
+  <span class="s2">&quot;axes&quot;</span><span class="p">:</span> <span class="s2">&quot;tczyx&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;channel_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">],</span>
+  <span class="s2">&quot;channel_colors&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">],</span>
+  <span class="s2">&quot;time_increment&quot;</span><span class="p">:</span> <span class="o">...</span><span class="p">,</span>
+  <span class="s2">&quot;time_increment_unit&quot;</span><span class="p">:</span> <span class="o">...</span><span class="p">,</span>
+  <span class="o">...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>You will automatically inherit all <code class="docutils literal notranslate"><span class="pre">MicroscopeManager</span></code> methods, including:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">build_pyramid()</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">to_zarr()</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">visualize()</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reorder_channels()</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">update_metadata()</span></code>,</p></li>
+<li><p>…</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="PyMIF documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autoapi/index.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Nicola Gritti.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

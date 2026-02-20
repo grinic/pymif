@@ -1,0 +1,48 @@
+pymif.microscope_manager.utils.visualize
+========================================
+
+.. py:module:: pymif.microscope_manager.utils.visualize
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.visualize._parse_color
+   pymif.microscope_manager.utils.visualize.visualize
+
+
+Module Contents
+---------------
+
+.. py:function:: _parse_color(color: Union[int, str]) -> tuple
+
+   Convert OME int or hex string color to RGB float tuple for Napari.
+
+
+.. py:function:: visualize(data_levels: List[dask.array.Array], metadata: Dict[str, Any], start_level: Optional[int] = 0, stop_level: Optional[int] = -1, in_memory: Optional[bool] = False, viewer: Optional[napari.Viewer] = None) -> napari.Viewer
+
+   Visualize a multiscale dataset with Napari.
+
+   Parameters
+   ----------
+   data_levels : List[da.Array]
+       list of Dask arrays, one per resolution level.
+   metadata : Dict[str, Any]
+       dict with NGFF-compatible metadata.
+   start_level : Optional[int]
+       index of resolution level to use as the highest-resolution (default: 0).
+   stop_level : Optional[int]
+       index of resolution level to use as the lowest-resolution (default: -1).
+   in_memory : Optional[bool]
+       if True, convert Dask arrays to NumPy for interactivity (default: False).
+   viewer : Optional[napari.Viewer]
+       optional existing Napari viewer (deafult: None).
+
+   Returns
+   ----------
+   napari.Viewer
+       viewer instance with the image loaded.
+
+

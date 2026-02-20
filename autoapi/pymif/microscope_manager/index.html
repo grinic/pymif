@@ -1,0 +1,845 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pymif.microscope_manager &mdash; PyMIF v0.3.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=bd95bda3"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="pymif.microscope_manager.array_manager" href="array_manager/index.html" />
+    <link rel="prev" title="pymif.cli.pymif" href="../cli/pymif/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PyMIF
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../README.html">PyMIF — Python code for users of the Mesoscopic Imaging Facility</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">pymif</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../cli/index.html">pymif.cli</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">pymif.microscope_manager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../napari/index.html">pymif.napari</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">PyMIF</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="../index.html">pymif</a></li>
+      <li class="breadcrumb-item active">pymif.microscope_manager</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/autoapi/pymif/microscope_manager/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-pymif.microscope_manager">
+<span id="pymif-microscope-manager"></span><h1>pymif.microscope_manager<a class="headerlink" href="#module-pymif.microscope_manager" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="array_manager/index.html">pymif.microscope_manager.array_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="luxendo_manager/index.html">pymif.microscope_manager.luxendo_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="microscope_manager/index.html">pymif.microscope_manager.microscope_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="opera_manager/index.html">pymif.microscope_manager.opera_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scape_manager/index.html">pymif.microscope_manager.scape_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils/index.html">pymif.microscope_manager.utils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="viventis_manager/index.html">pymif.microscope_manager.viventis_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zarr_manager/index.html">pymif.microscope_manager.zarr_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zarr_v04_manager/index.html">pymif.microscope_manager.zarr_v04_manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zeiss_manager/index.html">pymif.microscope_manager.zeiss_manager</a></li>
+</ul>
+</div>
+</section>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.LuxendoManager" title="pymif.microscope_manager.LuxendoManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LuxendoManager</span></code></a></p></td>
+<td><p>Reader for Luxendo microscope data saved as multi-resolution HDF5 (.lux.h5) and XML metadata.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.ViventisManager" title="pymif.microscope_manager.ViventisManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ViventisManager</span></code></a></p></td>
+<td><p>Reader for Viventis microscope datasets with OME-TIFF and companion .ome XML files.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.ZarrManager" title="pymif.microscope_manager.ZarrManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ZarrManager</span></code></a></p></td>
+<td><p>A manager class for reading and handling OME-Zarr datasets.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.ZarrV04Manager" title="pymif.microscope_manager.ZarrV04Manager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ZarrV04Manager</span></code></a></p></td>
+<td><p>A manager class for reading and handling OME-Zarr V0.4 datasets.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.ArrayManager" title="pymif.microscope_manager.ArrayManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ArrayManager</span></code></a></p></td>
+<td><p>Create a MicroscopeManager instance from in-memory NumPy or Dask array(s)</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.OperaManager" title="pymif.microscope_manager.OperaManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OperaManager</span></code></a></p></td>
+<td><p>Manager for reading Opera (PerkinElmer Opera Phenix) pyramidal OME-TIFF datasets.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.ZeissManager" title="pymif.microscope_manager.ZeissManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ZeissManager</span></code></a></p></td>
+<td><p>A manager class for reading and handling .czi datasets.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.ScapeManager" title="pymif.microscope_manager.ScapeManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ScapeManager</span></code></a></p></td>
+<td><p>MicroscopeManager for SCAPE microscope datasets where metadata is stored in an external</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="package-contents">
+<h2>Package Contents<a class="headerlink" href="#package-contents" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="pymif.microscope_manager.LuxendoManager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.</span></span><span class="sig-name descname"><span class="pre">LuxendoManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1,</span> <span class="pre">8,</span> <span class="pre">4096,</span> <span class="pre">4096)</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.LuxendoManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="microscope_manager/index.html#pymif.microscope_manager.microscope_manager.MicroscopeManager" title="pymif.microscope_manager.microscope_manager.MicroscopeManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pymif.microscope_manager.microscope_manager.MicroscopeManager</span></code></a></p>
+<p>Reader for Luxendo microscope data saved as multi-resolution HDF5 (.lux.h5) and XML metadata.</p>
+<p>This class parses Luxendo’s XML configuration and builds a lazy Dask array pyramid for downstream processing.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.LuxendoManager.path">
+<span class="sig-name descname"><span class="pre">path</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.LuxendoManager.path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.LuxendoManager.chunks">
+<span class="sig-name descname"><span class="pre">chunks</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1,</span> <span class="pre">1,</span> <span class="pre">8,</span> <span class="pre">4096,</span> <span class="pre">4096)</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.LuxendoManager.chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.LuxendoManager._open_files">
+<span class="sig-name descname"><span class="pre">_open_files</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[]</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.LuxendoManager._open_files" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.LuxendoManager._parse_metadata">
+<span class="sig-name descname"><span class="pre">_parse_metadata</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.LuxendoManager._parse_metadata" title="Link to this definition"></a></dt>
+<dd><p>Parse XML metadata from the Luxendo dataset.</p>
+<section id="returns">
+<h3>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>Dict[str, Any]</dt><dd><p>A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.LuxendoManager._read_h5_stack">
+<span class="sig-name descname"><span class="pre">_read_h5_stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.LuxendoManager._read_h5_stack" title="Link to this definition"></a></dt>
+<dd><p>Load a single resolution dataset lazily as a Dask array.</p>
+<section id="parameters">
+<h3>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>h5_path<span class="classifier">Path</span></dt><dd><p>Path to the .lux.h5 file.</p>
+</dd>
+<dt>dataset_name<span class="classifier">str</span></dt><dd><p>Internal dataset name (e.g., “Data”, “Data444”, etc.)</p>
+</dd>
+</dl>
+</section>
+<section id="id1">
+<h3>Returns<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>np.ndarray</dt><dd><p>A Dask array loaded from the HDF5 file.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.LuxendoManager._read_h5_shape">
+<span class="sig-name descname"><span class="pre">_read_h5_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.LuxendoManager._read_h5_shape" title="Link to this definition"></a></dt>
+<dd><p>Read the shape and dtype of a dataset in an HDF5 file.</p>
+<section id="id2">
+<h3>Parameters<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>h5_path<span class="classifier">Path</span></dt><dd><p>Path to the .lux.h5 file.</p>
+</dd>
+<dt>dataset_name<span class="classifier">str</span></dt><dd><p>Internal dataset name.</p>
+</dd>
+</dl>
+</section>
+<section id="id3">
+<h3>Returns<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>Tuple[Tuple[int, …], np.dtype]</dt><dd><p>A tuple containing the dataset shape and dtype.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.LuxendoManager.get_available_datasets">
+<span class="sig-name descname"><span class="pre">get_available_datasets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5_file</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.LuxendoManager.get_available_datasets" title="Link to this definition"></a></dt>
+<dd><p>Extract all dataset names from a .lux.h5 file.</p>
+<section id="id4">
+<h3>Parameters<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>h5_file<span class="classifier">Path</span></dt><dd><p>Path to a Luxendo HDF5 file.</p>
+</dd>
+</dl>
+</section>
+<section id="id5">
+<h3>Returns<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>List[str]</dt><dd><p>Sorted list of dataset names.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.LuxendoManager._build_dask_array">
+<span class="sig-name descname"><span class="pre">_build_dask_array</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.LuxendoManager._build_dask_array" title="Link to this definition"></a></dt>
+<dd><p>Construct a multiscale image pyramid as Dask arrays.</p>
+<section id="id6">
+<h3>Returns<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>List[da.Array]</dt><dd><p>A list of Dask arrays representing each resolution level (from highest to lowest).</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.LuxendoManager.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.LuxendoManager.read" title="Link to this definition"></a></dt>
+<dd><p>Read Luxendo image data and metadata.</p>
+<section id="id7">
+<h3>Returns<a class="headerlink" href="#id7" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>Tuple[List[da.Array], Dict[str, Any]]</dt><dd><p>A list of Dask arrays (pyramidal levels) and a metadata dictionary.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ViventisManager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.</span></span><span class="sig-name descname"><span class="pre">ViventisManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1,</span> <span class="pre">8,</span> <span class="pre">4096,</span> <span class="pre">4096)</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ViventisManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="microscope_manager/index.html#pymif.microscope_manager.microscope_manager.MicroscopeManager" title="pymif.microscope_manager.microscope_manager.MicroscopeManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pymif.microscope_manager.microscope_manager.MicroscopeManager</span></code></a></p>
+<p>Reader for Viventis microscope datasets with OME-TIFF and companion .ome XML files.</p>
+<p>This class lazily loads data into a dask array and parses associated OME-XML metadata.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ViventisManager.path">
+<span class="sig-name descname"><span class="pre">path</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ViventisManager.path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ViventisManager.chunks">
+<span class="sig-name descname"><span class="pre">chunks</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1,</span> <span class="pre">1,</span> <span class="pre">8,</span> <span class="pre">4096,</span> <span class="pre">4096)</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ViventisManager.chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ViventisManager._parse_companion_file">
+<span class="sig-name descname"><span class="pre">_parse_companion_file</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ViventisManager._parse_companion_file" title="Link to this definition"></a></dt>
+<dd><p>Parse the companion <cite>.ome</cite> XML metadata file.</p>
+<section id="id8">
+<h3>Returns<a class="headerlink" href="#id8" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>Dict[str, Any]</dt><dd><p>Dictionary containing extracted metadata such as size, scales, units, channel info,
+time increment, and TIFF file mapping.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ViventisManager._build_dask_array">
+<span class="sig-name descname"><span class="pre">_build_dask_array</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ViventisManager._build_dask_array" title="Link to this definition"></a></dt>
+<dd><p>Lazily construct a dask array for the image data using tifffile and delayed loading.</p>
+<section id="id9">
+<h3>Returns<a class="headerlink" href="#id9" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>List[da.Array]</dt><dd><p>A list containing a single Dask array representing the full dataset (level 0).</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ViventisManager.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ViventisManager.read" title="Link to this definition"></a></dt>
+<dd><p>Read the Viventis dataset and populate self.data and self.metadata.</p>
+<section id="id10">
+<h3>Returns<a class="headerlink" href="#id10" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>Tuple[List[da.Array], Dict[str, Any]]</dt><dd><p>A tuple containing:
+- A list with one dask array representing the image data.
+- A metadata dictionary with pixel sizes, units, axes, etc.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.</span></span><span class="sig-name descname"><span class="pre">ZarrManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'r'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="microscope_manager/index.html#pymif.microscope_manager.microscope_manager.MicroscopeManager" title="pymif.microscope_manager.microscope_manager.MicroscopeManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pymif.microscope_manager.microscope_manager.MicroscopeManager</span></code></a></p>
+<p>A manager class for reading and handling OME-Zarr datasets.</p>
+<p>This class reads NGFF-compliant multiscale image data along with
+metadata and optional label layers from a Zarr directory. It supports
+lazy loading with Dask, label layer detection, and integration with
+Napari for visualization.</p>
+<section id="id11">
+<h3>Parameters<a class="headerlink" href="#id11" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>path<span class="classifier">str or Path</span></dt><dd><p>Path to the root directory of the OME-Zarr dataset.</p>
+</dd>
+<dt>chunks<span class="classifier">Tuple[int, …], optional</span></dt><dd><p>Chunk size to apply when reading arrays. If None, native chunking
+in the Zarr arrays is used.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager.path">
+<span class="sig-name descname"><span class="pre">path</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager.path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager.chunks">
+<span class="sig-name descname"><span class="pre">chunks</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager.chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager.mode">
+<span class="sig-name descname"><span class="pre">mode</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'r'</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager.mode" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager.metadata">
+<span class="sig-name descname"><span class="pre">metadata</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager.metadata" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager.read" title="Link to this definition"></a></dt>
+<dd><p>Read an OME-Zarr dataset and extract both image data and metadata.</p>
+<p>This method lazily loads the multiscale image pyramid and metadata
+from the root of the Zarr dataset. If <cite>/labels/</cite> groups exist, they
+are also read into the <cite>self.labels</cite> attribute.</p>
+<section id="id12">
+<h4>Returns<a class="headerlink" href="#id12" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>data_levels<span class="classifier">List[dask.array.Array]</span></dt><dd><p>List of Dask arrays, one for each resolution level.</p>
+</dd>
+<dt>metadata<span class="classifier">Dict[str, Any]</span></dt><dd><p>Dictionary containing image metadata such as axes, scales, sizes,
+channels, time increments, and units.</p>
+</dd>
+</dl>
+</section>
+<section id="raises">
+<h4>Raises<a class="headerlink" href="#raises" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>ValueError</dt><dd><p>If the dataset structure is invalid or lacks required metadata.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager._load_group">
+<span class="sig-name descname"><span class="pre">_load_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager._load_group" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager._load_labels">
+<span class="sig-name descname"><span class="pre">_load_labels</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager._load_labels" title="Link to this definition"></a></dt>
+<dd><p>Load label layers from the <cite>/labels/</cite> group in the Zarr dataset.</p>
+<p>Each label is stored as a multiscale pyramid similar to image data.</p>
+<section id="id13">
+<h4>Returns<a class="headerlink" href="#id13" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>labels<span class="classifier">Dict[str, List[dask.array.Array]]</span></dt><dd><p>Dictionary mapping each label name to its list of pyramid levels.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager.add_label">
+<span class="sig-name descname"><span class="pre">add_label</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label_levels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'new_label'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compressor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compressor_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallelize</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager.add_label" title="Link to this definition"></a></dt>
+<dd><p>Add a label layer to the Zarr dataset.</p>
+<section id="id14">
+<h4>Parameters<a class="headerlink" href="#id14" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>label_levels<span class="classifier">List[dask.array.Array]</span></dt><dd><p>A list of arrays representing a label image pyramid.</p>
+</dd>
+<dt>label_name<span class="classifier">str, optional</span></dt><dd><p>Name of the label group (default is “new_label”).</p>
+</dd>
+<dt>compressor<span class="classifier">Any, optional</span></dt><dd><p>Compression method to use when writing labels.</p>
+</dd>
+<dt>compressor_level<span class="classifier">Any, optional</span></dt><dd><p>Compression level to apply (default: 3).</p>
+</dd>
+<dt>parallelize<span class="classifier">bool, optional</span></dt><dd><p>If True, label data is written in parallel.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager.visualize_zarr">
+<span class="sig-name descname"><span class="pre">visualize_zarr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">viewer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">napari.Viewer</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">napari.Viewer</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager.visualize_zarr" title="Link to this definition"></a></dt>
+<dd><p>Visualize the OME-Zarr dataset using Napari’s <cite>napari-ome-zarr</cite> plugin.</p>
+<section id="id15">
+<h4>Parameters<a class="headerlink" href="#id15" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>viewer<span class="classifier">napari.Viewer, optional</span></dt><dd><p>An existing viewer instance. If None, a new one will be created.</p>
+</dd>
+</dl>
+</section>
+<section id="id16">
+<h4>Returns<a class="headerlink" href="#id16" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>viewer<span class="classifier">napari.Viewer</span></dt><dd><p>A Napari viewer instance with the image loaded.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager.create_empty_group">
+<span class="sig-name descname"><span class="pre">create_empty_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager.create_empty_group" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager.write_image_region">
+<span class="sig-name descname"><span class="pre">write_image_region</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">slice</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">slice(None)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">slice</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">slice(None)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">slice</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">slice(None)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">slice</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">slice(None)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">slice</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">slice(None)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager.write_image_region" title="Link to this definition"></a></dt>
+<dd><p>Public method to write or update a region in the dataset or sub-group.</p>
+<section id="id17">
+<h4>Parameters<a class="headerlink" href="#id17" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>data<span class="classifier">Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]]</span></dt><dd><p>Arrays representing an image region or its pyramid.</p>
+</dd>
+<dt>t, c, z, y, x<span class="classifier">int or slice</span></dt><dd><p>Slices for each dimension.</p>
+</dd>
+<dt>level<span class="classifier">int</span></dt><dd><p>The pyramid level to write to (if <cite>data</cite> is a single array).</p>
+</dd>
+<dt>group_name<span class="classifier">str, optional</span></dt><dd><p>Name of the group inside the root.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrManager.write_label_region">
+<span class="sig-name descname"><span class="pre">write_label_region</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">slice</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">slice(None)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">slice</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">slice(None)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">slice</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">slice(None)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">slice</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">slice(None)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrManager.write_label_region" title="Link to this definition"></a></dt>
+<dd><p>Public method to write or update a region in the dataset or sub-group.</p>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrV04Manager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.</span></span><span class="sig-name descname"><span class="pre">ZarrV04Manager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrV04Manager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="microscope_manager/index.html#pymif.microscope_manager.microscope_manager.MicroscopeManager" title="pymif.microscope_manager.microscope_manager.MicroscopeManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pymif.microscope_manager.microscope_manager.MicroscopeManager</span></code></a></p>
+<p>A manager class for reading and handling OME-Zarr V0.4 datasets.</p>
+<p>This class reads NGFF-compliant multiscale image data along with
+metadata and optional label layers from a Zarr directory. It supports
+lazy loading with Dask, label layer detection, and integration with
+Napari for visualization.</p>
+<section id="id18">
+<h3>Parameters<a class="headerlink" href="#id18" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>path<span class="classifier">str or Path</span></dt><dd><p>Path to the root directory of the OME-Zarr dataset.</p>
+</dd>
+<dt>chunks<span class="classifier">Tuple[int, …], optional</span></dt><dd><p>Chunk size to apply when reading arrays. If None, native chunking
+in the Zarr arrays is used.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrV04Manager.path">
+<span class="sig-name descname"><span class="pre">path</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrV04Manager.path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrV04Manager.chunks">
+<span class="sig-name descname"><span class="pre">chunks</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrV04Manager.chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrV04Manager.mode">
+<span class="sig-name descname"><span class="pre">mode</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'r'</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrV04Manager.mode" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrV04Manager.metadata">
+<span class="sig-name descname"><span class="pre">metadata</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrV04Manager.metadata" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrV04Manager.root">
+<span class="sig-name descname"><span class="pre">root</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrV04Manager.root" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrV04Manager.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrV04Manager.read" title="Link to this definition"></a></dt>
+<dd><p>Read an OME-Zarr dataset and extract both image data and metadata.</p>
+<p>This method lazily loads the multiscale image pyramid and metadata
+from the root of the Zarr dataset. If <cite>/labels/</cite> groups exist, they
+are also read into the <cite>self.labels</cite> attribute.</p>
+<section id="id19">
+<h4>Returns<a class="headerlink" href="#id19" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>data_levels<span class="classifier">List[dask.array.Array]</span></dt><dd><p>List of Dask arrays, one for each resolution level.</p>
+</dd>
+<dt>metadata<span class="classifier">Dict[str, Any]</span></dt><dd><p>Dictionary containing image metadata such as axes, scales, sizes,
+channels, time increments, and units.</p>
+</dd>
+</dl>
+</section>
+<section id="id20">
+<h4>Raises<a class="headerlink" href="#id20" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>ValueError</dt><dd><p>If the dataset structure is invalid or lacks required metadata.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrV04Manager._load_group">
+<span class="sig-name descname"><span class="pre">_load_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrV04Manager._load_group" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrV04Manager._load_labels">
+<span class="sig-name descname"><span class="pre">_load_labels</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrV04Manager._load_labels" title="Link to this definition"></a></dt>
+<dd><p>Load label layers from the <cite>/labels/</cite> group in the Zarr dataset.</p>
+<p>Each label is stored as a multiscale pyramid similar to image data.</p>
+<section id="id21">
+<h4>Returns<a class="headerlink" href="#id21" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>labels<span class="classifier">Dict[str, List[dask.array.Array]]</span></dt><dd><p>Dictionary mapping each label name to its list of pyramid levels.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZarrV04Manager.visualize_zarr">
+<span class="sig-name descname"><span class="pre">visualize_zarr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">viewer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">napari.Viewer</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">napari.Viewer</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZarrV04Manager.visualize_zarr" title="Link to this definition"></a></dt>
+<dd><p>Visualize the OME-Zarr dataset using Napari’s <cite>napari-ome-zarr</cite> plugin.</p>
+<section id="id22">
+<h4>Parameters<a class="headerlink" href="#id22" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>viewer<span class="classifier">napari.Viewer, optional</span></dt><dd><p>An existing viewer instance. If None, a new one will be created.</p>
+</dd>
+</dl>
+</section>
+<section id="id23">
+<h4>Returns<a class="headerlink" href="#id23" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt>viewer<span class="classifier">napari.Viewer</span></dt><dd><p>A Napari viewer instance with the image loaded.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ArrayManager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.</span></span><span class="sig-name descname"><span class="pre">ArrayManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">dask.array.Array</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1,</span> <span class="pre">8,</span> <span class="pre">4096,</span> <span class="pre">4096)</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ArrayManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="microscope_manager/index.html#pymif.microscope_manager.microscope_manager.MicroscopeManager" title="pymif.microscope_manager.microscope_manager.MicroscopeManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pymif.microscope_manager.microscope_manager.MicroscopeManager</span></code></a></p>
+<p>Create a MicroscopeManager instance from in-memory NumPy or Dask array(s)
+with user-defined metadata. Supports single resolution or multiscale pyramid.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ArrayManager.data">
+<span class="sig-name descname"><span class="pre">data</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ArrayManager.data" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ArrayManager.metadata">
+<span class="sig-name descname"><span class="pre">metadata</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ArrayManager.metadata" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ArrayManager.chunks">
+<span class="sig-name descname"><span class="pre">chunks</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1,</span> <span class="pre">1,</span> <span class="pre">8,</span> <span class="pre">4096,</span> <span class="pre">4096)</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ArrayManager.chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ArrayManager.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ArrayManager.read" title="Link to this definition"></a></dt>
+<dd><p>Return the pyramid and metadata.</p>
+<section id="id24">
+<h3>Returns<a class="headerlink" href="#id24" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>Tuple[List[da.Array], Dict[str, Any]]</dt><dd><p>A tuple containing a list of
+Dask arrays representing image data and a dictionary of metadata.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pymif.microscope_manager.OperaManager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.</span></span><span class="sig-name descname"><span class="pre">OperaManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1,</span> <span class="pre">8,</span> <span class="pre">4096,</span> <span class="pre">4096)</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.OperaManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="microscope_manager/index.html#pymif.microscope_manager.microscope_manager.MicroscopeManager" title="pymif.microscope_manager.microscope_manager.MicroscopeManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pymif.microscope_manager.microscope_manager.MicroscopeManager</span></code></a></p>
+<p>Manager for reading Opera (PerkinElmer Opera Phenix) pyramidal OME-TIFF datasets.</p>
+<p>This class reads and parses OME-XML metadata embedded in the TIFF file.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.OperaManager.path">
+<span class="sig-name descname"><span class="pre">path</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.OperaManager.path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.OperaManager.chunks">
+<span class="sig-name descname"><span class="pre">chunks</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1,</span> <span class="pre">1,</span> <span class="pre">8,</span> <span class="pre">4096,</span> <span class="pre">4096)</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.OperaManager.chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.OperaManager._parse_metadata">
+<span class="sig-name descname"><span class="pre">_parse_metadata</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.OperaManager._parse_metadata" title="Link to this definition"></a></dt>
+<dd><p>Parse OME-XML metadata embedded in the pyramidal OME-TIFF file.</p>
+<section id="id25">
+<h3>Returns<a class="headerlink" href="#id25" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>dict</dt><dd><p>Metadata dictionary containing size, scales, units, channel info, dtype, and axes.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.OperaManager._build_dask_array">
+<span class="sig-name descname"><span class="pre">_build_dask_array</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.OperaManager._build_dask_array" title="Link to this definition"></a></dt>
+<dd><p>Load pyramid levels from the pyramidal OME-TIFF and convert them to Dask arrays.</p>
+<section id="id26">
+<h3>Returns<a class="headerlink" href="#id26" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>list of dask.array.Array</dt><dd><p>List of Dask arrays, each corresponding to a pyramid level, normalized to TCZYX axes order.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.OperaManager.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.OperaManager.read" title="Link to this definition"></a></dt>
+<dd><p>Read the Opera pyramidal OME-TIFF file and extract image data and metadata.</p>
+<section id="id27">
+<h3>Returns<a class="headerlink" href="#id27" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>Tuple[List[da.Array], Dict[str, Any]]</dt><dd><p>A tuple containing:
+- List of Dask arrays, one per resolution level.
+- Metadata dictionary.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZeissManager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.</span></span><span class="sig-name descname"><span class="pre">ZeissManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scene_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scene_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZeissManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="microscope_manager/index.html#pymif.microscope_manager.microscope_manager.MicroscopeManager" title="pymif.microscope_manager.microscope_manager.MicroscopeManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pymif.microscope_manager.microscope_manager.MicroscopeManager</span></code></a></p>
+<p>A manager class for reading and handling .czi datasets.</p>
+<p>This class lazily loads data into a dask array and parses associated .czi metadata.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZeissManager.path">
+<span class="sig-name descname"><span class="pre">path</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZeissManager.path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZeissManager.scenes">
+<span class="sig-name descname"><span class="pre">scenes</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZeissManager.scenes" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZeissManager.chunks">
+<span class="sig-name descname"><span class="pre">chunks</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZeissManager.chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZeissManager.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scene_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZeissManager.read" title="Link to this definition"></a></dt>
+<dd><p>Read the Zeiss dataset and populate self.data and self.metadata.</p>
+<section id="id28">
+<h3>Returns<a class="headerlink" href="#id28" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>Tuple[List[da.Array], Dict[str, Any]]</dt><dd><p>A tuple containing:
+- A list with one dask array representing the image data.
+- A metadata dictionary with pixel sizes, units, axes, etc.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ZeissManager._parse_metadata">
+<span class="sig-name descname"><span class="pre">_parse_metadata</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ZeissManager._parse_metadata" title="Link to this definition"></a></dt>
+<dd><p>Parse metadata from the .czi dataset.</p>
+<section id="id29">
+<h3>Returns<a class="headerlink" href="#id29" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>Dict[str, Any]</dt><dd><p>A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ScapeManager">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.</span></span><span class="sig-name descname"><span class="pre">ScapeManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ome_tiff_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(1,</span> <span class="pre">1,</span> <span class="pre">8,</span> <span class="pre">1024,</span> <span class="pre">1024)</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ScapeManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="microscope_manager/index.html#pymif.microscope_manager.microscope_manager.MicroscopeManager" title="pymif.microscope_manager.microscope_manager.MicroscopeManager"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pymif.microscope_manager.microscope_manager.MicroscopeManager</span></code></a></p>
+<p>MicroscopeManager for SCAPE microscope datasets where metadata is stored in an external
+.xlif file located in a ‘Metadata’ folder next to the OME-TIFF.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ScapeManager.ome_tiff_path">
+<span class="sig-name descname"><span class="pre">ome_tiff_path</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ScapeManager.ome_tiff_path" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ScapeManager.chunks">
+<span class="sig-name descname"><span class="pre">chunks</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1,</span> <span class="pre">1,</span> <span class="pre">8,</span> <span class="pre">1024,</span> <span class="pre">1024)</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ScapeManager.chunks" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ScapeManager._strip_ome_tiff_suffix">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">_strip_ome_tiff_suffix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ScapeManager._strip_ome_tiff_suffix" title="Link to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>Convert typical Leica names like:</dt><dd><p>‘p1 (2).ome.tif’  -&gt; ‘p1 (2)’
+‘p1 (2).ome.tiff’ -&gt; ‘p1 (2)’
+‘p1 (2).tif’      -&gt; ‘p1 (2)’</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ScapeManager._find_xlif_for_ome_tiff">
+<span class="sig-name descname"><span class="pre">_find_xlif_for_ome_tiff</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pathlib.Path</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ScapeManager._find_xlif_for_ome_tiff" title="Link to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>Given an OME-TIFF path, look for:</dt><dd><p>&lt;ome_dir&gt;/Metadata/&lt;base_name&gt;.xlif</p>
+</dd>
+</dl>
+<p>If not found, fall back to searching for any .xlif inside &lt;ome_dir&gt;/Metadata.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ScapeManager._convert_spatial_units_to_micrometers">
+<span class="sig-name descname"><span class="pre">_convert_spatial_units_to_micrometers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ScapeManager._convert_spatial_units_to_micrometers" title="Link to this definition"></a></dt>
+<dd><p>Convert spatial scales (Z, Y, X) from meters to micrometers (µm)
+if they are currently stored in meters.</p>
+<dl class="simple">
+<dt>Updates:</dt><dd><p>self.metadata[“scales”]
+self.metadata[“units”]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ScapeManager._parse_xlif_metadata">
+<span class="sig-name descname"><span class="pre">_parse_xlif_metadata</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ScapeManager._parse_xlif_metadata" title="Link to this definition"></a></dt>
+<dd><p>Parse dimensional, physical, and channel metadata from the matched .xlif file.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ScapeManager._build_dask_array">
+<span class="sig-name descname"><span class="pre">_build_dask_array</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ScapeManager._build_dask_array" title="Link to this definition"></a></dt>
+<dd><p>Build a TCZYX dask array from the provided OME-TIFF file.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pymif.microscope_manager.ScapeManager.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.ScapeManager.read" title="Link to this definition"></a></dt>
+<dd><p>Main entry point: parse metadata and build data array.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../cli/pymif/index.html" class="btn btn-neutral float-left" title="pymif.cli.pymif" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="array_manager/index.html" class="btn btn-neutral float-right" title="pymif.microscope_manager.array_manager" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Nicola Gritti.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
