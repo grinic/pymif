@@ -11,9 +11,9 @@ import pymif.microscope_manager as mm
 from magicgui.widgets import FileEdit
 import sys
 from qtpy.QtWidgets import QTextEdit
-from qtpy.QtCore import QObject, Signal
+from qtpy.QtCore import QObject, Qt, Signal
 from qtpy.QtGui import QTextCursor
-from PyQt5.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel
+from PyQt5.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
 from matplotlib import rc
 rc('font', size=12)
 rc('font', family='Arial')
@@ -590,6 +590,10 @@ def convert_widget():
         make_convert_widget.x_range.max = dataset.metadata["size"][0][4] - 1
         make_convert_widget.x_range.value = (0, dataset.metadata["size"][0][4] - 1)
 
+        n_channels = len(dataset.metadata["channel_names"])
+        row_height = 20  # approx height per item in pixels
+        channels_widget = make_convert_widget.channels.native
+        channels_widget.setMaximumHeight(row_height * n_channels)
         make_convert_widget.channels.choices = dataset.metadata["channel_names"]
         make_convert_widget.channels.value = tuple(dataset.metadata["channel_names"])
 
@@ -629,6 +633,50 @@ def convert_widget():
     layout.addWidget(title1_label)
     layout.addWidget(make_visualize_widget.native)
     layout.addWidget(title2_label)
+
+    advanced_btn = QToolButton()
+    advanced_btn.setText("Additional parameters ▸")
+    advanced_btn.setStyleSheet("""
+        QToolButton {
+            font-size: 13px;
+            font-weight: 600;
+            color: #cccccc;
+            padding: 4px 0px;
+        }
+        QToolButton:hover {
+            color: white;
+        }
+        """)
+    advanced_btn.setCheckable(True)
+    advanced_btn.setChecked(False)
+    advanced_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+
+    advanced_widgets = [
+        make_convert_widget.chunk_x.native.parent(),
+        make_convert_widget.chunk_y.native.parent(),
+        make_convert_widget.chunk_z.native.parent(),
+        make_convert_widget.n_levels.native.parent(),
+    ]
+
+    for w in advanced_widgets:
+        w.setVisible(False)
+
+    def _toggle_advanced(checked):
+        for w in advanced_widgets:
+            w.setVisible(checked)
+        advanced_btn.setText("Additional parameters ▾" if checked else "Additional parameters ▸")
+        advanced_btn.setStyleSheet("""
+            QToolButton {
+                font-size: 13px;
+                font-weight: 600;
+                color: %s;
+            }
+        """ % ("#ffffff" if checked else "#aaaaaa"))
+        
+    advanced_btn.toggled.connect(_toggle_advanced)
+
+    make_convert_widget.native.layout().insertWidget(5, advanced_btn)
+
     layout.addWidget(make_convert_widget.native)
     # layout.addWidget(reset_roi_widget.native)
 
