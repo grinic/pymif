@@ -22,6 +22,8 @@ def subset_dask_array(
 
 def validate_uniform_spacing(indices: Sequence[int], name: str):
     """Ensure spacing between indices is uniform."""
+    if len(indices) < 2:
+        return 1  # No spacing to validate for 0 or 1 index
     diffs = np.diff(indices)
     if not np.all(diffs == diffs[0]):
         raise ValueError(f"Non-uniform spacing in {name} axis: {indices}")

@@ -8,7 +8,7 @@ from magicgui import magicgui
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 import pymif.microscope_manager as mm
-from magicgui.widgets import FileEdit
+from magicgui.widgets import CheckBox, FileEdit, CheckBox
 import sys
 from qtpy.QtWidgets import QTextEdit
 from qtpy.QtCore import QObject, Qt, Signal
@@ -91,7 +91,9 @@ def _run_conversion(
     scene_index,
     chunks,
     t_range,
+    single_t,
     z_range,
+    single_z,
     y_range,
     x_range,
     channels,
@@ -111,6 +113,8 @@ def _run_conversion(
     y_start, y_end = y_range
     x_start, x_end = x_range
 
+    print(t_start,t_end)
+
     if len(channels) == 0:
         channels_index = None
     else:
@@ -120,17 +124,17 @@ def _run_conversion(
         ]
 
     if dataset.metadata["size"][0][0] > 1:
-        dataset.subset_dataset(T=range(t_start, t_end + 1))
+        dataset.subset_dataset(T=list(range(t_start, t_end + 1)))
 
     if dataset.metadata["size"][0][1] > 1:
         dataset.subset_dataset(C=channels_index)
 
     if dataset.metadata["size"][0][2] > 1:
-        dataset.subset_dataset(Z=range(z_start, z_end + 1))
+        dataset.subset_dataset(Z=list(range(z_start, z_end + 1)))
 
     dataset.subset_dataset(
-        Y=range(y_start, y_end + 1),
-        X=range(x_start, x_end + 1),
+        Y=list(range(y_start, y_end + 1)),
+        X=list(range(x_start, x_end + 1)),
     )
 
     dataset.build_pyramid(num_levels=n_levels)
@@ -443,7 +447,9 @@ def convert_widget():
         n_levels={"label": "Resolution levels", "min": 1, "max": 10, "value": 5},
         
         t_range={"label": "T range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
+        single_t = {"label": "Single T frame", "widget_type": "CheckBox", "value": False},
         z_range={"label": "Z range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
+        single_z = {"label": "Single Z plane", "widget_type": "CheckBox", "value": False},
         y_range={"label": "Y range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
         x_range={"label": "X range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
 
@@ -458,7 +464,9 @@ def convert_widget():
     )
     def make_convert_widget(
         t_range=(0,1000),
+        single_t=False,
         z_range=(0,1000),
+        single_z=False,
         y_range=(0,1000),
         x_range=(0,1000),
         channels=(),
@@ -491,7 +499,9 @@ def convert_widget():
                 scene_index=scene_index,
                 chunks=chunks,
                 t_range=t_range,
+                single_t=single_t,
                 z_range=z_range,
+                single_z=single_z,
                 y_range=y_range,
                 x_range=x_range,
                 channels=channels,
@@ -606,6 +616,27 @@ def convert_widget():
     viewer.dims.events.ndisplay.connect(lock_roi_in_3d)
     # lock_roi_in_3d()
 
+    def sync_single_z(checked):
+        if checked:
+            z_val = make_convert_widget.z_range.value
+            # clamp to single plane
+            make_convert_widget.z_range.value = (z_val[0], z_val[0])
+            make_convert_widget.z_range.enabled = False
+        else:
+            make_convert_widget.z_range.enabled = True
+
+    make_convert_widget.single_z.changed.connect(sync_single_z)
+
+    def sync_single_t(checked):
+        if checked:
+            t_val = make_convert_widget.t_range.value
+            # clamp to single frame
+            make_convert_widget.t_range.value = (t_val[0], t_val[0])
+            make_convert_widget.t_range.enabled = False
+        else:
+            make_convert_widget.t_range.enabled = True
+
+    make_convert_widget.single_t.changed.connect(sync_single_t)
     # -------------------------
     # Compose single dock widget
     # -------------------------

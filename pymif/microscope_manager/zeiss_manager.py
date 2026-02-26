@@ -113,6 +113,7 @@ class ZeissManager(MicroscopeManager):
         default_colors = [0xFF0000, 0x0000FF, 0x00FF00]
         for i, ch in enumerate( czi.metadata.findall(".//DisplaySetting/Channels/Channel") ):
             color = ch.findtext("Color") or default_colors[i%len(default_colors)]
+            color = str(color)
             if (len(color) == 9) and (color[0] == "#"):
                 # AARRGGBB → drop AA
                 color = "#"+color[3:]
