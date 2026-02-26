@@ -1,0 +1,45 @@
+pymif.microscope_manager.utils.add_label
+========================================
+
+.. py:module:: pymif.microscope_manager.utils.add_label
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.add_label.DEFAULT_COLORS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.add_label.add_label
+
+
+Module Contents
+---------------
+
+.. py:data:: DEFAULT_COLORS
+   :value: ['FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', 'FFFFFF', '808080']
+
+
+.. py:function:: add_label(root: zarr.Group, mode: str, label_levels: List[dask.array.Array], label_name: str, metadata: Dict[str, Any], compressor=None, compressor_level=3, parallelize=False)
+
+   Write image data and metadata to the specified path.
+
+   Parameters
+   ----------
+       path : str
+           Destination path for the output data.
+       label_levels : List[da.Array]
+           List of Dask arrays representing image data.
+       label_name : str
+           Name of the objects labeled
+       metadata : Dict[str, Any]
+           Dictionary containing metadata information.
+
+

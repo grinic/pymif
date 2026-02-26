@@ -1,0 +1,6 @@
+pymif.microscope_manager.utils.load_label
+=========================================
+
+.. py:module:: pymif.microscope_manager.utils.load_label
+
+

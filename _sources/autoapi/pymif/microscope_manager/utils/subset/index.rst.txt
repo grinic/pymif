@@ -1,0 +1,34 @@
+pymif.microscope_manager.utils.subset
+=====================================
+
+.. py:module:: pymif.microscope_manager.utils.subset
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.subset.subset_dask_array
+   pymif.microscope_manager.utils.subset.validate_uniform_spacing
+   pymif.microscope_manager.utils.subset.subset_metadata
+
+
+Module Contents
+---------------
+
+.. py:function:: subset_dask_array(arr: dask.array.Array, T: Optional[Union[slice, Sequence[int]]] = None, C: Optional[Union[slice, Sequence[int]]] = None, Z: Optional[Union[slice, Sequence[int]]] = None, Y: Optional[Union[slice, Sequence[int]]] = None, X: Optional[Union[slice, Sequence[int]]] = None) -> dask.array.Array
+
+   Subset a 5D Dask array with optional indexing for each axis.
+
+
+.. py:function:: validate_uniform_spacing(indices: Sequence[int], name: str)
+
+   Ensure spacing between indices is uniform.
+
+
+.. py:function:: subset_metadata(metadata: dict, T: Optional[Sequence[int]] = None, C: Optional[Sequence[int]] = None, Z: Optional[Sequence[int]] = None, Y: Optional[Sequence[int]] = None, X: Optional[Sequence[int]] = None) -> dict
+
+   Update metadata after subsetting.
+
+

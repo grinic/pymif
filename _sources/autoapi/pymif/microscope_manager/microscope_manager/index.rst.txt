@@ -1,0 +1,123 @@
+pymif.microscope_manager.microscope_manager
+===========================================
+
+.. py:module:: pymif.microscope_manager.microscope_manager
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.microscope_manager.MicroscopeManager
+
+
+Module Contents
+---------------
+
+.. py:class:: MicroscopeManager
+
+   Bases: :py:obj:`abc.ABC`
+
+
+   Abstract base class for managing microscope image datasets.
+
+   Provides shared functionality for reading, writing, visualizing,
+   and managing multiscale image data and metadata.
+
+
+   .. py:attribute:: data
+      :type:  List[dask.array.Array]
+      :value: []
+
+
+
+   .. py:attribute:: metadata
+      :type:  Dict[str, Any]
+
+
+   .. py:attribute:: _open_files
+      :value: []
+
+
+
+   .. py:method:: read() -> Tuple[List[dask.array.Array], Dict[str, Any]]
+      :abstractmethod:
+
+
+      Abstract method that must be implemented by subclasses to read image data and metadata.
+
+      Returns
+      ----------
+      Tuple
+          - List of Dask arrays for each resolution level.
+          - Dictionary of extracted metadata.
+
+
+
+   .. py:method:: to_zarr(path: str, compressor: Any = None, compressor_level: Any = 3, overwrite=True, parallelize: Any = False) -> None
+
+
+   .. py:method:: visualize(start_level: Optional[int] = 0, stop_level: Optional[int] = -1, in_memory: Optional[bool] = False, viewer: Optional[napari.Viewer] = None) -> Any
+
+
+   .. py:method:: build_pyramid(num_levels: Optional[int] = 3, downscale_factor: Optional[int] = 2, start_level: Optional[int] = 0) -> None
+
+
+   .. py:method:: close() -> None
+
+      Close all open resources, such as file handles.
+
+
+
+   .. py:method:: reorder_channels(new_order: List[int])
+
+      Reorder the channel axis and update channel-related metadata.
+
+      Parameters
+      ----------
+          new_order : List[int]
+              A permutation of the channel indices.
+
+
+
+   .. py:method:: update_metadata(updates: Dict[str, Any])
+
+      Safely update entries in the metadata dictionary with validation.
+
+      Parameters
+      ----------
+          updates : Dict[str, Any]
+              Dictionary of key-value updates.
+
+              Supports:
+                  - channel_names (list[str])
+                  - channel_colors (list[str]): valid matplotlib colors or hex code
+                  - scales (list[tuple])
+                  - time_increment (float)
+                  - time_increment_unit (str)
+
+      Warnings
+      ----------
+          Issues warnings or raises exceptions if updates are incompatible.
+
+
+
+   .. py:method:: subset_dataset(T: Optional[Sequence[int]] = None, C: Optional[Sequence[int]] = None, Z: Optional[Sequence[int]] = None, Y: Optional[Sequence[int]] = None, X: Optional[Sequence[int]] = None)
+
+      Subset the dataset by timepoints, channels, or spatial coordinates.
+
+      Parameters
+      ----------
+      T, C, Z, Y, X : Optional[Sequence[int]]
+          Optional sequences of indices for each axis.
+          Must be uniformly spaced. For example:
+          dataset.subset_dataset(T=np.arange(0, 10, 2), Z=[0,1,2])
+
+      Raises
+      -------
+      ValueError 
+          if index spacing is not uniform or out of bounds.
+
+
+

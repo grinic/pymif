@@ -1,0 +1,51 @@
+pymif.microscope_manager.utils.to_zarr
+======================================
+
+.. py:module:: pymif.microscope_manager.utils.to_zarr
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.to_zarr.DEFAULT_COLORS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.to_zarr.to_zarr
+
+
+Module Contents
+---------------
+
+.. py:data:: DEFAULT_COLORS
+   :value: ['FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', 'FFFFFF', '808080']
+
+
+.. py:function:: to_zarr(path: str, data_levels: List[dask.array.Array], metadata: Dict[str, Any], compressor: Any = None, compressor_level: int = 3, overwrite: bool = True, parallelize: bool = False)
+
+   Write image data and metadata to the specified path.
+
+   Parameters
+   ----------
+       path : str
+           Destination path for the output data.
+       data_levels : List[da.Array]
+           List of Dask arrays representing image data.
+       metadata : Dict[str, Any]
+           Dictionary containing metadata information.
+       compressor : Any
+           Type of compression used (default: None).
+       compressor_level : int
+           Compression level used (if compression is not None).
+       overwrite : bool
+           whether to overwrite existing data at Destination path (default: True).
+       parallelize : bool
+           whether to use dask distribute to parallelize (default: False).
+
+

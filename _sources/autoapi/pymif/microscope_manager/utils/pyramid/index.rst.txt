@@ -1,0 +1,52 @@
+pymif.microscope_manager.utils.pyramid
+======================================
+
+.. py:module:: pymif.microscope_manager.utils.pyramid
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.pyramid.pad_to_divisible
+   pymif.microscope_manager.utils.pyramid.downsample_nn
+   pymif.microscope_manager.utils.pyramid.build_pyramid
+
+
+Module Contents
+---------------
+
+.. py:function:: pad_to_divisible(array: dask.array.Array, factors: List[int]) -> dask.array.Array
+
+   Pad spatial axes (Z, Y, X) so they are divisible by the corresponding downscale factors.
+
+
+.. py:function:: downsample_nn(array: dask.array.Array, factors: List[int]) -> dask.array.Array
+
+   Nearest-neighbor downsampling via striding in ZYX.
+
+
+.. py:function:: build_pyramid(data_levels: dask.array.Array, metadata: Dict[str, Any], num_levels: int = 3, downscale_factor: int = 2, start_level: int = 0) -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+   Generate a multiscale pyramid and updated metadata for NGFF-compatible OME-Zarr writing.
+
+   Parameters
+   ----------
+       base_level : da.Array
+           Dask array of the highest resolution (shape: TCZYX).
+       metadata : Dict[str, Any]
+           Metadata dict with at least 'scales' and 'axes'.
+       num_levels : int
+           Total number of pyramid levels to generate.
+       downscale_factor : int
+           Factor by which to reduce spatial dims at each level.
+       start_level : int
+           Use this level from existing pyramid (if any) as base level.
+
+   Returns
+   -------
+       Tuple[List[da.Array], Dict[str, Any]]
+           tuple containing the pyramidal dataset and the updated metadata
+
+
