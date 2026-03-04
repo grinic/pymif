@@ -1,0 +1,208 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pymif.cli.pymif &mdash; PyMIF v0.3.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=bd95bda3"></script>
+      <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+    <link rel="next" title="pymif.microscope_manager" href="../../microscope_manager/index.html" />
+    <link rel="prev" title="pymif.cli.__arguments" href="../__arguments/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PyMIF
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../../README.html">PyMIF — Python code for users of the Mesoscopic Imaging Facility</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../../index.html">pymif</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4 current"><a class="reference internal" href="../index.html">pymif.cli</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../microscope_manager/index.html">pymif.microscope_manager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../napari/index.html">pymif.napari</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">PyMIF</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">pymif</a></li>
+          <li class="breadcrumb-item"><a href="../index.html">pymif.cli</a></li>
+      <li class="breadcrumb-item active">pymif.cli.pymif</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../../_sources/autoapi/pymif/cli/pymif/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-pymif.cli.pymif">
+<span id="pymif-cli-pymif"></span><h1>pymif.cli.pymif<a class="headerlink" href="#module-pymif.cli.pymif" title="Link to this heading"></a></h1>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.cli.pymif.zarr_convert" title="pymif.cli.pymif.zarr_convert"><code class="xref py py-obj docutils literal notranslate"><span class="pre">zarr_convert</span></code></a>(input_path, zarr_path, microscope[, ...])</p></td>
+<td><p>Helper function for CLI to convert a dataset to zarr given some parameters.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.cli.pymif.convert_batch" title="pymif.cli.pymif.convert_batch"><code class="xref py py-obj docutils literal notranslate"><span class="pre">convert_batch</span></code></a>(args)</p></td>
+<td><p>Runmode to convert batch of imaged to zarr</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.cli.pymif.convert_single" title="pymif.cli.pymif.convert_single"><code class="xref py py-obj docutils literal notranslate"><span class="pre">convert_single</span></code></a>(args)</p></td>
+<td><p>Runmode to convert a single image to zarr</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.cli.pymif.main" title="pymif.cli.pymif.main"><code class="xref py py-obj docutils literal notranslate"><span class="pre">main</span></code></a>()</p></td>
+<td><p>Main fxn</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.cli.pymif.zarr_convert">
+<span class="sig-prename descclassname"><span class="pre">pymif.cli.pymif.</span></span><span class="sig-name descname"><span class="pre">zarr_convert</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zarr_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">microscope</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scene_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_colors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/cli/pymif.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.cli.pymif.zarr_convert" title="Link to this definition"></a></dt>
+<dd><p>Helper function for CLI to convert a dataset to zarr given some parameters.</p>
+<section id="parameters">
+<h3>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h3>
+<blockquote>
+<div><dl>
+<dt>input_path<span class="classifier">str</span></dt><dd><p>Input path for the data to be converted.</p>
+</dd>
+<dt>zarr_path<span class="classifier">str</span></dt><dd><p>Output .zarr path.</p>
+</dd>
+<dt>microscope<span class="classifier">str</span></dt><dd><p>Microscope used to acquire input data.
+One of “luxendo”, “opera”, “viventis”, “zeiss”, “zarrv04”, “zarr”.</p>
+</dd>
+<dt>max_size<span class="classifier">Optional[int]</span></dt><dd><p>Max chunk size in MB.</p>
+<p>Default: 100</p>
+</dd>
+<dt>scene_index<span class="classifier">Optional[int]</span></dt><dd><p>Scene index for .czi files.</p>
+<p>Default: -1</p>
+</dd>
+<dt>channel_names<span class="classifier">Optional[List[str]]</span></dt><dd><p>Name of channels.</p>
+<p>Example: “-cn bf gfp rfp”</p>
+<p>Default: None</p>
+</dd>
+<dt>channel_colors<span class="classifier">Optional[List[str]]</span></dt><dd><p>Colors of channels (hex or matplotlib color name)</p>
+<p>Example: “-cc 0000FF cyan 00ff00”)</p>
+<p>Default: None</p>
+</dd>
+</dl>
+</div></blockquote>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.cli.pymif.convert_batch">
+<span class="sig-prename descclassname"><span class="pre">pymif.cli.pymif.</span></span><span class="sig-name descname"><span class="pre">convert_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/cli/pymif.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.cli.pymif.convert_batch" title="Link to this definition"></a></dt>
+<dd><p>Runmode to convert batch of imaged to zarr</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>args (args): parsed arguments</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.cli.pymif.convert_single">
+<span class="sig-prename descclassname"><span class="pre">pymif.cli.pymif.</span></span><span class="sig-name descname"><span class="pre">convert_single</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/cli/pymif.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.cli.pymif.convert_single" title="Link to this definition"></a></dt>
+<dd><p>Runmode to convert a single image to zarr</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>args (args): parsed arguments</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.cli.pymif.main">
+<span class="sig-prename descclassname"><span class="pre">pymif.cli.pymif.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/cli/pymif.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.cli.pymif.main" title="Link to this definition"></a></dt>
+<dd><p>Main fxn</p>
+<p>Here the PyMIF will decide which runmode to execute based on the positional argument after pymif command.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../__arguments/index.html" class="btn btn-neutral float-left" title="pymif.cli.__arguments" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../microscope_manager/index.html" class="btn btn-neutral float-right" title="pymif.microscope_manager" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Nicola Gritti.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
