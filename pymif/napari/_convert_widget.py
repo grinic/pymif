@@ -706,7 +706,7 @@ def convert_widget():
         
     advanced_btn.toggled.connect(_toggle_advanced)
 
-    make_convert_widget.native.layout().insertWidget(5, advanced_btn)
+    make_convert_widget.native.layout().insertWidget(7, advanced_btn)
 
     layout.addWidget(make_convert_widget.native)
     # layout.addWidget(reset_roi_widget.native)
