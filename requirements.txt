@@ -39,3 +39,4 @@ sphinx_rtd_theme
 sphinx-autodoc-typehints
 myst_parser
 dask-image>=2024.5.3
+lxml_html_clean
