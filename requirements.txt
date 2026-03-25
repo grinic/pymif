@@ -116,6 +116,7 @@ napari-console
 napari-metadata
 napari-ome-zarr
 narwhals==2.18.1
+natsort
 nbclient==0.10.4
 nbconvert==7.17.0
 nbformat==5.10.4
