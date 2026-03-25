@@ -1,0 +1,56 @@
+pymif.napari._convert_widget
+============================
+
+.. py:module:: pymif.napari._convert_widget
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   pymif.napari._convert_widget.EmittingStream
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.napari._convert_widget.dataset_reader
+   pymif.napari._convert_widget.get_chunk_size
+   pymif.napari._convert_widget.get_n_levels
+   pymif.napari._convert_widget._run_conversion
+   pymif.napari._convert_widget.convert_worker
+   pymif.napari._convert_widget.convert_widget
+
+
+Module Contents
+---------------
+
+.. py:class:: EmittingStream
+
+   Bases: :py:obj:`qtpy.QtCore.QObject`
+
+
+   .. py:attribute:: text_written
+
+
+   .. py:method:: write(text)
+
+
+   .. py:method:: flush()
+
+
+.. py:function:: dataset_reader(microscope)
+
+.. py:function:: get_chunk_size(dataset_size, max_size_mb=100)
+
+.. py:function:: get_n_levels(dataset_size)
+
+.. py:function:: _run_conversion(reader, path, scene_index, chunks, t_range, single_t, z_range, single_z, y_range, x_range, channels, n_levels, output_path, file_format)
+
+.. py:function:: convert_worker(**kwargs)
+
+.. py:function:: convert_widget()
+

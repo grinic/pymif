@@ -1,0 +1,31 @@
+pymif.napari._overview_widget
+=============================
+
+.. py:module:: pymif.napari._overview_widget
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.napari._overview_widget.draw_3d_polygon
+   pymif.napari._overview_widget.add_roi_layer
+   pymif.napari._overview_widget.add_zrange_layer
+   pymif.napari._overview_widget.make_overview
+   pymif.napari._overview_widget.overview_widget
+
+
+Module Contents
+---------------
+
+.. py:function:: draw_3d_polygon(viewer, dataset)
+
+.. py:function:: add_roi_layer(viewer, dataset)
+
+.. py:function:: add_zrange_layer(viewer, dataset)
+
+.. py:function:: make_overview(dataset, viewer, output_path, overview_filename='overview', overview_format='pdf')
+
+.. py:function:: overview_widget()
+
