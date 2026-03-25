@@ -13,7 +13,7 @@ numpy==1.26.4
 pandas==2.2.2
 # seaborn>=0.13.2
 matplotlib==3.8.4
-tifffile==2021.8.30
+tifffile==2022.8.12
 h5py==3.14.0
 readlif==0.6.5
 # keras>=3.3.3
