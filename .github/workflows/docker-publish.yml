@@ -38,14 +38,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # Trigger on Git tags (v1.2.3 -> 1.2.3)
-            type=semver,pattern={{version}}
-            # Trigger on branches (main -> main)
-            type=ref,event=branch
-            # Trigger on PRs
-            type=ref,event=pr
-            # Always create a 'latest' tag for the default branch
+            # This matches your date format v2026.04.08 and uses it as the Docker tag
+            type=match,pattern=v(.*),group=1
+            # This handles the 'latest' tag for your main branch
             type=raw,value=latest,enable={{is_default_branch}}
+            # Fallback to the branch name if it's not a tag
+            type=ref,event=branch
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
