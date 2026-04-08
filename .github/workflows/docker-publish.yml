@@ -37,11 +37,15 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # This automatically creates a "latest" tag and version-specific tags based on your git tag
           tags: |
+            # Trigger on Git tags (v1.2.3 -> 1.2.3)
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ github.ref == format('refs/tags/{0}', github.event.repository.default_branch) }}
+            # Trigger on branches (main -> main)
+            type=ref,event=branch
+            # Trigger on PRs
+            type=ref,event=pr
+            # Always create a 'latest' tag for the default branch
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
