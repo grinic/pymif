@@ -7,12 +7,14 @@ WORKDIR /app
 # Copy the repository files to the container
 COPY . /app
 
-# Install system dependencies if needed (optional, add if PyMIF needs specific C-libraries)
+# Install system dependencies
+# Added 'procps' here so Nextflow can track task metrics
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libfontconfig1 \
     libgl1 \
     libglx0 \
     libglib2.0-0 \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Install the Python package and its dependencies
