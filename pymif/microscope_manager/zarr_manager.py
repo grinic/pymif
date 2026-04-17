@@ -96,13 +96,24 @@ class ZarrManager(MicroscopeManager):
         
         # Load pyramid levels properly
         data_levels = []
-        for i in range(len(datasets)):
-            zarr_array = self.root[str(i)]
+        zarr_levels = []
+
+        for ds in datasets:
+            path = ds["path"]
+            
+            zarr_array = self.root[path]
+            zarr_levels.append(zarr_array)
+
             if self.chunks is None:
-                arr = da.from_zarr(zarr_array)  # uses native chunking
+                arr = da.from_zarr(zarr_array)
             else:
-                arr = da.from_zarr(zarr_array, chunks=self.chunks) # use chunks (same for all levels)
+                arr = da.from_zarr(zarr_array, chunks=self.chunks)
+
             data_levels.append(arr)      
+
+        self.data = data_levels
+        self.zarr_data = zarr_levels
+
         self.chunks = data_levels[0].chunksize
         dtype = data_levels[0].dtype
         
@@ -137,8 +148,6 @@ class ZarrManager(MicroscopeManager):
             "plane_files": None,
             "axes": axes,
         }
-
-        self.data = data_levels
         
         ### optional, read other groups
         self.groups = {}
@@ -156,9 +165,13 @@ class ZarrManager(MicroscopeManager):
 
     def _load_group(self, name):
         group = self.root[name]
-        multiscale = group.attrs.get("ome").get("multiscales", [{}])[0]
+        
+        image_meta = group.attrs.asdict().get("ome", {})
+        multiscale = image_meta.get("multiscales", [{}])[0]
         datasets = multiscale.get("datasets", [])
+        
         arrays = [da.from_zarr(group[ds["path"]]) for ds in datasets]
+        
         return arrays
 
     def _load_labels(self) -> Dict[str, List[da.Array]]:
@@ -172,21 +185,26 @@ class ZarrManager(MicroscopeManager):
         labels : Dict[str, List[dask.array.Array]]
             Dictionary mapping each label name to its list of pyramid levels.
         """
-        
         labels = {}
-        # root = zarr.open_group(str(self.path), mode='r')
+
         if "labels" not in self.root:
             return labels
 
         labels_grp = self.root["labels"]
+
         for label_name, label_grp in labels_grp.groups():
-            # Expect label_grp to have a multiscale structure similar to images
-            label_multiscales = label_grp.attrs.get("ome").get("multiscales", [])
-            if not label_multiscales:
+            image_meta = label_grp.attrs.asdict().get("ome", {})
+            label_multiscales = image_meta.get("multiscales", [{}])[0]
+            label_datasets = label_multiscales.get("datasets", [])
+
+            if not label_datasets:
                 continue
 
-            label_datasets = label_multiscales[0].get("datasets", [])
-            labels[label_name] = [da.from_zarr(label_grp[ds["path"]]) for ds in label_datasets]
+            labels[label_name] = [
+                da.from_zarr(label_grp[ds["path"]])
+                for ds in label_datasets
+            ]
+
         return labels
         
     def add_label(self, 

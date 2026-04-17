@@ -83,13 +83,16 @@ class ZarrV04Manager(MicroscopeManager):
         
         # Load pyramid levels properly
         data_levels = []
-        for i in range(len(datasets)):
-            zarr_array = self.root[str(i)]
+        for ds in datasets:
+            path = ds["path"]
+            zarr_array = self.root[path]
+
             if self.chunks is None:
-                arr = da.from_zarr(zarr_array)  # uses native chunking
+                arr = da.from_zarr(zarr_array)
             else:
-                arr = da.from_zarr(zarr_array, chunks=self.chunks) # use chunks (same for all levels)
-            data_levels.append(arr)      
+                arr = da.from_zarr(zarr_array, chunks=self.chunks)
+
+            data_levels.append(arr)     
         self.chunks = data_levels[0].chunksize
         dtype = data_levels[0].dtype
         
