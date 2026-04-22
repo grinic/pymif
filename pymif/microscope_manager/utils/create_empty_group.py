@@ -1,175 +1,119 @@
 from typing import Dict, Any
-from ome_zarr.writer import write_multiscale, add_metadata
 import zarr
+import dask.array as da
+
+from .to_zarr import (
+    ZarrWriteConfig,
+    _resolve_format,
+    _build_axes,
+    _build_coordinate_transformations,
+    _build_omero_metadata,
+    _build_v2_compressor,
+    _build_v3_compressors,
+)
+
+from .ngff import _set_group_ngff_metadata
 
 def create_empty_group(
     root: zarr.Group,
     group_name: str,
     metadata: Dict[str, Any],
     is_label: bool = False,
+    ngff_version: str | None = None,
+    compressor: str | None = None,
+    compressor_level: int = 3,
 ):
-    """
-    Create an empty OME-Zarr image or label group using provided metadata.
-
-    Parameters
-    ----------
-    root : zarr.Group
-        root group.
-    group_name : str
-        Name of the new subgroup (e.g. "processed" or "labels/nuclei").
-    metadata : Dict[str, Any]
-        Metadata describing the dataset structure.
-    is_label : bool, optional
-        If True, create a label group inside 'labels/' instead of a new image group.
-    """
     if not metadata:
         raise ValueError("Metadata is required to create an empty group.")
 
-    # Determine target group
+    inferred_ngff = _infer_ngff_version(root)
+    cfg = ZarrWriteConfig(
+        ngff_version=ngff_version or inferred_ngff,
+        compressor=compressor,
+        compressor_level=compressor_level,
+    )
+    ngff_version, zarr_format = _resolve_format(cfg)
+
     if is_label:
-        labels_grp = root.require_group("labels")
-        if group_name in labels_grp:
-            del labels_grp[group_name]
-        grp = labels_grp.create_group(group_name)
+        parent = root.require_group("labels")
     else:
-        if group_name in root:
-            del root[group_name]
-        grp = root.create_group(group_name)
+        parent = root
+
+    if group_name in parent:
+        del parent[group_name]
+    grp = parent.create_group(group_name)
 
     sizes = metadata["size"]
     chunks = metadata["chunksize"]
     dtype = metadata.get("dtype", "uint16")
-    scales = metadata.get("scales", [])
-    time_increment = metadata.get("time_increment", 1.0)
-    time_increment_unit = metadata.get("time_increment_unit", "")
-    axes_labels = "tczyx" if not is_label else "tzyx"
-    units = metadata.get("units", [])
 
-    # Build coordinate transformations
-    coordinate_transformations = [
-        [
-            {
-                "type": "scale",
-                "scale": [time_increment] + ([1] if not is_label else []) + list(scale),
-            }
+    if is_label:
+        axes = ("t", "z", "y", "x")
+        level_shapes = [(s[0], s[2], s[3], s[4]) for s in sizes]
+        level_chunks = [(c[0], c[2], c[3], c[4]) for c in chunks]
+    else:
+        axes = tuple(metadata["axes"])
+        level_shapes = sizes
+        level_chunks = chunks
+
+    for i, (shape, chunk) in enumerate(zip(level_shapes, level_chunks)):
+        kwargs = {
+            "name": str(i),
+            "shape": shape,
+            "chunks": chunk,
+            "dtype": dtype,
+        }
+        if zarr_format == 2:
+            kwargs["compressor"] = _build_v2_compressor(compressor, compressor_level)
+        else:
+            compressors = _build_v3_compressors(compressor, compressor_level)
+            if compressors is not None:
+                kwargs["compressors"] = compressors
+        grp.create_array(**kwargs)
+
+    if is_label:
+        axes_meta = [
+            {"name": "t", "type": "time", "unit": metadata.get("time_increment_unit")},
+            {"name": "z", "type": "space", "unit": metadata["units"][0]},
+            {"name": "y", "type": "space", "unit": metadata["units"][1]},
+            {"name": "x", "type": "space", "unit": metadata["units"][2]},
         ]
-        for scale in scales
-    ]
+    else:
+        axes_meta = _build_axes(tuple(metadata["axes"]), metadata)
 
-    # Axis metadata
-    axes_map = {"t": "time", "c": "channel", "z": "space", "y": "space", "x": "space"}
-    units = [time_increment_unit] + ([] if is_label else [""]) + list(units)
+    coordinate_transformations = _build_coordinate_transformations(
+        axes=axes,
+        scales=metadata["scales"],
+        time_increment=metadata.get("time_increment"),
+    )
 
-    def normalize_unit(unit: str) -> str:
-        aliases = {
-            "um": "micrometer",
-            "μm": "micrometer",
-            "\u00b5m": "micrometer",
-            "micron": "micrometer",
-            "microns": "micrometer",
-        }
-        return aliases.get(unit.strip(), unit.strip()) if unit else unit
-
-    axes = [
-        {
-            "name": ax,
-            "type": axes_map.get(ax, "unknown"),
-            "unit": normalize_unit(units[i]) if i < len(units) else "",
-        }
-        for i, ax in enumerate(axes_labels)
-    ]
-
-    # Create pyramid datasets lazily
-    for i, (shape, chunk) in enumerate(zip(sizes, chunks)):
-        grp.create_dataset(
-            name=str(i),
-            shape=shape,
-            chunks=chunk,
-            dtype=dtype,
-            # compressor=None,
-            # write_empty_chunks=False,  # defer physical chunk creation
-        )
-
-    # Add multiscale metadata
-    multiscale_entry = {
-        "version": "0.5",
+    multiscales = {
         "name": group_name,
-        "datasets": [{"path": str(i), "coordinateTransformations": coordinate_transformations[i]} for i in range(len(sizes))],
-        "axes": axes,
+        "axes": axes_meta,
+        "datasets": [
+            {"path": str(i), "coordinateTransformations": coordinate_transformations[i]}
+            for i in range(len(level_shapes))
+        ],
     }
 
-    grp.attrs["ome"]= {"multiscales": [multiscale_entry]}
-
-    # Register in root so Napari can see it
     if is_label:
-        d = {}
-        for k in grp.attrs["ome"].keys():
-            # print(k, root.attrs["ome"][k])
-            d[k] = grp.attrs["ome"][k]
-        d["image-label"] = {"source": {"image": "../../"}}  # label points to root image
-        grp.attrs["ome"] = d
-        labels_attr = root.attrs.get("ome").get("labels", [])
-        if not isinstance(labels_attr, list):
-            labels_attr = []
-        label_path = f"labels/{group_name}"
-        d = {}
-        for k in root.attrs["ome"].keys():
-            # print(k, root.attrs["ome"][k])
-            d[k] = root.attrs["ome"][k]
-        if label_path not in labels_attr:
-            labels_attr.append(label_path)
-            d["labels"] = labels_attr
-        root.attrs["ome"] = d
-
-    else:
-        # For images, append to root multiscales if not already present
-        root_multiscales = root.attrs.get("ome").get("multiscales", [])
-        root_multiscales.append({
-            "name": group_name,
-            "path": grp.path,
-            "datasets": [{"path": str(i)} for i in range(len(sizes))],
-            "axes": axes,
-            "type": "image",
-        })
-        root.attrs.get("ome")["multiscales"] = root_multiscales
-
-        # Optional OMERO metadata for images
-        C = sizes[0][axes_labels.index("c")] if "c" in axes_labels else 1
-        ch_names = metadata.get("channel_names", [f"channel_{i}" for i in range(C)])
-        ch_colors = metadata.get("channel_colors", ["FFFFFF"] * C)
-        def _normalize_color(color):
-            if isinstance(color, int):
-                return f"{color & 0xFFFFFF:06X}"
-            if isinstance(color, str):
-                color = color.lstrip("#-")
-                if len(color) == 6:
-                    return color.upper()
-            return "FFFFFF"
-        channels = [{
-            "label": ch_names[i], 
-            "color": _normalize_color(ch_colors[i]), 
-            "window": {
-                "start":0,
-                "end":1500,
-                "min":0,
-                "max":65535
-            },
-            "active":True,
-            # "inverted":False,
-            # "coefficient":1.0,
-            # "family":"linear"
-        } for i in range(C) ]
-        
-        add_metadata(
+        _set_group_ngff_metadata(
             grp,
-            {"omero":{
-                    "channels": channels,
-                    # "rdefs": {"model": "color"}
-                }
-            }
+            ngff_version=ngff_version,
+            multiscales=multiscales,
+            omero=None,
+            extra={"image-label": {"source": {"image": "../../"}}},
+        )
+        _register_label_on_root(root, group_name, ngff_version)
+    else:
+        dummy = da.empty(shape=level_shapes[0], dtype=dtype, chunks=level_chunks[0])
+        omero = _build_omero_metadata(dummy, tuple(metadata["axes"]), metadata)
+        _set_group_ngff_metadata(
+            grp,
+            ngff_version=ngff_version,
+            multiscales=multiscales,
+            omero=omero,
+            extra={"image-source": {"source": {"image": "../"}}},
         )
 
-        grp.attrs.get("ome")["image-source"] = {"source":{"image":"../"}}
-
-    print(f"[INFO] Created empty {'label' if is_label else 'image'} group '{grp.path}' in store '{root.store}'")
     return grp

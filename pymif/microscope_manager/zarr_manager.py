@@ -1,148 +1,164 @@
 from __future__ import annotations
 
-from typing import Tuple, List, Dict, Any, Optional, Union
+from typing import Tuple, List, Dict, Any, Optional, TYPE_CHECKING
 from pathlib import Path
-import numpy as np
+import os
+
 import dask.array as da
-from .microscope_manager import MicroscopeManager
 import zarr
 
-from typing import TYPE_CHECKING, Optional
+from .microscope_manager import MicroscopeManager
 
 if TYPE_CHECKING:
     import napari
-    
-import os
+
 
 class ZarrManager(MicroscopeManager):
     """
     A manager class for reading and handling OME-Zarr datasets.
 
-    This class reads NGFF-compliant multiscale image data along with
-    metadata and optional label layers from a Zarr directory. It supports
-    lazy loading with Dask, label layer detection, and integration with
-    Napari for visualization.
-
-    Parameters
-    ----------
-    path : str or Path
-        Path to the root directory of the OME-Zarr dataset.
-    chunks : Tuple[int, ...], optional
-        Chunk size to apply when reading arrays. If None, native chunking
-        in the Zarr arrays is used.
+    Supports both:
+    - NGFF / OME-Zarr v0.4  -> metadata in root/group attrs directly
+    - NGFF / OME-Zarr v0.5  -> metadata in attrs["ome"]
     """
-        
-    def __init__(self, 
-                 path,
-                 chunks: Tuple[int, ...] = None,
-                 mode: str = "r",
-                 metadata: dict[str, Any] = None):
-        """
-        Initialize the ZarrManager.
 
-        Parameters
-        ----------
-        path : str
-            Path to the folder containing the Zarr dataset.
-        chunks : Tuple[int, ...], optional
-            Desired chunk shape for the output Dask array. Default is `None`.
-        mode : {"r", "r+", "a", "w", "w-"}, default="r"
-            Zarr access mode. Use "r+" to enable in-place modification.        
-        """
-        
+    def __init__(
+        self,
+        path,
+        chunks: Tuple[int, ...] = None,
+        mode: str = "r",
+        metadata: dict[str, Any] = None,
+        ngff_version: str | None = None,
+        zarr_format: int | None = None,
+    ):
         super().__init__()
         self.path = path
         self.chunks = chunks
         self.mode = mode
         self.metadata = metadata
-        
-        # Access raw NGFF metadata
+        self.ngff_version: str | None = None
+        self.ngff_version_override = ngff_version
+        self.zarr_format_override = zarr_format
 
-        # If path exists and we're in read mode, read it
         if os.path.exists(self.path):
-            if mode in ("r", "a"):
+            if mode in ("r", "a", "r+"):
                 self.root = zarr.open(zarr.storage.LocalStore(self.path), mode=self.mode)
                 self.read()
             else:
-                raise FileNotFoundError(f"Zarr path {self.path} exists and mode='{mode}' is write-only. Please select mode='r' or 'a'.")
+                raise FileNotFoundError(
+                    f"Zarr path {self.path} exists and mode='{mode}' is write-only. "
+                    "Please select mode='r', 'r+' or 'a'."
+                )
         else:
             if mode in ("w", "a"):
-                self.root = zarr.open(zarr.storage.LocalStore(self.path), mode=self.mode)
+                from .utils.to_zarr import ZarrWriteConfig, _resolve_format
+
+                cfg = ZarrWriteConfig(
+                    ngff_version=self.ngff_version_override or (self.metadata or {}).get("ngff_version"),
+                    zarr_format=self.zarr_format_override or (self.metadata or {}).get("zarr_format"),
+                )
+                resolved_ngff_version, resolved_zarr_format = _resolve_format(cfg)
+
+                self.root = zarr.open_group(
+                    zarr.storage.LocalStore(self.path),
+                    mode=self.mode,
+                    zarr_format=resolved_zarr_format,
+                )
+
                 from .utils.create_empty_dataset import create_empty_dataset as _create_empty_dataset
-                _create_empty_dataset(self.root,
-                                      self.metadata)
+                _create_empty_dataset(
+                    self.root,
+                    self.metadata,
+                    ngff_version=resolved_ngff_version,
+                    zarr_format=resolved_zarr_format,
+                )
             else:
-                raise FileNotFoundError(f"Zarr path {self.path} does not exist and mode='{mode}' is read-only. Please select mode='w' or 'a'.")
-        
-    def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
+                raise FileNotFoundError(
+                    f"Zarr path {self.path} does not exist and mode='{mode}' is read-only. "
+                    "Please select mode='w' or 'a'."
+                )
+
+    def _get_image_meta(self, group: zarr.Group) -> dict[str, Any]:
         """
-        Read an OME-Zarr dataset and extract both image data and metadata.
+        Return the image metadata dictionary for either NGFF v0.4 or v0.5.
 
-        This method lazily loads the multiscale image pyramid and metadata
-        from the root of the Zarr dataset. If `/labels/` groups exist, they
-        are also read into the `self.labels` attribute.
-
-        Returns
-        -------
-        data_levels : List[dask.array.Array]
-            List of Dask arrays, one for each resolution level.
-        metadata : Dict[str, Any]
-            Dictionary containing image metadata such as axes, scales, sizes,
-            channels, time increments, and units.
-
-        Raises
-        ------
-        ValueError
-            If the dataset structure is invalid or lacks required metadata.
+        v0.5 -> group.attrs["ome"]
+        v0.4 -> group.attrs
         """
-        
-        image_meta = self.root.attrs.asdict().get("ome")
-        multiscales = image_meta.get("multiscales", [{}])[0]
-        datasets = multiscales.get("datasets", [])
-        omero = image_meta.get("omero", {})
-        
-        # Load pyramid levels properly
-        data_levels = []
-        zarr_levels = []
+        attrs = group.attrs.asdict()
+        if "ome" in attrs and isinstance(attrs["ome"], dict):
+            self.ngff_version = attrs["ome"].get("version", "0.5")
+            return attrs["ome"]
 
-        for ds in datasets:
-            path = ds["path"]
-            
-            zarr_array = self.root[path]
-            zarr_levels.append(zarr_array)
+        self.ngff_version = "0.4"
+        return attrs
 
-            if self.chunks is None:
-                arr = da.from_zarr(zarr_array)
-            else:
-                arr = da.from_zarr(zarr_array, chunks=self.chunks)
+    def _get_multiscales(self, group: zarr.Group) -> list[dict[str, Any]]:
+        image_meta = self._get_image_meta(group)
+        return image_meta.get("multiscales", [])
 
-            data_levels.append(arr)      
+    def _get_omero(self, group: zarr.Group) -> dict[str, Any]:
+        image_meta = self._get_image_meta(group)
+        return image_meta.get("omero", {})
 
-        self.data = data_levels
-        self.zarr_data = zarr_levels
+    def _extract_metadata(
+        self,
+        data_levels: List[da.Array],
+        datasets: list[dict[str, Any]],
+        multiscales: dict[str, Any],
+        omero: dict[str, Any],
+    ) -> Dict[str, Any]:
+        axes_info = multiscales.get("axes", [])
+        axis_names = [a["name"] for a in axes_info]
+        axes = "".join(axis_names)
 
-        self.chunks = data_levels[0].chunksize
+        sizes = [tuple(arr.shape) for arr in data_levels]
+        chunksize = [arr.chunksize for arr in data_levels]
         dtype = data_levels[0].dtype
-        
-        # Metadata
-        axes = "".join([a["name"][0] for a in multiscales.get("axes", [])])
-        sizes = [ tuple(d.shape) for d in data_levels ]
-        scales = [tuple(d.get("coordinateTransformations", [{}])[0].get("scale", None)[2:])
-                  for d in datasets]
-        chunksize = [d.chunksize for d in data_levels]
-        units = tuple([a.get("unit", None) for a in multiscales.get("axes", [])][2:])
 
-        # Channels
+        spatial_idx = [i for i, ax in enumerate(axis_names) if ax in ("z", "y", "x")]
+        time_idx = axis_names.index("t") if "t" in axis_names else None
+        channel_idx = axis_names.index("c") if "c" in axis_names else None
+
+        scales = []
+        for ds in datasets:
+            ct = ds.get("coordinateTransformations", [{}])
+            scale_vec = None
+            if ct and isinstance(ct, list):
+                scale_vec = ct[0].get("scale", None)
+
+            if scale_vec is None:
+                scales.append(tuple([1.0] * len(spatial_idx)))
+            else:
+                scales.append(tuple(scale_vec[i] for i in spatial_idx))
+
+        units = tuple(axes_info[i].get("unit", None) for i in spatial_idx)
+
+        if time_idx is not None:
+            ct0 = datasets[0].get("coordinateTransformations", [{}])
+            scale0 = None
+            if ct0 and isinstance(ct0, list):
+                scale0 = ct0[0].get("scale", None)
+
+            time_increment = scale0[time_idx] if scale0 is not None else None
+            time_increment_unit = axes_info[time_idx].get("unit", None)
+        else:
+            time_increment = None
+            time_increment_unit = None
+
         channels = omero.get("channels", [])
-        channel_names = [ch.get("label", f"Channel {i}") for i, ch in enumerate(channels)]
-        channel_colors = [ch.get("color", "FFFFFF") for ch in channels]
-        # channel_colors = [int(c, 16) if isinstance(c, str) else c for c in channel_colors]
+        c_size = data_levels[0].shape[channel_idx] if channel_idx is not None else 1
 
-        # Time increment
-        time_increment = datasets[0].get("coordinateTransformations", [{}])[0].get("scale", None)[0]
-        time_increment_unit = [a.get("unit", None) for a in multiscales.get("axes", [])][0]
+        channel_names = [
+            channels[i].get("label", f"Channel {i}") if i < len(channels) else f"Channel {i}"
+            for i in range(c_size)
+        ]
+        channel_colors = [
+            channels[i].get("color", "FFFFFF") if i < len(channels) else "FFFFFF"
+            for i in range(c_size)
+        ]
 
-        self.metadata = {
+        return {
             "size": sizes,
             "chunksize": chunksize,
             "scales": scales,
@@ -154,44 +170,81 @@ class ZarrManager(MicroscopeManager):
             "dtype": str(dtype),
             "plane_files": None,
             "axes": axes,
-        }
-        
-        ### optional, read other groups
+            "ngff_version": self.ngff_version,
+            "zarr_format": 3 if self.ngff_version == "0.5" else 2,
+            }
+
+    def _read_multiscale_group(
+        self,
+        group: zarr.Group,
+    ) -> tuple[List[da.Array], List[Any], Dict[str, Any]]:
+        multiscales_all = self._get_multiscales(group)
+        if not multiscales_all:
+            raise ValueError(f"Group '{group.name}' does not contain multiscales metadata.")
+
+        multiscales = multiscales_all[0]
+        datasets = multiscales.get("datasets", [])
+        if not datasets:
+            raise ValueError(f"Group '{group.name}' has multiscales metadata but no datasets.")
+
+        omero = self._get_omero(group)
+
+        data_levels = []
+        zarr_levels = []
+
+        for ds in datasets:
+            path = ds["path"]
+            zarr_array = group[path]
+            zarr_levels.append(zarr_array)
+
+            if self.chunks is None:
+                arr = da.from_zarr(zarr_array)
+            else:
+                arr = da.from_zarr(zarr_array, chunks=self.chunks)
+
+            data_levels.append(arr)
+
+        metadata = self._extract_metadata(
+            data_levels=data_levels,
+            datasets=datasets,
+            multiscales=multiscales,
+            omero=omero,
+        )
+
+        return data_levels, zarr_levels, metadata
+
+    def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
+        data_levels, zarr_levels, metadata = self._read_multiscale_group(self.root)
+
+        self.data = data_levels
+        self.zarr_data = zarr_levels
+        self.metadata = metadata
+        self.chunks = data_levels[0].chunksize
+
         self.groups = {}
         self.labels = {}
+
         for name in self.root.group_keys():
             if name == "labels":
                 self.labels = self._load_labels()
             else:
                 self.groups[name] = self._load_group(name)
-                
-        ### Output
+
         print(self.root.tree())
-        for i in self.metadata:
-            print(f"{i.upper()}: {self.metadata[i]}")
+        for k, v in self.metadata.items():
+            print(f"{k.upper()}: {v}")
+
+        return self.data, self.metadata
 
     def _load_group(self, name):
         group = self.root[name]
-        
-        image_meta = group.attrs.asdict().get("ome", {})
-        multiscale = image_meta.get("multiscales", [{}])[0]
-        datasets = multiscale.get("datasets", [])
-        
-        arrays = [da.from_zarr(group[ds["path"]]) for ds in datasets]
-        
-        return arrays
+        try:
+            arrays, _, _ = self._read_multiscale_group(group)
+            return arrays
+        except ValueError:
+            return None
 
     def _load_labels(self) -> Dict[str, List[da.Array]]:
-        """
-        Load label layers from the `/labels/` group in the Zarr dataset.
-
-        Each label is stored as a multiscale pyramid similar to image data.
-
-        Returns
-        -------
-        labels : Dict[str, List[dask.array.Array]]
-            Dictionary mapping each label name to its list of pyramid levels.
-        """
         labels = {}
 
         if "labels" not in self.root:
@@ -200,71 +253,38 @@ class ZarrManager(MicroscopeManager):
         labels_grp = self.root["labels"]
 
         for label_name, label_grp in labels_grp.groups():
-            image_meta = label_grp.attrs.asdict().get("ome", {})
-            label_multiscales = image_meta.get("multiscales", [{}])[0]
-            label_datasets = label_multiscales.get("datasets", [])
-
-            if not label_datasets:
+            try:
+                arrays, _, _ = self._read_multiscale_group(label_grp)
+                labels[label_name] = arrays
+            except ValueError:
                 continue
 
-            labels[label_name] = [
-                da.from_zarr(label_grp[ds["path"]])
-                for ds in label_datasets
-            ]
-
         return labels
-        
-    def add_label(self, 
-                    label_levels: List[da.Array],
-                    label_name: str = "new_label",
-                    compressor: Any = None, 
-                    compressor_level: Any = 3, 
-                    parallelize: Any = False) -> None:
-        """
-        Add a label layer to the Zarr dataset.
 
-        Parameters
-        ----------
-        label_levels : List[dask.array.Array]
-            A list of arrays representing a label image pyramid.
-        label_name : str, optional
-            Name of the label group (default is "new_label").
-        compressor : Any, optional
-            Compression method to use when writing labels.
-        compressor_level : Any, optional
-            Compression level to apply (default: 3).
-        parallelize : bool, optional
-            If True, label data is written in parallel.
-        """
-        
+    def add_label(
+        self,
+        label_levels: List[da.Array],
+        label_name: str = "new_label",
+        compressor: Any = None,
+        compressor_level: Any = 3,
+        parallelize: Any = False,
+    ) -> None:
         from .utils.add_label import add_label as _add_label
         return _add_label(
-                        root=self.root,
-                        mode=self.mode, 
-                        label_levels=label_levels, 
-                        label_name=label_name,
-                        metadata=self.metadata, 
-                        compressor=compressor, 
-                        compressor_level=compressor_level,
-                        parallelize=parallelize
-                      )
-        
-    def visualize_zarr(self,
-            viewer: "napari.Viewer | None " = None,
-        ) -> "napari.Viewer | None":
-        """
-        Visualize the OME-Zarr dataset using Napari's `napari-ome-zarr` plugin.
+            root=self.root,
+            mode=self.mode,
+            label_levels=label_levels,
+            label_name=label_name,
+            metadata=self.metadata,
+            compressor=compressor,
+            compressor_level=compressor_level,
+            parallelize=parallelize,
+        )
 
-        Parameters
-        ----------
-        viewer : napari.Viewer, optional
-            An existing viewer instance. If None, a new one will be created.
-
-        Returns
-        -------
-        viewer : napari.Viewer
-            A Napari viewer instance with the image loaded.
-        """
+    def visualize_zarr(
+        self,
+        viewer: "napari.Viewer | None " = None,
+    ) -> "napari.Viewer | None":
         try:
             import napari
         except ImportError:
@@ -273,49 +293,48 @@ class ZarrManager(MicroscopeManager):
                 "napari is not installed. Install with `pip install pymif[napari]` to use visualization.",
                 stacklevel=2,
             )
-            return None                
-                
+            return None
+
         if viewer is None:
             viewer = napari.Viewer()
-        
-        # recursively find all groups with a "multiscales" attribute
+
         def discover_multiscales(group: zarr.Group, path=""):
             results = []
-            image_meta = self.root.attrs.asdict().get("ome")
-            if "multiscales" in image_meta:
-                results.append(path)
-            # print(results)
-            # print(group.groups)
+
+            try:
+                multiscales = self._get_multiscales(group)
+                if multiscales:
+                    results.append(path)
+            except Exception:
+                pass
+
             for name, sub in group.groups():
-                if "labels" not in name:
+                if name != "labels":
                     subpath = f"{path}/{name}" if path else name
                     results.extend(discover_multiscales(sub, path=subpath))
-            # print(results)
+
             return results
-        
+
         multiscale_paths = discover_multiscales(self.root)
-        # print(multiscale_paths)
-        
+
         for gpath in multiscale_paths:
-            # open each group individually via napari-ome-zarr
             full_path = Path(self.path) / gpath
-            # print("open", full_path)
-            viewer.open(full_path, plugin="napari-ome-zarr") 
-        
+            viewer.open(full_path, plugin="napari-ome-zarr")
+
         return viewer
-    
+
     def create_empty_group(
-            self,
-            group_name: str,
-            metadata: Dict[str, Any],
-            is_label: bool = False,
+        self,
+        group_name: str,
+        metadata: Dict[str, Any],
+        is_label: bool = False,
     ):
         from .utils.create_empty_group import create_empty_group as _create_empty_group
         return _create_empty_group(
-            root = self.root,
-            group_name = group_name,
-            metadata = metadata,
-            is_label = is_label,
+            root=self.root,
+            group_name=group_name,
+            metadata=metadata,
+            is_label=is_label,
         )
 
     def write_image_region(
@@ -329,26 +348,16 @@ class ZarrManager(MicroscopeManager):
         level: int = 0,
         group: Optional[str] = None,
     ):
-        """
-        Public method to write or update a region in the dataset or sub-group.
-
-        Parameters
-        ----------
-        data : Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]]
-            Arrays representing an image region or its pyramid.
-        t, c, z, y, x : int or slice
-            Slices for each dimension.
-        level : int
-            The pyramid level to write to (if `data` is a single array).
-        group_name : str, optional
-            Name of the group inside the root.       
-        """
         from .utils.write_image_region import write_image_region as _write_image_region
         return _write_image_region(
             root=self.root,
             mode=self.mode,
             data=data,
-            t=t, c=c, z=z, y=y, x=x,
+            t=t,
+            c=c,
+            z=z,
+            y=y,
+            x=x,
             level=level,
             group_name=group,
         )
@@ -363,16 +372,15 @@ class ZarrManager(MicroscopeManager):
         level: int = 0,
         group: str = None,
     ):
-        """
-        Public method to write or update a region in the dataset or sub-group.
-        """
         from .utils.write_label_region import write_label_region as _write_label_region
         return _write_label_region(
             root=self.root,
             mode=self.mode,
             data=data,
-            t=t, z=z, y=y, x=x,
+            t=t,
+            z=z,
+            y=y,
+            x=x,
             level=level,
             group_name=group,
         )
-        

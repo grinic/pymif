@@ -1,129 +1,86 @@
 from typing import Dict, Any
 import zarr
-# from ome_zarr.format import CurrentFormat
+
+from .to_zarr import (
+    ZarrWriteConfig,
+    _resolve_format,
+    _build_axes,
+    _build_coordinate_transformations,
+    _build_omero_metadata,
+    _build_v2_compressor,
+    _build_v3_compressors,
+)
+
+from .ngff import _set_group_ngff_metadata
+
 
 def create_empty_dataset(
     root: zarr.Group,
     metadata: Dict[str, Any],
+    ngff_version: str | None = None,
+    zarr_format: int | None = None,
+    compressor: str | None = None,
+    compressor_level: int = 3,
 ):
-    """
-    Create an empty OME-Zarr dataset using provided metadata (lazy initialization).
-    """
     if not metadata:
         raise ValueError("Metadata is required to create an empty dataset.")
 
-    axes_labels = metadata["axes"]
-    sizes = metadata["size"]       # list of shapes per level
-    chunks = metadata["chunksize"] # list of chunk shapes
+    cfg = ZarrWriteConfig(
+        ngff_version=ngff_version or metadata.get("ngff_version") or "0.5",
+        zarr_format=zarr_format or metadata.get("zarr_format"),
+        compressor=compressor,
+        compressor_level=compressor_level,
+    )
+    ngff_version, zarr_format = _resolve_format(cfg)
+
+    sizes = metadata["size"]
+    chunks = metadata["chunksize"]
     dtype = metadata.get("dtype", "uint16")
-    scales = metadata.get("scales", [])
-    axes = metadata.get("axes", [])
-    units = metadata.get("units", [])
-    time_increment = metadata.get("time_increment", 1.0)
-    
-    coordinate_transformations = [
-        [
-            {
-                "type": "scale", 
-                "scale": [metadata["time_increment"]] + [1] + list(scale),
-            }
-        ]
-        for scale in scales
-    ]
+    axes = tuple(metadata["axes"])
 
-    axes_map = {
-        "t": "time",
-        "c": "channel",
-        "z": "space",
-        "y": "space",
-        "x": "space",
-    }
-    units = [metadata["time_increment_unit"], ""] + list( metadata["units"] )
-    def normalize_unit(unit: str) -> str:
-        # Common aliases to normalize
-        if not unit:
-            return unit 
-        aliases = {
-            "um": f"micrometer",
-            "μm": f"micrometer",  # Greek mu
-            "\u00b5m": f"micrometer",  # Micro sign
-            "micron": f"micrometer",
-            "microns": f"micrometer",
-        }
-        return aliases.get(unit.strip(), unit.strip())
-    
-    axes = [
-            {
-                "name": ax, 
-                "type": axes_map.get(ax, "unknown"),
-                "unit": normalize_unit(units[i])
-            } for i, ax in enumerate(axes_labels)
-        ]
-    
-    # Create an NGFF multiscale structure manually, without writing data
-    datasets = []
     for i, (shape, chunk) in enumerate(zip(sizes, chunks)):
-        arr = root.create_dataset(
-            name=str(i),
-            shape=shape,
-            chunks=chunk,
-            dtype=dtype,
-            # compressor=None,
-            # write_empty_chunks=False,  # ✅ prevents physical chunk creation
-        )
-        datasets.append({"path": str(i)})
-
-    # OMERO metadata
-    C = sizes[0][axes_labels.index("c")]
-    ch_names = metadata.get("channel_names", [f"channel_{i}" for i in range(C)])
-    ch_colors = metadata.get("channel_colors", ["FFFFFF"] * C)
-    
-    def _normalize_color(color):
-        """Ensure color is a 6-digit hex string."""
-        if isinstance(color, int):
-            return f"{color & 0xFFFFFF:06X}"  # mask to 24-bit and format
-        if isinstance(color, str):
-            color = color.lstrip("#-")
-            if len(color) == 6:
-                return color.upper()
-        return "FFFFFF"  # default fallback
-
-    channels = [{
-        "label": ch_names[i],
-        "color": _normalize_color(ch_colors[i]),
-        "window": {
-            "start": 0,
-            "end": 1500,
-            "min": 0,
-            "max": 65535
-        },
-        "active": True,
-        "inverted": False,
-        "coefficient": 1.0,
-        "family": "linear",
-    } for i in range(C)]
-
-
-    root.attrs["ome"] = {
-        "version": "0.5",
-        "multiscales": [{
-            "name": metadata.get("name", "OME-Zarr image"),
-            "datasets": [
-                {
-                    "path": str(i),
-                    "coordinateTransformations": coordinate_transformations[i],
-                }
-                for i in range(len(sizes))
-            ],
-            "axes": axes,
-            "type": "image",
-        }],
-        "omero": {
-            "channels": channels,
-            "rdefs": {"model": "color"}
+        kwargs = {
+            "name": str(i),
+            "shape": shape,
+            "chunks": chunk,
+            "dtype": dtype,
         }
+        if zarr_format == 2:
+            kwargs["compressor"] = _build_v2_compressor(compressor, compressor_level)
+            kwargs["chunk_key_encoding"] = {"name": "v2", "separator": "/"}
+        else:
+            compressors = _build_v3_compressors(compressor, compressor_level)
+            if compressors is not None:
+                kwargs["compressors"] = compressors
+
+        root.create_array(**kwargs)
+
+    multiscales = {
+        "name": metadata.get("name", "OME-Zarr image"),
+        "axes": _build_axes(axes, metadata),
+        "datasets": [
+            {
+                "path": str(i),
+                "coordinateTransformations": ct,
+            }
+            for i, ct in enumerate(
+                _build_coordinate_transformations(
+                    axes=axes,
+                    scales=metadata["scales"],
+                    time_increment=metadata.get("time_increment"),
+                )
+            )
+        ],
+        "type": "image",
     }
 
+    import dask.array as da
+    dummy = da.empty(shape=sizes[0], dtype=dtype, chunks=chunks[0])
+    omero = _build_omero_metadata(dummy, axes, metadata)
 
-    print(f"[INFO] Created empty OME-Zarr dataset at {root.store}.")
-
+    _set_group_ngff_metadata(
+        root,
+        ngff_version=ngff_version,
+        multiscales=multiscales,
+        omero=omero,
+    )

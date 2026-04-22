@@ -3,7 +3,8 @@ import numpy as np
 import dask.array as da
 import zarr
 import warnings
-
+from .zoom import _zoom_numpy, _zoom_dask
+from .ngff import _get_group_multiscales
 
 def write_label_region(
     root: zarr.Group,
@@ -57,7 +58,7 @@ def write_label_region(
         return
 
     # Get multiscales metadata
-    multiscales = group.attrs.get("ome").get("multiscales")
+    multiscales = _get_group_multiscales(group)
     if not multiscales:
         warnings.warn(
             f"No 'multiscales' attribute found in group '{group_name or '/'}'. "
@@ -181,21 +182,3 @@ def _scale_index(index_tuple, shape, scale_factor: float):
         scale_slice(x, shape[3]),
     )
 
-def _zoom_numpy(arr: np.ndarray, scale: float) -> np.ndarray:
-    """Simple 2x zoom or shrink using nearest-neighbor."""
-    from scipy.ndimage import zoom
-    factors = [1] * (arr.ndim - 3) + [scale, scale, scale]
-    for i, f in enumerate(factors):
-        if (arr.shape[i]*f) < 1:
-            factors[i] = 1
-    return zoom(arr, zoom=factors, order=0)
-
-
-def _zoom_dask(arr: da.Array, scale: float) -> da.Array:
-    """Zoom for dask arrays."""
-    import dask_image.ndinterp as ndinterp
-    factors = [1] * (arr.ndim - 3) + [scale, scale, scale]
-    for i, f in enumerate(factors):
-        if (arr.shape[i]*f) < 1:
-            factors[i] = 1
-    return ndinterp.zoom(arr, zoom=factors, order=0)

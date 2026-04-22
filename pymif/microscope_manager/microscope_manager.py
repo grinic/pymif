@@ -36,19 +36,13 @@ class MicroscopeManager(ABC):
         """
         pass
 
-    def to_zarr(self, path: str, 
-              compressor: Any = None, 
-              compressor_level: Any = 3, 
-              overwrite=True,
-              parallelize: Any = False) -> None:
-        from .utils.to_zarr import to_zarr as _to_zarr
+    def to_zarr(self, path: str,
+                **kwargs) -> None:
+        from .utils.to_zarr import ZarrWriteConfig, to_zarr as _to_zarr
         return _to_zarr(path, 
                       self.data, 
                       self.metadata, 
-                      compressor=compressor, 
-                      compressor_level=compressor_level,
-                      overwrite=overwrite,
-                      parallelize=parallelize
+                      config=ZarrWriteConfig(**kwargs)
                       )
 
     def visualize(
