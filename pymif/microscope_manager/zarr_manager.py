@@ -51,7 +51,7 @@ class ZarrManager(MicroscopeManager):
                 )
         else:
             if mode in ("w", "a"):
-                from .utils.to_zarr import ZarrWriteConfig, _resolve_format
+                from .utils.ngff import ZarrWriteConfig, _resolve_format
 
                 cfg = ZarrWriteConfig(
                     ngff_version=self.ngff_version_override or (self.metadata or {}).get("ngff_version"),

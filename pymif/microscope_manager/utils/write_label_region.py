@@ -1,10 +1,12 @@
-from typing import Union, List, Optional
+from typing import Union, List
 import numpy as np
 import dask.array as da
 import zarr
 import warnings
+
 from .zoom import _zoom_numpy, _zoom_dask
 from .ngff import _get_group_multiscales
+
 
 def write_label_region(
     root: zarr.Group,
@@ -18,9 +20,9 @@ def write_label_region(
     group_name: str = "labels/nuclei",
 ):
     """
-    Internal function that writes data (pyramid or single array) to a zarr group.
+    Internal function that writes label data (pyramid or single array) to a zarr group.
 
-    If a single array is provided, the function will automatically generate
+    If a single array is provided, the function automatically generates
     the complete pyramid by upsampling and downsampling from the given level.
 
     Parameters
@@ -33,31 +35,27 @@ def write_label_region(
         Array(s) to write. If a list, each entry corresponds to one resolution level.
         If a single array, pyramid levels will be generated automatically.
     t, z, y, x : int or slice
-        Slices for each dimension.
+        Indices/slices for each dimension.
     level : int
-        The pyramid level to write to (if `data` is a single array).
+        Pyramid level of the provided `data` if `data` is a single array.
     group_name : str, optional
-        Name of the group inside the root (e.g. "labels/nuclei").
+        Name of the label group inside the root (e.g. "labels/nuclei").
     """
-    # Check mode
     if mode not in ("r+", "a", "w"):
         raise PermissionError(
             f"Dataset opened in read-only mode ('{mode}'). "
             "Reopen with mode='r+' to allow modifications."
         )
 
-    # Select target group
-    group = root.get(group_name)
-    print(group)
+    group = _get_nested_group(root, group_name)
     if group is None:
         available = list(root.group_keys())
         warnings.warn(
-            f"Group '{group_name}' not found. Available groups: {available}",
+            f"Group '{group_name}' not found. Available root groups: {available}",
             UserWarning,
         )
         return
 
-    # Get multiscales metadata
     multiscales = _get_group_multiscales(group)
     if not multiscales:
         warnings.warn(
@@ -66,12 +64,19 @@ def write_label_region(
             UserWarning,
         )
         return
-    multiscales = multiscales[0]
-    n_levels = len(multiscales["datasets"])
 
-    # Handle input data
+    multiscales = multiscales[0]
+    datasets = multiscales.get("datasets", [])
+    n_levels = len(datasets)
+
+    if n_levels == 0:
+        warnings.warn(
+            f"Group '{group_name}' contains no pyramid datasets.",
+            UserWarning,
+        )
+        return
+
     if isinstance(data, (np.ndarray, da.Array)):
-        # Generate full pyramid around the provided level
         data_list = _generate_pyramid(data, total_levels=n_levels, ref_level=level)
     elif isinstance(data, list):
         data_list = data
@@ -84,101 +89,105 @@ def write_label_region(
     else:
         raise TypeError("`data` must be a NumPy array, Dask array, or list of such.")
 
-    # Write data
     for i, subdata in enumerate(data_list):
-        arr_path = multiscales["datasets"][i]["path"]
+        if i >= n_levels:
+            break
+
+        arr_path = datasets[i]["path"]
         if arr_path not in group:
-            warnings.warn(f"Dataset path '{arr_path}' not found in group '{group_name or '/'}'.")
-            continue
-
-        zarr_array = group[arr_path]
-
-        # Dask → NumPy
-        if isinstance(subdata, da.Array):
-            subdata = subdata.compute()
-
-        # Scale slices for this level, 
-        # take into account that if subdata has 4 dimensions, it's a label, drop c
-        scale_factor = 2 ** (i - level)
-        index = _scale_index((t, z, y, x), subdata.shape, scale_factor)
-
-        print(subdata.shape, index)
-
-        # Shape consistency
-        # print (index, subdata.shape, zarr_array[index].shape)
-        if subdata.shape != zarr_array[index].shape:
             warnings.warn(
-                f"Shape mismatch for level {i}: data={subdata.shape}, "
-                f"expected={zarr_array.shape}. Skipping level.",
+                f"Dataset path '{arr_path}' not found in group '{group_name}'.",
                 UserWarning,
             )
             continue
 
-        # Update the data
+        zarr_array = group[arr_path]
+
+        if isinstance(subdata, da.Array):
+            subdata = subdata.compute()
+
+        if subdata.ndim != 4:
+            warnings.warn(
+                f"Label write expects 4D data (tzyx), got shape {subdata.shape}. "
+                f"Skipping level {i}.",
+                UserWarning,
+            )
+            continue
+
+        scale_factor = 2 ** (i - level)
+        index = _scale_index((t, z, y, x), subdata.shape, scale_factor)
+
+        expected_shape = zarr_array[index].shape
+        if subdata.shape != expected_shape:
+            warnings.warn(
+                f"Shape mismatch for level {i}: data={subdata.shape}, "
+                f"expected={expected_shape}. Skipping level.",
+                UserWarning,
+            )
+            continue
+
         zarr_array[index] = subdata
 
-    # Flush to disk if possible
     store = getattr(root, "store", None)
-    if store and hasattr(store, "flush"):
+    if store is not None and hasattr(store, "flush"):
         store.flush()
-    
+
+
+def _get_nested_group(root: zarr.Group, group_name: str) -> zarr.Group | None:
+    """
+    Resolve a potentially nested group path like 'labels/nuclei'.
+    """
+    parts = [p for p in group_name.split("/") if p]
+    group = root
+    for part in parts:
+        if part not in group:
+            return None
+        group = group[part]
+    return group
+
+
 def _generate_pyramid(
     ref_data: Union[np.ndarray, da.Array],
     total_levels: int,
     ref_level: int = 0,
 ) -> List[Union[np.ndarray, da.Array]]:
     """
-    Generate a full pyramid (both upscaling and downscaling) from a given level.
-
-    Parameters
-    ----------
-    ref_data : np.ndarray or dask.array.Array
-        The reference data (e.g. from level 2).
-    total_levels : int
-        Total number of levels in the pyramid.
-    ref_level : int
-        Level index of the provided `ref_data`.
-
-    Returns
-    -------
-    list of arrays
-        One array per pyramid level, from level 0 (highest res) to N-1 (lowest res).
+    Generate a full pyramid from a given reference level.
     """
-    if isinstance(ref_data, da.Array):
-        base_type = da
-        zoom_fn = _zoom_dask
-    else:
-        base_type = np
-        zoom_fn = _zoom_numpy
+    zoom_fn = _zoom_dask if isinstance(ref_data, da.Array) else _zoom_numpy
 
     pyramid = [None] * total_levels
     pyramid[ref_level] = ref_data
 
-    # Upscale (toward level 0)
     for i in range(ref_level - 1, -1, -1):
         pyramid[i] = zoom_fn(pyramid[i + 1], scale=2.0)
 
-    # Downscale (toward lower resolutions)
     for i in range(ref_level + 1, total_levels):
         pyramid[i] = zoom_fn(pyramid[i - 1], scale=0.5)
 
     return pyramid
 
+
 def _scale_index(index_tuple, shape, scale_factor: float):
-    """Scale slices or ints for down/up-sampled levels."""
+    """
+    Scale only spatial indices (z, y, x) for a target pyramid level.
+
+    t is never scaled.
+    `shape` is the shape of the data being written at that target level.
+    """
     t, z, y, x = index_tuple
 
-    def scale_slice(s, size):
-        start = None if s.start is None else int(s.start / scale_factor)
-        stop = start + size
+    def scale_spatial(sel, size):
+        if isinstance(sel, int):
+            return int(sel / scale_factor)
 
+        start = None if sel.start is None else int(sel.start / scale_factor)
+        stop = start + size if start is not None else size
         return slice(start, stop, None)
 
-    # Typically only y, x (and possibly z) are scaled
     return (
         t,
-        scale_slice(z, shape[1]),
-        scale_slice(y, shape[2]),
-        scale_slice(x, shape[3]),
+        scale_spatial(z, shape[1]),
+        scale_spatial(y, shape[2]),
+        scale_spatial(x, shape[3]),
     )
-

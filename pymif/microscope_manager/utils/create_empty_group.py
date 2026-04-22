@@ -2,7 +2,10 @@ from typing import Dict, Any
 import zarr
 import dask.array as da
 
-from .to_zarr import (
+from .ngff import (
+    _set_group_ngff_metadata,
+    _infer_ngff_version,
+    _register_label_on_root,
     ZarrWriteConfig,
     _resolve_format,
     _build_axes,
@@ -12,7 +15,6 @@ from .to_zarr import (
     _build_v3_compressors,
 )
 
-from .ngff import _set_group_ngff_metadata
 
 def create_empty_group(
     root: zarr.Group,
@@ -20,15 +22,31 @@ def create_empty_group(
     metadata: Dict[str, Any],
     is_label: bool = False,
     ngff_version: str | None = None,
+    zarr_format: int | None = None,
     compressor: str | None = None,
     compressor_level: int = 3,
 ):
     if not metadata:
         raise ValueError("Metadata is required to create an empty group.")
 
-    inferred_ngff = _infer_ngff_version(root)
+    root_ngff = _infer_ngff_version(root)
+    root_zarr = 3 if root_ngff == "0.5" else 2
+
+    if ngff_version is not None and ngff_version != root_ngff:
+        raise ValueError(
+            f"Cannot create a group with ngff_version={ngff_version} inside a root "
+            f"dataset with ngff_version={root_ngff}."
+        )
+
+    if zarr_format is not None and zarr_format != root_zarr:
+        raise ValueError(
+            f"Cannot create a group with zarr_format={zarr_format} inside a root "
+            f"dataset with zarr_format={root_zarr}."
+        )
+
     cfg = ZarrWriteConfig(
-        ngff_version=ngff_version or inferred_ngff,
+        ngff_version=root_ngff,
+        zarr_format=root_zarr,
         compressor=compressor,
         compressor_level=compressor_level,
     )
@@ -63,12 +81,15 @@ def create_empty_group(
             "chunks": chunk,
             "dtype": dtype,
         }
+
         if zarr_format == 2:
             kwargs["compressor"] = _build_v2_compressor(compressor, compressor_level)
+            kwargs["chunk_key_encoding"] = {"name": "v2", "separator": "/"}
         else:
             compressors = _build_v3_compressors(compressor, compressor_level)
             if compressors is not None:
                 kwargs["compressors"] = compressors
+
         grp.create_array(**kwargs)
 
     if is_label:
@@ -91,7 +112,10 @@ def create_empty_group(
         "name": group_name,
         "axes": axes_meta,
         "datasets": [
-            {"path": str(i), "coordinateTransformations": coordinate_transformations[i]}
+            {
+                "path": str(i),
+                "coordinateTransformations": coordinate_transformations[i],
+            }
             for i in range(len(level_shapes))
         ],
     }
