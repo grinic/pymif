@@ -1,15 +1,11 @@
-# Use a lightweight Python 3.12 image as recommended in your README
+# Base image
 FROM python:3.12-slim
 
-# Set the working directory inside the container
-WORKDIR /app
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Copy the repository files to the container
-COPY . /app
-
-# Install system dependencies
-# Added 'procps' here so Nextflow can track task metrics
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies (same as your original)
+RUN apt-get update && apt-get install -y \
     libfontconfig1 \
     libgl1 \
     libglx0 \
@@ -17,8 +13,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Install the Python package and its dependencies
-RUN pip install --no-cache-dir .
+# Set workdir
+WORKDIR /app
 
-# By default, open a bash shell or your main CLI
+# Copy project files
+COPY . /app
+
+# Optional: choose extras at build time (default = base)
+ARG PYMIF_EXTRAS=""
+
+# Upgrade pip and install package
+RUN pip install --upgrade pip && \
+    if [ -z "$PYMIF_EXTRAS" ]; then \
+        pip install .; \
+    else \
+        pip install ".[${PYMIF_EXTRAS}]"; \
+    fi
+
+# Default shell
 CMD ["/bin/bash"]

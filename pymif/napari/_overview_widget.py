@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 import pymif.microscope_manager as mm
 from magicgui.widgets import FileEdit
-from PyQt5.QtWidgets import QFileDialog, QWidget, QVBoxLayout
+from qtpy.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
 from matplotlib import rc
 rc('font', size=12)
 rc('font', family='Arial')

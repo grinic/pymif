@@ -13,7 +13,7 @@ import sys
 from qtpy.QtWidgets import QTextEdit
 from qtpy.QtCore import QObject, Qt, Signal
 from qtpy.QtGui import QTextCursor
-from PyQt5.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
+from qtpy.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
 from matplotlib import rc
 rc('font', size=12)
 rc('font', family='Arial')
@@ -34,6 +34,9 @@ class EmittingStream(QObject):
     def flush(self):
         pass
 
+    def isatty(self):
+        return False
+    
 def dataset_reader(microscope):
     if microscope == "zeiss":
         reader = mm.ZeissManager

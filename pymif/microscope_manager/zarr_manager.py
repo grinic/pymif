@@ -1,10 +1,17 @@
+from __future__ import annotations
+
 from typing import Tuple, List, Dict, Any, Optional, Union
 from pathlib import Path
 import numpy as np
 import dask.array as da
 from .microscope_manager import MicroscopeManager
 import zarr
-import napari
+
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    import napari
+    
 import os
 
 class ZarrManager(MicroscopeManager):
@@ -243,8 +250,8 @@ class ZarrManager(MicroscopeManager):
                       )
         
     def visualize_zarr(self,
-            viewer: Optional[napari.Viewer] = None,
-        ) -> napari.Viewer:
+            viewer: "napari.Viewer | None " = None,
+        ) -> "napari.Viewer | None":
         """
         Visualize the OME-Zarr dataset using Napari's `napari-ome-zarr` plugin.
 
@@ -258,6 +265,15 @@ class ZarrManager(MicroscopeManager):
         viewer : napari.Viewer
             A Napari viewer instance with the image loaded.
         """
+        try:
+            import napari
+        except ImportError:
+            import warnings
+            warnings.warn(
+                "napari is not installed. Install with `pip install pymif[napari]` to use visualization.",
+                stacklevel=2,
+            )
+            return None                
                 
         if viewer is None:
             viewer = napari.Viewer()

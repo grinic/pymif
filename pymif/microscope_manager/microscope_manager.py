@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple, Optional,Sequence
 import dask.array as da
-import napari
 import warnings
+
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    import napari
 
 class MicroscopeManager(ABC):
     """
@@ -45,20 +51,22 @@ class MicroscopeManager(ABC):
                       parallelize=parallelize
                       )
 
-    def visualize(  self,
-                    start_level: Optional[int] = 0,
-                    stop_level: Optional[int] = -1,
-                    in_memory: Optional[bool] = False,
-                    viewer: Optional[napari.Viewer] = None,
-                  ) -> Any:
+    def visualize(
+        self,
+        start_level: int = 0,
+        stop_level: int = -1,
+        in_memory: bool = False,
+        viewer: "napari.Viewer | None" = None,
+    ) -> Any:
         from .utils.visualize import visualize as _visualize
-        return _visualize(  self.data, 
-                            self.metadata,
-                            start_level = start_level,
-                            stop_level = stop_level,
-                            in_memory = in_memory,
-                            viewer = viewer,
-                          )
+        return _visualize(
+            self.data,
+            self.metadata,
+            start_level=start_level,
+            stop_level=stop_level,
+            in_memory=in_memory,
+            viewer=viewer,
+        )
 
     def build_pyramid(self, 
                       num_levels: Optional[int] = 3, 
