@@ -1,0 +1,56 @@
+pymif.microscope_manager.utils.write_image_region
+=================================================
+
+.. py:module:: pymif.microscope_manager.utils.write_image_region
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.write_image_region.write_image_region
+   pymif.microscope_manager.utils.write_image_region._generate_pyramid
+   pymif.microscope_manager.utils.write_image_region._scale_index
+
+
+Module Contents
+---------------
+
+.. py:function:: write_image_region(root: zarr.Group, mode: str, data: Union[numpy.ndarray, dask.array.Array, List[Union[numpy.ndarray, dask.array.Array]]], t: int | slice = slice(None), c: int | slice = slice(None), z: int | slice = slice(None), y: int | slice = slice(None), x: int | slice = slice(None), level: int = 0, group_name: Optional[str] = None)
+
+   Internal function that writes image data (pyramid or single array) to a zarr group.
+
+   If a single array is provided, the function automatically generates
+   the complete pyramid by upsampling and downsampling from the given level.
+
+   Parameters
+   ----------
+   root : zarr.Group
+       The root Zarr group.
+   mode : str
+       Zarr open mode ("r+", "a", or "w"). Must allow writing.
+   data : np.ndarray, da.Array, or list thereof
+       Array(s) to write. If a list, each entry corresponds to one resolution level.
+       If a single array, pyramid levels will be generated automatically.
+   t, c, z, y, x : int or slice
+       Indices/slices for each dimension.
+   level : int
+       Pyramid level of the provided `data` if `data` is a single array.
+   group_name : str, optional
+       Name of the subgroup inside the root. If None, writes to root image.
+
+
+.. py:function:: _generate_pyramid(ref_data: Union[numpy.ndarray, dask.array.Array], total_levels: int, ref_level: int = 0) -> List[Union[numpy.ndarray, dask.array.Array]]
+
+   Generate a full pyramid from a given reference level.
+
+
+.. py:function:: _scale_index(index_tuple, shape, scale_factor: float)
+
+   Scale only spatial indices (z, y, x) for a target pyramid level.
+
+   t and c are never scaled.
+   `shape` is the shape of the data being written at that target level.
+
+

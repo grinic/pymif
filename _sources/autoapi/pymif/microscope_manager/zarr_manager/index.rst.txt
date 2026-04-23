@@ -1,0 +1,148 @@
+pymif.microscope_manager.zarr_manager
+=====================================
+
+.. py:module:: pymif.microscope_manager.zarr_manager
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.zarr_manager.ZarrManager
+
+
+Module Contents
+---------------
+
+.. py:class:: ZarrManager(path, chunks: Tuple[int, Ellipsis] = None, mode: str = 'r', metadata: dict[str, Any] = None, ngff_version: str | None = None, zarr_format: int | None = None)
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   A manager class for reading and handling OME-Zarr datasets.
+
+   Supports both:
+   - NGFF / OME-Zarr v0.4  -> metadata in root/group attrs directly
+   - NGFF / OME-Zarr v0.5  -> metadata in attrs["ome"]
+
+
+   .. py:attribute:: path
+
+
+   .. py:attribute:: chunks
+      :value: None
+
+
+
+   .. py:attribute:: mode
+      :value: 'r'
+
+
+
+   .. py:attribute:: metadata
+      :value: None
+
+
+
+   .. py:attribute:: ngff_version
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: ngff_version_override
+      :value: None
+
+
+
+   .. py:attribute:: zarr_format_override
+      :value: None
+
+
+
+   .. py:method:: _get_image_meta(group: zarr.Group) -> dict[str, Any]
+
+      Return the image metadata dictionary for either NGFF v0.4 or v0.5.
+
+      v0.5 -> group.attrs["ome"]
+      v0.4 -> group.attrs
+
+
+
+   .. py:method:: _get_multiscales(group: zarr.Group) -> list[dict[str, Any]]
+
+      Return the NGFF ``multiscales`` block for ``group`` regardless of version.
+
+
+
+   .. py:method:: _get_omero(group: zarr.Group) -> dict[str, Any]
+
+      Return the OMERO-style channel metadata stored on ``group``.
+
+
+
+   .. py:method:: _extract_metadata(data_levels: List[dask.array.Array], datasets: list[dict[str, Any]], multiscales: dict[str, Any], omero: dict[str, Any]) -> Dict[str, Any]
+
+      Translate NGFF metadata blocks into the normalized PyMIF metadata schema.
+
+
+
+   .. py:method:: _read_multiscale_group(group: zarr.Group) -> tuple[List[dask.array.Array], List[Any], Dict[str, Any]]
+
+      Load one multiscale image group as dask arrays plus normalized metadata.
+
+
+
+   .. py:method:: read() -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+      Read the root image plus discover additional image groups and labels.
+
+      The root image is exposed through ``self.data`` and ``self.metadata``.
+      Additional multiscale subgroups are indexed in ``self.groups`` and label
+      pyramids in ``self.labels``.
+
+
+
+   .. py:method:: _load_group(name)
+
+      Attempt to load a named subgroup if it contains NGFF image metadata.
+
+
+
+   .. py:method:: _load_labels() -> Dict[str, List[dask.array.Array]]
+
+      Discover label pyramids stored below the root ``labels`` group.
+
+
+
+   .. py:method:: add_label(label_levels: List[dask.array.Array], label_name: str = 'new_label', compressor: Any = None, compressor_level: Any = 3, parallelize: Any = False) -> None
+
+      Register a new multiscale label pyramid in the current zarr store.
+
+
+
+   .. py:method:: visualize_zarr(viewer: napari.Viewer | None  = None) -> napari.Viewer | None
+
+      Open the root image and all multiscale subgroups in napari.
+
+
+
+   .. py:method:: create_empty_group(group_name: str, metadata: Dict[str, Any], is_label: bool = False)
+
+      Create an empty image subgroup or label subgroup below the current root.
+
+
+
+   .. py:method:: write_image_region(data, t: int | slice = slice(None), c: int | slice = slice(None), z: int | slice = slice(None), y: int | slice = slice(None), x: int | slice = slice(None), level: int = 0, group: Optional[str] = None)
+
+      Write an image patch into a root or subgroup pyramid and refresh lower levels.
+
+
+
+   .. py:method:: write_label_region(data, t: int | slice = slice(None), z: int | slice = slice(None), y: int | slice = slice(None), x: int | slice = slice(None), level: int = 0, group: str = None)
+
+      Write a label patch into a label pyramid and regenerate coarser levels.
+
+
+

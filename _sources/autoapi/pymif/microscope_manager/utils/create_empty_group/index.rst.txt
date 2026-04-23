@@ -1,0 +1,26 @@
+pymif.microscope_manager.utils.create_empty_group
+=================================================
+
+.. py:module:: pymif.microscope_manager.utils.create_empty_group
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.create_empty_group.create_empty_group
+
+
+Module Contents
+---------------
+
+.. py:function:: create_empty_group(root: zarr.Group, group_name: str, metadata: Dict[str, Any], is_label: bool = False, ngff_version: str | None = None, zarr_format: int | None = None, compressor: str | None = None, compressor_level: int = 3)
+
+   Create an empty image subgroup or label subgroup inside an existing root.
+
+   The subgroup inherits the root NGFF/zarr version so the hierarchy stays
+   internally consistent. When ``is_label`` is ``True`` the group is created
+   below ``labels/`` and the root label registry is updated.
+
+

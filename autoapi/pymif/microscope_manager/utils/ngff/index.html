@@ -1,0 +1,382 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pymif.microscope_manager.utils.ngff &mdash; PyMIF 2026.4.22 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../../_static/documentation_options.js?v=9e256045"></script>
+      <script src="../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+    <link rel="next" title="pymif.microscope_manager.utils.pyramid" href="../pyramid/index.html" />
+    <link rel="prev" title="pymif.microscope_manager.utils.create_empty_group" href="../create_empty_group/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../../index.html" class="icon icon-home">
+            PyMIF
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../../../README.html">PyMIF — microscopy I/O, OME-Zarr conversion, and NGFF utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../api_reference.html">API reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../../../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../../../index.html">pymif</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../../../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../../../cli/index.html">pymif.cli</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="../../index.html">pymif.microscope_manager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../napari/index.html">pymif.napari</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../../index.html">PyMIF</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../../../api_reference.html">API reference</a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">pymif</a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">pymif.microscope_manager</a></li>
+          <li class="breadcrumb-item"><a href="../index.html">pymif.microscope_manager.utils</a></li>
+      <li class="breadcrumb-item active">pymif.microscope_manager.utils.ngff</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../../../_sources/autoapi/pymif/microscope_manager/utils/ngff/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-pymif.microscope_manager.utils.ngff">
+<span id="pymif-microscope-manager-utils-ngff"></span><h1>pymif.microscope_manager.utils.ngff<a class="headerlink" href="#module-pymif.microscope_manager.utils.ngff" title="Link to this heading"></a></h1>
+<section id="attributes">
+<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff.DEFAULT_COLORS" title="pymif.microscope_manager.utils.ngff.DEFAULT_COLORS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DEFAULT_COLORS</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff.SPATIAL_AXES" title="pymif.microscope_manager.utils.ngff.SPATIAL_AXES"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SPATIAL_AXES</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig" title="pymif.microscope_manager.utils.ngff.ZarrWriteConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ZarrWriteConfig</span></code></a></p></td>
+<td><p>Configuration container for NGFF/OME-Zarr writing operations.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._infer_ngff_version" title="pymif.microscope_manager.utils.ngff._infer_ngff_version"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_infer_ngff_version</span></code></a>(→ str)</p></td>
+<td><p>Infer the NGFF metadata layout used by an existing group.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._register_label_on_root" title="pymif.microscope_manager.utils.ngff._register_label_on_root"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_register_label_on_root</span></code></a>(→ None)</p></td>
+<td><p>Register a label group in the root label list for the active NGFF version.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._get_multiscales" title="pymif.microscope_manager.utils.ngff._get_multiscales"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_get_multiscales</span></code></a>(→ list[dict[str, Any]])</p></td>
+<td><p>Return the raw <code class="docutils literal notranslate"><span class="pre">multiscales</span></code> list from a group across NGFF versions.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._set_group_ngff_metadata" title="pymif.microscope_manager.utils.ngff._set_group_ngff_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_set_group_ngff_metadata</span></code></a>(→ None)</p></td>
+<td><p>Write NGFF metadata to <code class="docutils literal notranslate"><span class="pre">group</span></code> using either the v0.4 or v0.5 layout.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._get_group_multiscales" title="pymif.microscope_manager.utils.ngff._get_group_multiscales"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_get_group_multiscales</span></code></a>(group)</p></td>
+<td><p>Compatibility helper returning the stored multiscales block for a group.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._resolve_format" title="pymif.microscope_manager.utils.ngff._resolve_format"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_resolve_format</span></code></a>(→ tuple[str, int])</p></td>
+<td><p>Resolve and validate the NGFF version / zarr format pair to use.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._write_pyramid_v2" title="pymif.microscope_manager.utils.ngff._write_pyramid_v2"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_write_pyramid_v2</span></code></a>(*, root, data_levels, cfg)</p></td>
+<td><p>Create and populate zarr v2 arrays for each pyramid level.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._write_pyramid_v3" title="pymif.microscope_manager.utils.ngff._write_pyramid_v3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_write_pyramid_v3</span></code></a>(*, root, data_levels, cfg)</p></td>
+<td><p>Create and populate zarr v3 arrays for each pyramid level.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._get_chunks" title="pymif.microscope_manager.utils.ngff._get_chunks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_get_chunks</span></code></a>(→ tuple[int, Ellipsis])</p></td>
+<td><p>Return one normalized chunk tuple for a dask array.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._build_v2_compressor" title="pymif.microscope_manager.utils.ngff._build_v2_compressor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_build_v2_compressor</span></code></a>(compressor, level)</p></td>
+<td><p>Construct a zarr v2-compatible compressor configuration.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._build_v3_compressors" title="pymif.microscope_manager.utils.ngff._build_v3_compressors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_build_v3_compressors</span></code></a>(compressor, level)</p></td>
+<td><p>Construct a zarr v3-compatible compressor chain.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._validate_metadata" title="pymif.microscope_manager.utils.ngff._validate_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_validate_metadata</span></code></a>(→ None)</p></td>
+<td><p>Validate the minimal metadata contract required for NGFF writing.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._build_axes" title="pymif.microscope_manager.utils.ngff._build_axes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_build_axes</span></code></a>(→ list[dict[str, Any]])</p></td>
+<td><p>Build the NGFF <code class="docutils literal notranslate"><span class="pre">axes</span></code> description from the normalized PyMIF metadata.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._build_coordinate_transformations" title="pymif.microscope_manager.utils.ngff._build_coordinate_transformations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_build_coordinate_transformations</span></code></a>(...)</p></td>
+<td><p>Generate one NGFF scale transformation entry per pyramid level.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._build_omero_metadata" title="pymif.microscope_manager.utils.ngff._build_omero_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_build_omero_metadata</span></code></a>(→ dict[str, Any])</p></td>
+<td><p>Create OMERO channel display metadata for an array.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._default_window" title="pymif.microscope_manager.utils.ngff._default_window"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_default_window</span></code></a>(→ tuple[float, float])</p></td>
+<td><p>Return a default display range for the provided dtype.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._normalize_color" title="pymif.microscope_manager.utils.ngff._normalize_color"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_normalize_color</span></code></a>(→ str)</p></td>
+<td><p>Normalize different color inputs to a six-digit uppercase hex string.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._normalize_unit" title="pymif.microscope_manager.utils.ngff._normalize_unit"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_normalize_unit</span></code></a>(→ str | None)</p></td>
+<td><p>Map common unit aliases to the names expected in NGFF metadata.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pymif.microscope_manager.utils.ngff._get_group_ome_attrs" title="pymif.microscope_manager.utils.ngff._get_group_ome_attrs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_get_group_ome_attrs</span></code></a>(→ dict[str, Any])</p></td>
+<td><p>Return the effective image metadata mapping for a group.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading"></a></h2>
+<dl class="py data">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff.DEFAULT_COLORS">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_COLORS</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('FF0000',</span> <span class="pre">'00FF00',</span> <span class="pre">'0000FF',</span> <span class="pre">'FFFF00',</span> <span class="pre">'FF00FF',</span> <span class="pre">'00FFFF',</span> <span class="pre">'FFFFFF',</span> <span class="pre">'808080')</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff.DEFAULT_COLORS" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff.SPATIAL_AXES">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">SPATIAL_AXES</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff.SPATIAL_AXES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff.ZarrWriteConfig">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">ZarrWriteConfig</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig" title="Link to this definition"></a></dt>
+<dd><p>Configuration container for NGFF/OME-Zarr writing operations.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff.ZarrWriteConfig.ngff_version">
+<span class="sig-name descname"><span class="pre">ngff_version</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'0.4'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'0.5'</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig.ngff_version" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff.ZarrWriteConfig.zarr_format">
+<span class="sig-name descname"><span class="pre">zarr_format</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">2</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig.zarr_format" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff.ZarrWriteConfig.overwrite">
+<span class="sig-name descname"><span class="pre">overwrite</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig.overwrite" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff.ZarrWriteConfig.compute">
+<span class="sig-name descname"><span class="pre">compute</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig.compute" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff.ZarrWriteConfig.storage_options">
+<span class="sig-name descname"><span class="pre">storage_options</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig.storage_options" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff.ZarrWriteConfig.compressor">
+<span class="sig-name descname"><span class="pre">compressor</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'blosc'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'gzip'</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig.compressor" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff.ZarrWriteConfig.compressor_level">
+<span class="sig-name descname"><span class="pre">compressor_level</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3</span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig.compressor_level" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._infer_ngff_version">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_infer_ngff_version</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">zarr.Group</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._infer_ngff_version" title="Link to this definition"></a></dt>
+<dd><p>Infer the NGFF metadata layout used by an existing group.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._register_label_on_root">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_register_label_on_root</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">zarr.Group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ngff_version</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._register_label_on_root" title="Link to this definition"></a></dt>
+<dd><p>Register a label group in the root label list for the active NGFF version.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._get_multiscales">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_get_multiscales</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">zarr.Group</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._get_multiscales" title="Link to this definition"></a></dt>
+<dd><p>Return the raw <code class="docutils literal notranslate"><span class="pre">multiscales</span></code> list from a group across NGFF versions.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._set_group_ngff_metadata">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_set_group_ngff_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">zarr.Group</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">ngff_version</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multiscales</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omero</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._set_group_ngff_metadata" title="Link to this definition"></a></dt>
+<dd><p>Write NGFF metadata to <code class="docutils literal notranslate"><span class="pre">group</span></code> using either the v0.4 or v0.5 layout.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._get_group_multiscales">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_get_group_multiscales</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">zarr.Group</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._get_group_multiscales" title="Link to this definition"></a></dt>
+<dd><p>Compatibility helper returning the stored multiscales block for a group.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._resolve_format">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_resolve_format</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig" title="pymif.microscope_manager.utils.ngff.ZarrWriteConfig"><span class="pre">ZarrWriteConfig</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._resolve_format" title="Link to this definition"></a></dt>
+<dd><p>Resolve and validate the NGFF version / zarr format pair to use.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._write_pyramid_v2">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_write_pyramid_v2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">zarr.Group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_levels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig" title="pymif.microscope_manager.utils.ngff.ZarrWriteConfig"><span class="pre">ZarrWriteConfig</span></a></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._write_pyramid_v2" title="Link to this definition"></a></dt>
+<dd><p>Create and populate zarr v2 arrays for each pyramid level.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._write_pyramid_v3">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_write_pyramid_v3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">zarr.Group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_levels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#pymif.microscope_manager.utils.ngff.ZarrWriteConfig" title="pymif.microscope_manager.utils.ngff.ZarrWriteConfig"><span class="pre">ZarrWriteConfig</span></a></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._write_pyramid_v3" title="Link to this definition"></a></dt>
+<dd><p>Create and populate zarr v3 arrays for each pyramid level.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._get_chunks">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_get_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dask.array.Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._get_chunks" title="Link to this definition"></a></dt>
+<dd><p>Return one normalized chunk tuple for a dask array.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._build_v2_compressor">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_build_v2_compressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">compressor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._build_v2_compressor" title="Link to this definition"></a></dt>
+<dd><p>Construct a zarr v2-compatible compressor configuration.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._build_v3_compressors">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_build_v3_compressors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">compressor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._build_v3_compressors" title="Link to this definition"></a></dt>
+<dd><p>Construct a zarr v3-compatible compressor chain.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._validate_metadata">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_validate_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_levels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">dask.array.Array</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._validate_metadata" title="Link to this definition"></a></dt>
+<dd><p>Validate the minimal metadata contract required for NGFF writing.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._build_axes">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_build_axes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._build_axes" title="Link to this definition"></a></dt>
+<dd><p>Build the NGFF <code class="docutils literal notranslate"><span class="pre">axes</span></code> description from the normalized PyMIF metadata.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._build_coordinate_transformations">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_build_coordinate_transformations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scales</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_increment</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._build_coordinate_transformations" title="Link to this definition"></a></dt>
+<dd><p>Generate one NGFF scale transformation entry per pyramid level.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._build_omero_metadata">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_build_omero_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dask.array.Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._build_omero_metadata" title="Link to this definition"></a></dt>
+<dd><p>Create OMERO channel display metadata for an array.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._default_window">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_default_window</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.dtype</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._default_window" title="Link to this definition"></a></dt>
+<dd><p>Return a default display range for the provided dtype.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._normalize_color">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_normalize_color</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._normalize_color" title="Link to this definition"></a></dt>
+<dd><p>Normalize different color inputs to a six-digit uppercase hex string.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._normalize_unit">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_normalize_unit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._normalize_unit" title="Link to this definition"></a></dt>
+<dd><p>Map common unit aliases to the names expected in NGFF metadata.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pymif.microscope_manager.utils.ngff._get_group_ome_attrs">
+<span class="sig-prename descclassname"><span class="pre">pymif.microscope_manager.utils.ngff.</span></span><span class="sig-name descname"><span class="pre">_get_group_ome_attrs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">zarr.Group</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/grinic/pymif/blob/main/pymif/microscope_manager/utils/ngff.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pymif.microscope_manager.utils.ngff._get_group_ome_attrs" title="Link to this definition"></a></dt>
+<dd><p>Return the effective image metadata mapping for a group.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../create_empty_group/index.html" class="btn btn-neutral float-left" title="pymif.microscope_manager.utils.create_empty_group" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../pyramid/index.html" class="btn btn-neutral float-right" title="pymif.microscope_manager.utils.pyramid" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Nicola Gritti.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

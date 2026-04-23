@@ -1,0 +1,28 @@
+pymif.microscope_manager.utils.zoom
+===================================
+
+.. py:module:: pymif.microscope_manager.utils.zoom
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.zoom._zoom_numpy
+   pymif.microscope_manager.utils.zoom._zoom_dask
+
+
+Module Contents
+---------------
+
+.. py:function:: _zoom_numpy(arr: numpy.ndarray, scale: float) -> numpy.ndarray
+
+   Simple 2x zoom or shrink using nearest-neighbor.
+
+
+.. py:function:: _zoom_dask(arr: dask.array.Array, scale: float) -> dask.array.Array
+
+   Zoom for dask arrays.
+
+

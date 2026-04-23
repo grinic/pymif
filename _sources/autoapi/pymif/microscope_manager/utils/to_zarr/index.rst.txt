@@ -1,0 +1,50 @@
+pymif.microscope_manager.utils.to_zarr
+======================================
+
+.. py:module:: pymif.microscope_manager.utils.to_zarr
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.to_zarr.DEFAULT_COLORS
+   pymif.microscope_manager.utils.to_zarr.SPATIAL_AXES
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.to_zarr.to_zarr
+
+
+Module Contents
+---------------
+
+.. py:data:: DEFAULT_COLORS
+   :value: ('FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', 'FFFFFF', '808080')
+
+
+.. py:data:: SPATIAL_AXES
+
+.. py:function:: to_zarr(path: str | pathlib.Path, data_levels: Sequence[dask.array.Array], metadata: dict[str, Any], *, config: pymif.microscope_manager.utils.ngff.ZarrWriteConfig | None = None)
+
+   Write a pyramid of dask arrays to an OME-Zarr root group.
+
+   Parameters
+   ----------
+   path : str | Path
+       Destination zarr store.
+   data_levels : sequence of dask.array.Array
+       Pyramid levels ordered from finest to coarsest resolution.
+   metadata : dict
+       Normalized PyMIF metadata dictionary describing axes, scales, channel
+       metadata and units.
+   config : ZarrWriteConfig | None
+       Output configuration controlling NGFF version, zarr format, overwrite
+       behaviour and compression.
+
+
