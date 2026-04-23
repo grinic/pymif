@@ -1,0 +1,132 @@
+[build-system]
+requires = ["setuptools>=70", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pymif"
+version = "2026.04.22"
+description = "A collection of functions in Python for MIF users."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Nicola Gritti", email = "nicola.gritti@embl.es" },
+]
+requires-python = ">=3.12"
+keywords = ["microscopy", "zarr", "ome-zarr", "napari"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+    "aicspylibczi==3.3.1",
+    "alabaster==1.0.0",
+    "async-lru==2.3.0",
+    "bioio==3.3.0",
+    "bioio-czi==2.6.0",
+    "build==1.4.1",
+    "dask==2026.3.0",
+    "dask-image==2025.11.0",
+    "docutils==0.22.4",
+    "h5py==3.16.0",
+    "imagesize==2.0.0",
+    "ipykernel==6.31.0",
+    "ipython==9.11.0",
+    "lxml==6.0.2",
+    "matplotlib==3.10.8",
+    "matplotlib-inline==0.2.1",
+    "myst-parser==5.0.0",
+    "natsort",
+    "notebook==7.5.5",
+    "numba==0.64.0",
+    "numcodecs==0.16.5",
+    "numpy==2.4.3",
+    "ome-zarr==0.16.0",
+    "pandas==3.0.1",
+    "pytest==9.0.2",
+    "readlif==0.6.6",
+    "roman-numerals==4.1.0",
+    "scikit-image==0.26.0",
+    "scikit-learn==1.8.0",
+    "scipy==1.17.1",
+    "setuptools==82.0.1",
+    "snowballstemmer==3.0.1",
+    "Sphinx==9.1.0",
+    "sphinx-autoapi==3.8.0",
+    "sphinx-autodoc-typehints==3.9.11",
+    "sphinx_rtd_theme==3.1.0",
+    "sphinxcontrib-applehelp==2.0.0",
+    "sphinxcontrib-devhelp==2.0.0",
+    "sphinxcontrib-htmlhelp==2.1.0",
+    "sphinxcontrib-jquery==4.1",
+    "sphinxcontrib-jsmath==1.0.1",
+    "sphinxcontrib-qthelp==2.0.0",
+    "sphinxcontrib-serializinghtml==2.0.0",
+    "tifffile==2026.3.3",
+    "tqdm==4.67.3",
+    "typer==0.24.1",
+    "wheel==0.46.3",
+    "xlsxwriter==3.2.9",
+    "xmltodict==1.0.4",
+    "xsdata==26.2",
+    "xyzservices==2025.11.0",
+    "yarl==1.23.0",
+    "zarr==3.1.6",
+    "zict==3.0.0",
+]
+
+[project.scripts]
+pymif = "pymif.cli.pymif:main"
+
+[project.entry-points."napari.manifest"]
+pymif = "pymif.napari:napari.yaml"
+
+[project.optional-dependencies]
+napari = [
+    "app-model==0.5.1",
+    "hsluv==5.0.4",
+    "in-n-out==0.2.1",
+    "magicgui==0.10.1",
+    "napari",
+    "napari-animation",
+    "napari-console",
+    "napari-metadata",
+    "napari-ome-zarr",
+    "npe2==0.8.1",
+    "psygnal==0.15.1",
+    "pyconify==0.2.1",
+    "PyOpenGL==3.1.10",
+    "qtconsole==5.7.2",
+    "QtPy==2.4.3",
+    "superqt==0.8.0",
+    "vispy==0.16.1",
+    "PyQt6",
+]
+all = [
+    "app-model==0.5.1",
+    "hsluv==5.0.4",
+    "in-n-out==0.2.1",
+    "magicgui==0.10.1",
+    "napari",
+    "napari-animation",
+    "napari-console",
+    "napari-metadata",
+    "napari-ome-zarr",
+    "npe2==0.8.1",
+    "psygnal==0.15.1",
+    "pyconify==0.2.1",
+    "PyOpenGL==3.1.10",
+    "qtconsole==5.7.2",
+    "QtPy==2.4.3",
+    "superqt==0.8.0",
+    "vispy==0.16.1",
+    "PyQt6",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pymif*"]

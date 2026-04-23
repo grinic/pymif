@@ -5,6 +5,7 @@ _build/
 *.egg-info/
 .env
 .ipynb_checkpoints
+.vscode*
 pymif_old/
 documentation/demonstration_open_zarr.avi
 documentation/demonstration_open_zarr.mp4

@@ -1,11 +1,15 @@
-from typing import Tuple, List, Dict, Any, Optional, Union
+from __future__ import annotations
+
+from typing import Tuple, List, Dict, Any, Optional
 from pathlib import Path
-import numpy as np
 import dask.array as da
 from .microscope_manager import MicroscopeManager
 import zarr
-import napari
-import os
+
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    import napari
 
 class ZarrV04Manager(MicroscopeManager):
     """
@@ -145,6 +149,7 @@ class ZarrV04Manager(MicroscopeManager):
             print(f"{i.upper()}: {self.metadata[i]}")
 
     def _load_group(self, name):
+        """Attempt to load a named subgroup if it contains readable multiscale data."""
         group = self.root[name]
         multiscale = group.attrs.get("multiscales", [{}])[0]
         datasets = multiscale.get("datasets", [])
@@ -180,8 +185,8 @@ class ZarrV04Manager(MicroscopeManager):
         return labels
         
     def visualize_zarr(self,
-            viewer: Optional[napari.Viewer] = None,
-        ) -> napari.Viewer:
+            viewer: "napari.Viewer | None " = None,
+        ) -> "napari.Viewer | None":
         """
         Visualize the OME-Zarr dataset using Napari's `napari-ome-zarr` plugin.
 
@@ -195,7 +200,16 @@ class ZarrV04Manager(MicroscopeManager):
         viewer : napari.Viewer
             A Napari viewer instance with the image loaded.
         """
-                
+        try:
+            import napari
+        except ImportError:
+            import warnings
+            warnings.warn(
+                "napari is not installed. Install with `pip install pymif[napari]` to use visualization.",
+                stacklevel=2,
+            )
+            return None                
+        
         if viewer is None:
             viewer = napari.Viewer()
         

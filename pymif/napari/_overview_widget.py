@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 import pymif.microscope_manager as mm
 from magicgui.widgets import FileEdit
-from PyQt5.QtWidgets import QFileDialog, QWidget, QVBoxLayout
+from qtpy.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
 from matplotlib import rc
 rc('font', size=12)
 rc('font', family='Arial')
@@ -20,6 +20,7 @@ rc('pdf', fonttype=42)
 # -------------------------
 
 def draw_3d_polygon(viewer, dataset):
+    """Update the 3D crop box layer from the current 2D ROI and z-range markers."""
     roi_layer = viewer.layers["ROI"]
     zrange_layer = viewer.layers["Zrange"]
     zvals = [d[0] for d in zrange_layer.data]
@@ -54,6 +55,7 @@ def draw_3d_polygon(viewer, dataset):
     viewer.layers["box"].refresh()
 
 def add_roi_layer(viewer, dataset):
+    """Add the editable 2D ROI rectangle layer used by the overview widget."""
     shapes_layer = viewer.add_shapes(
         data=np.empty((0, 4, 2)),
         shape_type="rectangle",
@@ -86,6 +88,7 @@ def add_roi_layer(viewer, dataset):
     return shapes_layer
 
 def add_zrange_layer(viewer, dataset):
+    """Add the point layer used to mark the z-range for overview generation."""
     points_layer = viewer.add_points(
         data=np.empty((0, 2, 3)),
         name="Zrange",
@@ -118,6 +121,7 @@ def add_zrange_layer(viewer, dataset):
     return points_layer
 
 def make_overview(dataset, viewer, output_path, overview_filename="overview", overview_format="pdf"):
+    """Render per-channel and merged maximum projections for the selected ROI."""
     roi_layer = viewer.layers["ROI"]
     zrange_layer = viewer.layers["Zrange"]
 
@@ -187,6 +191,7 @@ def make_overview(dataset, viewer, output_path, overview_filename="overview", ov
 # -------------------------
 
 def overview_widget():
+    """Create the napari widget for selecting an ROI and exporting overview figures."""
     viewer = current_viewer()
     _state = {"dataset": None}
 

@@ -19,6 +19,7 @@ class ScapeManager(MicroscopeManager):
         ome_tiff_path: str,
         chunks: Tuple[int, ...] = (1, 1, 8, 1024, 1024),
     ):
+        """Open a Leica SCAPE dataset described by an OME-TIFF and companion XLIF file."""
         super().__init__()
         self.ome_tiff_path = Path(ome_tiff_path)
         self.chunks = chunks

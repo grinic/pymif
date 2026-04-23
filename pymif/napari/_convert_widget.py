@@ -13,7 +13,7 @@ import sys
 from qtpy.QtWidgets import QTextEdit
 from qtpy.QtCore import QObject, Qt, Signal
 from qtpy.QtGui import QTextCursor
-from PyQt5.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
+from qtpy.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
 from matplotlib import rc
 rc('font', size=12)
 rc('font', family='Arial')
@@ -26,15 +26,24 @@ rc('pdf', fonttype=42)
 # -------------------------
 
 class EmittingStream(QObject):
+    """Qt-compatible text stream used to forward console output to the widget."""
+
     text_written = Signal(str)
 
     def write(self, text):
+        """Emit written text to the Qt signal."""
         self.text_written.emit(str(text))
 
     def flush(self):
+        """Provide a file-like ``flush`` method for compatibility."""
         pass
 
+    def isatty(self):
+        """Report that this stream is not an interactive terminal."""
+        return False
+    
 def dataset_reader(microscope):
+    """Return the PyMIF manager class matching the selected microscope key."""
     if microscope == "zeiss":
         reader = mm.ZeissManager
     elif microscope == "viventis":
@@ -43,10 +52,8 @@ def dataset_reader(microscope):
         reader = mm.OperaManager
     elif microscope == "luxendo":
         reader = mm.LuxendoManager
-    elif microscope == "zarrV05":
+    elif microscope == "zarr":
         reader = mm.ZarrManager
-    elif microscope == "zarrV04":
-        reader = mm.ZarrV04Manager
     elif microscope == "scape":
         reader = mm.ScapeManager
     else:
@@ -55,6 +62,7 @@ def dataset_reader(microscope):
     return reader
 
 def get_chunk_size(dataset_size, max_size_mb=100):
+    """Estimate a chunk shape that stays under the requested size budget."""
     # --- Select chunk size ---
     n_chunks = [4,1,1]
     chunk_size = [
@@ -77,6 +85,7 @@ def get_chunk_size(dataset_size, max_size_mb=100):
     return chunk_size
 
 def get_n_levels(dataset_size):
+    """Estimate a default number of pyramid levels from the spatial shape."""
     n = 1
     shape = [dataset_size[2], dataset_size[3], dataset_size[4]] # [Y, X]
     while (shape[0]>2048) or (shape[1]>2048) or (shape[2]>2048):
@@ -100,7 +109,9 @@ def _run_conversion(
     n_levels,
     output_path,
     file_format,
-):
+    zarr_format,
+    ):
+    """Run the conversion pipeline used by the napari worker thread."""
     print("Starting conversion in background thread...")
 
     if file_format == "zeiss":
@@ -137,16 +148,31 @@ def _run_conversion(
         X=list(range(x_start, x_end + 1)),
     )
 
+    print("Requested input chunks:", chunks)
+    print("Chunks before pyramid:", [arr.chunksize for arr in dataset.data])
+
     dataset.build_pyramid(num_levels=n_levels)
-    dataset.to_zarr(output_path)
+
+    dataset.data = [
+        arr.rechunk(chunks) if arr.ndim == 5 else arr
+        for arr in dataset.data
+    ]
+
+    print("Chunks after pyramid:", [arr.chunksize for arr in dataset.data])
+
+    ngff_version = "0.4" if zarr_format == 2 else "0.5"
+    dataset.to_zarr(output_path, zarr_format=zarr_format, ngff_version=ngff_version)    
 
     return output_path
 
 @thread_worker
 def convert_worker(**kwargs):
+    """Background worker wrapper used by the napari conversion widget."""
     return _run_conversion(**kwargs)
 
+
 def convert_widget():
+    """Create the main PyMIF napari conversion widget."""
     viewer = current_viewer()
     
     def lock_roi_in_3d(event=None):
@@ -395,10 +421,10 @@ def convert_widget():
         call_button="Visualize in napari",
         input_path={"widget_type": "FileEdit", "mode": "d"},
         scene_index={"widget_type": "SpinBox", "min": 0, "max": 100, "step": 1},
-        file_format={"choices": ["viventis", "opera", "luxendo", "zarrV05", "zarrV04", "zeiss","scape"]},
+        file_format={"choices": ["viventis", "opera", "luxendo", "zarr", "zeiss","scape"]},
     )
     def make_visualize_widget(
-        file_format="zarrV05",
+        file_format="zarr",
         scene_index=0,
         input_path: FileEdit = None,
     ):
@@ -408,7 +434,7 @@ def convert_widget():
 
         viewer.layers.clear()
 
-        if make_visualize_widget.file_format.value in ["zarrV05", "zarrV04"]:
+        if make_visualize_widget.file_format.value in ["zarr"]:
             viewer.open(make_visualize_widget.input_path.value, plugin='napari-ome-zarr')
         else:
             dataset = _state["dataset"]
@@ -445,6 +471,7 @@ def convert_widget():
         chunk_z={"label": "Chunk Z", "min": 1, "max": 2**16, "step": 1, "value": 16},
         
         n_levels={"label": "Resolution levels", "min": 1, "max": 10, "value": 5},
+        zarr_format={"label": "Zarr format", "choices": [2, 3], "value": 3},
         
         t_range={"label": "T range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
         single_t = {"label": "Single T frame", "widget_type": "CheckBox", "value": False},
@@ -474,6 +501,7 @@ def convert_widget():
         chunk_y=512,
         chunk_z=16,
         n_levels=5,
+        zarr_format=3,
         output_path: FileEdit = None,
     ):
 
@@ -508,6 +536,7 @@ def convert_widget():
                 n_levels=n_levels,
                 output_path=output_path,
                 file_format=file_format,
+                zarr_format=zarr_format,
             )
         
         make_convert_widget.enabled = False
@@ -538,7 +567,7 @@ def convert_widget():
         else: 
             make_visualize_widget.scene_index.enabled = False
         
-        if file_format in ["zarrV05", "zarrV04", "viventis", "luxendo"]:
+        if file_format in ["zarr", "viventis", "luxendo"]:
             make_visualize_widget.input_path.mode = "d" 
         else: 
             make_visualize_widget.input_path.mode = "r"
@@ -687,6 +716,7 @@ def convert_widget():
         make_convert_widget.chunk_y.native.parent(),
         make_convert_widget.chunk_z.native.parent(),
         make_convert_widget.n_levels.native.parent(),
+        make_convert_widget.zarr_format.native.parent(),
     ]
 
     for w in advanced_widgets:

@@ -1,164 +1,102 @@
-import dask.array as da
-from dask.distributed import Client
-from dask.diagnostics import ProgressBar
-import numpy as np
-from numcodecs import Blosc, GZip
-from typing import List, Dict, Any
-from ome_zarr.writer import write_multiscale, add_metadata
-import zarr
-from pathlib import Path
+from __future__ import annotations
 
-DEFAULT_COLORS = [
-    "FF0000",  # Red
-    "00FF00",  # Green
-    "0000FF",  # Blue
-    "FFFF00",  # Yellow
-    "FF00FF",  # Magenta
-    "00FFFF",  # Cyan
-    "FFFFFF",  # White
-    "808080",  # Gray
-]
+from pathlib import Path
+from typing import Any, Literal, Sequence
+
+import dask.array as da
+import numpy as np
+import zarr
+
+from .ngff import ( _build_axes, _build_coordinate_transformations, 
+                   _build_omero_metadata, _validate_metadata, _resolve_format, 
+                   _write_pyramid_v3, _write_pyramid_v2, ZarrWriteConfig
+)
+
+DEFAULT_COLORS = (
+    "FF0000", "00FF00", "0000FF", "FFFF00",
+    "FF00FF", "00FFFF", "FFFFFF", "808080",
+)
+SPATIAL_AXES = {"z", "y", "x"}
+
 
 def to_zarr(
-    path: str,
-    data_levels: List[da.Array],
-    metadata: Dict[str, Any],
-    compressor: Any =None,
-    compressor_level: int =3,
-    overwrite: bool =True,
-    parallelize: bool =False,
+    path: str | Path,
+    data_levels: Sequence[da.Array],
+    metadata: dict[str, Any],
+    *,
+    config: ZarrWriteConfig | None = None,
 ):
-    """
-    Write image data and metadata to the specified path.
+    """Write a pyramid of dask arrays to an OME-Zarr root group.
 
     Parameters
     ----------
-        path : str
-            Destination path for the output data.
-        data_levels : List[da.Array]
-            List of Dask arrays representing image data.
-        metadata : Dict[str, Any]
-            Dictionary containing metadata information.
-        compressor : Any
-            Type of compression used (default: None).
-        compressor_level : int
-            Compression level used (if compression is not None).
-        overwrite : bool
-            whether to overwrite existing data at Destination path (default: True).
-        parallelize : bool
-            whether to use dask distribute to parallelize (default: False).
+    path : str | Path
+        Destination zarr store.
+    data_levels : sequence of dask.array.Array
+        Pyramid levels ordered from finest to coarsest resolution.
+    metadata : dict
+        Normalized PyMIF metadata dictionary describing axes, scales, channel
+        metadata and units.
+    config : ZarrWriteConfig | None
+        Output configuration controlling NGFF version, zarr format, overwrite
+        behaviour and compression.
     """
-    print("Start writing dataset.")
+    cfg = config or ZarrWriteConfig()
+    if not data_levels:
+        raise ValueError("`data_levels` cannot be empty.")
 
-    root = zarr.open(zarr.storage.LocalStore(path), mode="w")
-    
-    compressor_fun = None
-    if isinstance(compressor, str):
-        if compressor.lower() == "blosc":
-            compressor_fun = Blosc(cname="zstd", clevel=compressor_level, shuffle=Blosc.BITSHUFFLE)
-        if compressor.lower() == "gzip":
-            compressor_fun = GZip(level=compressor_level)
-        
-    store_path = Path(path)
-    if store_path.exists() and overwrite:
-        import shutil
-        shutil.rmtree(store_path)
+    axes = tuple(metadata["axes"])
+    _validate_metadata(data_levels, metadata, axes)
 
-    scales = metadata["scales"]  # [[1,0.173,0.173], [2,0.346,0.346], ...]
-    axes_labels = metadata["axes"]
-    
-    coordinate_transformations = [
-        [
+    ngff_version, zarr_format = _resolve_format(cfg)
+
+    root = zarr.open_group(
+        str(Path(path)),
+        mode="w" if cfg.overwrite else "w-",
+        zarr_format=zarr_format,
+    )
+
+    if zarr_format == 3:
+        delayed = _write_pyramid_v3(
+            root=root,
+            data_levels=data_levels,
+            cfg=cfg,
+        )
+    else:
+        delayed = _write_pyramid_v2(
+            root=root,
+            data_levels=data_levels,
+            cfg=cfg,
+        )
+
+    multiscales = {
+        "name": metadata.get("name") or "dataset",
+        "axes": _build_axes(axes, metadata),
+        "datasets": [
             {
-                "type": "scale", 
-                "scale": [metadata["time_increment"]] + [1] + list(scale),
+                "path": str(i),
+                "coordinateTransformations": ct,
             }
-        ]
-        for scale in scales
-    ]
-
-    axes_map = {
-        "t": "time",
-        "c": "channel",
-        "z": "space",
-        "y": "space",
-        "x": "space",
+            for i, ct in enumerate(
+                _build_coordinate_transformations(
+                    axes=axes,
+                    scales=metadata["scales"],
+                    time_increment=metadata.get("time_increment"),
+                )
+            )
+        ],
     }
-    units = [metadata["time_increment_unit"], ""] + list( metadata["units"] )
-    def normalize_unit(unit: str) -> str:
-        # Common aliases to normalize
-        if not unit:
-            return unit 
-        aliases = {
-            "um": f"micrometer",
-            "μm": f"micrometer",  # Greek mu
-            "\u00b5m": f"micrometer",  # Micro sign
-            "micron": f"micrometer",
-            "microns": f"micrometer",
+
+    omero = _build_omero_metadata(data_levels[0], axes, metadata)
+
+    if ngff_version == "0.5":
+        root.attrs["ome"] = {
+            "version": "0.5",
+            "multiscales": [multiscales],
+            "omero": omero,
         }
-        return aliases.get(unit.strip(), unit.strip())
-    
-    axes = [
-            {
-                "name": ax, 
-                "type": axes_map.get(ax, "unknown"),
-                "unit": normalize_unit(units[i])
-            } for i, ax in enumerate(axes_labels)
-        ]
+    else:
+        root.attrs["multiscales"] = [multiscales]
+        root.attrs["omero"] = omero
 
-    # Write multiscale array in root
-    if parallelize:
-        client = Client()
-        print("Dask dashboard:", client.dashboard_link)
-        ProgressBar().register()
-    
-    print("Writing pyramid.")
-    write_multiscale(
-        pyramid=data_levels,
-        group=root,
-        axes=axes,
-        coordinate_transformations=coordinate_transformations,
-        storage_options={"compressor": compressor_fun},
-        name=metadata.get("name", None),
-    )
-
-    # OMERO metadata
-    C = data_levels[0].shape[axes_labels.index("c")]
-    ch_names = metadata.get("channel_names", [f"channel_{i}" for i in range(C)])
-    ch_colors = metadata.get("channel_colors", ["FFFFFF"] * C)
-    
-    def _normalize_color(color):
-        """Ensure color is a 6-digit hex string."""
-        if isinstance(color, int):
-            return f"{color & 0xFFFFFF:06X}"  # mask to 24-bit and format
-        if isinstance(color, str):
-            color = color.lstrip("#-")
-            color = color.lstrip("0x-")
-            if len(color) == 6:
-                return color.upper()
-        return "FFFFFF"  # default fallback
-
-    channels = [{
-        "label": ch_names[i],
-        "color": _normalize_color(ch_colors[i]),
-        "window": {
-            "start": 0,
-            "end": 65535,
-            "min": 0,
-            "max": 65535
-        },
-        "active": True,
-        "inverted": False,
-        "coefficient": 1.0,
-        "family": "linear",
-    } for i in range(C)]
-    
-    add_metadata(
-        root,
-        {"omero":{
-                "channels": channels,
-                "rdefs": {"model": "color"}
-            }
-        }
-    )
-
+    return root if cfg.compute else delayed
