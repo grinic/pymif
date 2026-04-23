@@ -26,18 +26,24 @@ rc('pdf', fonttype=42)
 # -------------------------
 
 class EmittingStream(QObject):
+    """Qt-compatible text stream used to forward console output to the widget."""
+
     text_written = Signal(str)
 
     def write(self, text):
+        """Emit written text to the Qt signal."""
         self.text_written.emit(str(text))
 
     def flush(self):
+        """Provide a file-like ``flush`` method for compatibility."""
         pass
 
     def isatty(self):
+        """Report that this stream is not an interactive terminal."""
         return False
     
 def dataset_reader(microscope):
+    """Return the PyMIF manager class matching the selected microscope key."""
     if microscope == "zeiss":
         reader = mm.ZeissManager
     elif microscope == "viventis":
@@ -56,6 +62,7 @@ def dataset_reader(microscope):
     return reader
 
 def get_chunk_size(dataset_size, max_size_mb=100):
+    """Estimate a chunk shape that stays under the requested size budget."""
     # --- Select chunk size ---
     n_chunks = [4,1,1]
     chunk_size = [
@@ -78,6 +85,7 @@ def get_chunk_size(dataset_size, max_size_mb=100):
     return chunk_size
 
 def get_n_levels(dataset_size):
+    """Estimate a default number of pyramid levels from the spatial shape."""
     n = 1
     shape = [dataset_size[2], dataset_size[3], dataset_size[4]] # [Y, X]
     while (shape[0]>2048) or (shape[1]>2048) or (shape[2]>2048):
@@ -103,6 +111,7 @@ def _run_conversion(
     file_format,
     zarr_format,
     ):
+    """Run the conversion pipeline used by the napari worker thread."""
     print("Starting conversion in background thread...")
 
     if file_format == "zeiss":
@@ -153,14 +162,17 @@ def _run_conversion(
 
     ngff_version = "0.4" if zarr_format == 2 else "0.5"
     dataset.to_zarr(output_path, zarr_format=zarr_format, ngff_version=ngff_version)    
-    
+
     return output_path
 
 @thread_worker
 def convert_worker(**kwargs):
+    """Background worker wrapper used by the napari conversion widget."""
     return _run_conversion(**kwargs)
 
+
 def convert_widget():
+    """Create the main PyMIF napari conversion widget."""
     viewer = current_viewer()
     
     def lock_roi_in_3d(event=None):

@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath("../../"))
 project = 'PyMIF'
 copyright = '2025, Nicola Gritti'
 author = 'Nicola Gritti'
-release = 'v0.3.1'
+release = '2026.04.22'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -1,67 +1,231 @@
-# PyMIF — Python code for users of the Mesoscopic Imaging Facility
+# PyMIF — microscopy I/O, OME-Zarr conversion, and NGFF utilities
 
-**PyMIF** is a modular Python package to read, visualize, and write multiscale (pyramidal) microscopy image data from a variety of microscope platforms available at the [Mesoscopic Imaging Facility (MIF)](https://www.embl.org/groups/mesoscopic-imaging-facility/) into the [OME-NGFF (Zarr)](https://ngff.openmicroscopy.org/) format.
+**PyMIF** is a Python package for reading microscopy datasets from multiple acquisition systems, building multiscale pyramids, writing **OME-NGFF / OME-Zarr**, and interacting with those datasets from Python, the command line, and napari.
 
-For more information, see [the documentation page](https://grinic.github.io/pymif/).
+It is developed for users of the [Mesoscopic Imaging Facility (MIF)](https://www.embl.org/groups/mesoscopic-imaging-facility/), but the repository now covers a broader scope than simple vendor import: it includes a reusable manager API, NGFF-aware zarr creation utilities, region writing for images and labels, batch conversion helpers, and napari widgets for conversion and overview generation.
+
+For the rendered docs, see [the documentation page](https://grinic.github.io/pymif/).
 
 > [!NOTE]
-> As of v0.3.0, PyMIF follows NGFF v0.5 standards. Datasets created with older version of PyMIF (e.g. 0.2.4) can still be loaded using the manager `ZarrV04Manager` as shown in [examples](https://github.com/grinic/pymif/tree/main/examples).
+> Current PyMIF releases write **NGFF v0.5 / Zarr v3** by default. Existing **NGFF v0.4 / Zarr v2** datasets remain supported through `ZarrManager` and `ZarrV04Manager`.
 
 ![Demo](documentation/demo.gif)
 
-*Demonstration of pymif usage. Data: near newborn mouse embryo (~1.5 cm long). Fluorescence signal: methylene blue + autofluorescence. Sample processed and imaged by Montserrat Coll at the Mesoscopic Imaging Facility. Video speed: 2.5X real speed.*
+*Demonstration of PyMIF usage. Data: near newborn mouse embryo (~1.5 cm long). Fluorescence signal: methylene blue + autofluorescence. Sample processed and imaged by Montserrat Coll at the Mesoscopic Imaging Facility. Video speed: 2.5× real speed.*
 
 ---
 
-## 🚀 Getting Started
+## Current repository scope
 
-### 📥 Installation
+PyMIF currently contains five main pieces:
 
-It is recommended to install [miniforge3](https://github.com/conda-forge/miniforge) as Python distribution and install PyMIF in a clean conda environment:
+1. **Microscope managers** for reading datasets and normalizing them to a common API.
+2. **OME-Zarr / NGFF writing utilities** for full dataset export, empty dataset creation, subgroup creation, and region updates.
+3. **Pyramid and subsetting helpers** for multiscale generation and dataset cropping.
+4. **CLI tools** for one-off and batch conversion to zarr.
+5. **Napari widgets** for interactive conversion, ROI selection, and overview generation.
+
+### Supported data sources
+
+The main reader classes currently exposed by `pymif.microscope_manager` are:
+
+- `ArrayManager` — wrap an in-memory NumPy or Dask array using PyMIF metadata conventions.
+- `LuxendoManager` — Luxendo XML + HDF5 datasets.
+- `OperaManager` — Opera Phenix / Opera PE OME-TIFF style datasets.
+- `ScapeManager` — Leica SCAPE OME-TIFF + XLIF datasets.
+- `ViventisManager` — Viventis LS1 datasets.
+- `ZeissManager` — Zeiss CZI datasets.
+- `ZarrManager` — NGFF v0.4/v0.5 OME-Zarr datasets.
+- `ZarrV04Manager` — compatibility reader for older v0.4-style datasets.
+
+### Core capabilities
+
+- Read vendor-specific microscopy metadata into a shared metadata schema.
+- Represent image data lazily with Dask.
+- Build multiscale pyramids from a base-resolution dataset.
+- Write OME-Zarr in **NGFF v0.4/Zarr v2** or **NGFF v0.5/Zarr v3** form.
+- Create empty image groups and label groups inside an existing zarr hierarchy.
+- Write image patches or label patches back into an existing zarr dataset.
+- Visualize datasets in napari.
+- Convert single datasets or CSV-defined batches from the CLI.
+
+---
+
+## Installation
+
+A clean conda environment is recommended:
 
 ```console
-$ conda create -n pymif python=3.12
-$ conda activate pymif
+conda create -n pymif python=3.12
+conda activate pymif
 ```
 
-Installation is then done by cloning the repository:
+Then install from the repository:
 
 ```console
-$ git clone https://github.com/grinic/pymif.git
-$ cd pymif
-$ pip install .
+git clone https://github.com/grinic/pymif.git
+cd pymif
+pip install .
 ```
 
-**NOTE**: Use the `-e` (editable) option if you want to use the download as installation folder.
+For development work:
 
-## 📚 Minimal Example Usage
+```console
+pip install -e .
+```
 
-### Python script:
+To use the napari widgets as well:
+
+```console
+pip install -e .[napari]
+```
+
+---
+
+## Quick usage
+
+### Python API
 
 ```python
 import pymif.microscope_manager as mm
 
-dataset = mm.ViventisManager("path/to/Position_1")
-dataset.build_pyramid(num_levels=3)
-dataset.to_zarr("output.zarr")
-dataset_zarr = mm.ZarrManager("output.zarr")
-viewer = dataset_zarr.visualize(start_level=0, in_memory=False)
+# Read a source dataset
+source = mm.ViventisManager("path/to/Position_1")
+
+# Build a pyramid in memory
+source.build_pyramid(num_levels=3)
+
+# Export to OME-Zarr (default: NGFF v0.5 / zarr v3)
+source.to_zarr("output.zarr")
+
+# Re-open the written zarr dataset
+z = mm.ZarrManager("output.zarr")
+viewer = z.visualize(start_level=0, in_memory=False)
 ```
 
-For more examples, see [examples](https://github.com/grinic/pymif/tree/main/examples).
+### Create an empty zarr dataset from metadata
 
-### CLI:
+```python
+import pymif.microscope_manager as mm
+
+z = mm.ZarrManager(
+    "empty.zarr",
+    mode="a",
+    metadata={
+        "size": [(1, 2, 16, 256, 256)],
+        "chunksize": [(1, 1, 16, 128, 128)],
+        "scales": [(2.0, 0.5, 0.5)],
+        "units": ("micrometer", "micrometer", "micrometer"),
+        "axes": "tczyx",
+        "channel_names": ["GFP", "RFP"],
+        "channel_colors": ["00FF00", "FF0000"],
+        "time_increment": 1.0,
+        "time_increment_unit": "second",
+        "dtype": "uint16",
+    },
+)
+```
+
+### Update a region in an existing zarr image
+
+```python
+import numpy as np
+import pymif.microscope_manager as mm
+
+z = mm.ZarrManager("output.zarr", mode="a")
+patch = np.full((1, 1, 2, 64, 64), 999, dtype=np.uint16)
+
+z.write_image_region(
+    patch,
+    t=slice(0, 1),
+    c=slice(0, 1),
+    z=slice(10, 12),
+    y=slice(100, 164),
+    x=slice(100, 164),
+    level=0,
+)
+```
+
+---
+
+## CLI
+
+Single conversion:
 
 ```console
-$ conda activate pymif
-$ pymif 2zarr -i INPUT_FILE -m MICROSCOPE -z ZARR_OUTPUT
-$ pymif batch2zarr -i CSV-INPUT
+pymif 2zarr -i INPUT_PATH -m MICROSCOPE -z OUTPUT_ZARR
 ```
 
-### Napari plugin:
+Batch conversion from a CSV manifest:
 
-A napari PyMIF plugin exists (`Pugins > PyMIF > Converter Plugin`) that allows to load data and visualize them in the viewer.
+```console
+pymif batch2zarr -i INPUT_FILE.csv
+```
 
-Optionally, the user can define 3D ROIs, select timepoints and channels, and number of resolution layers in the pyramid, before converting the dataset into ome-zarr:
+Get help:
+
+```console
+pymif -h
+pymif 2zarr -h
+pymif batch2zarr -h
+```
+
+---
+
+## Napari plugin
+
+PyMIF provides napari widgets for conversion and overview generation. After installing the napari extras, the conversion widget is available from:
+
+`Plugins > PyMIF > Converter Plugin`
+
+The widget can load data, preview channels, define a 3D ROI, restrict z/time/channel ranges, choose pyramid settings, and export to OME-Zarr.
 
 ![napari-demo](documentation/napari-demo.png)
+
+---
+
+## Documentation strategy in this repository
+
+PyMIF uses **Sphinx + MyST + AutoAPI**. In practice this means:
+
+- user-facing project scope belongs in `README.md` and `doc/README.md`
+- API pages are generated automatically from Python docstrings
+- documenting classes, methods, and helper functions directly in the source code is the best way to improve the docs
+
+The most important API entry points to document and keep stable are:
+
+- `MicroscopeManager`
+- vendor reader classes in `pymif.microscope_manager`
+- `ZarrManager`
+- zarr-writing helpers in `pymif.microscope_manager.utils`
+- CLI entry points in `pymif.cli`
+- napari widgets in `pymif.napari`
+
+---
+
+## Contributing and extending PyMIF
+
+New microscope support is typically added by subclassing `MicroscopeManager` and implementing `read()` so that it returns:
+
+```python
+Tuple[List[dask.array.Array], Dict[str, Any]]
+```
+
+The returned metadata should follow the PyMIF schema used across the repository, including:
+
+```python
+{
+  "size": [... per pyramid level ...],
+  "chunksize": [... per pyramid level ...],
+  "scales": [... per pyramid level ...],
+  "units": (...),
+  "axes": "tczyx",
+  "channel_names": [...],
+  "channel_colors": [...],
+  "time_increment": ...,
+  "time_increment_unit": ...,
+  "dtype": ...,
+}
+```
+
+Once that contract is respected, the new manager automatically benefits from the common PyMIF tooling such as `build_pyramid()`, `to_zarr()`, `visualize()`, `reorder_channels()`, `update_metadata()`, and `subset_dataset()`.

@@ -26,6 +26,12 @@ def create_empty_group(
     compressor: str | None = None,
     compressor_level: int = 3,
 ):
+    """Create an empty image subgroup or label subgroup inside an existing root.
+
+    The subgroup inherits the root NGFF/zarr version so the hierarchy stays
+    internally consistent. When ``is_label`` is ``True`` the group is created
+    below ``labels/`` and the root label registry is updated.
+    """
     if not metadata:
         raise ValueError("Metadata is required to create an empty group.")
 

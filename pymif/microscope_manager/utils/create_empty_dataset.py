@@ -20,6 +20,12 @@ def create_empty_dataset(
     compressor: str | None = None,
     compressor_level: int = 3,
 ):
+    """Create an on-disk empty OME-Zarr image pyramid from metadata only.
+
+    This is used by :class:`pymif.microscope_manager.zarr_manager.ZarrManager`
+    when a new zarr store is opened in append/write mode with a metadata
+    dictionary but without image payload yet.
+    """
     if not metadata:
         raise ValueError("Metadata is required to create an empty dataset.")
 

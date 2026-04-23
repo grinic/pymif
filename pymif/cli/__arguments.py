@@ -9,12 +9,14 @@ class MultilineDefaultsHelpFormatter(
     argparse.RawDescriptionHelpFormatter,
     argparse.ArgumentDefaultsHelpFormatter,
 ):
+    """Formatter that preserves line breaks while still displaying defaults."""
     pass
 
 HEX_PATTERN = re.compile(r'^#?[0-9a-fA-F]{6}$')
 
 # Valid type of's
 def valid_input_path(x):
+    """Validate an existing input file or directory argument."""
     if x is not None:
         if os.path.isdir(x) or os.path.isfile(x):
             return os.path.abspath(x)
@@ -24,6 +26,7 @@ def valid_input_path(x):
         return None
 
 def valid_output_path(x):
+    """Validate that an output path does not already point to an existing file or directory."""
     print(x)
     print((not os.path.isdir(x)) and (not os.path.isfile(x)))
     if x is not None:
@@ -66,8 +69,8 @@ def parse_color(value: str) -> str:
     )
 
 def _parse_arguments():
+    """Build and parse the PyMIF command line interface arguments."""
 
-     
     parser = argparse.ArgumentParser(
         description= """\
             Welcome fellow MIF users!

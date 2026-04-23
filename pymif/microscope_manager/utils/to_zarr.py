@@ -26,6 +26,21 @@ def to_zarr(
     *,
     config: ZarrWriteConfig | None = None,
 ):
+    """Write a pyramid of dask arrays to an OME-Zarr root group.
+
+    Parameters
+    ----------
+    path : str | Path
+        Destination zarr store.
+    data_levels : sequence of dask.array.Array
+        Pyramid levels ordered from finest to coarsest resolution.
+    metadata : dict
+        Normalized PyMIF metadata dictionary describing axes, scales, channel
+        metadata and units.
+    config : ZarrWriteConfig | None
+        Output configuration controlling NGFF version, zarr format, overwrite
+        behaviour and compression.
+    """
     cfg = config or ZarrWriteConfig()
     if not data_levels:
         raise ValueError("`data_levels` cannot be empty.")

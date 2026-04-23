@@ -19,6 +19,13 @@ class MicroscopeManager(ABC):
     """
     
     def __init__(self):
+        """Initialize the common manager state.
+
+        Subclasses populate :attr:`data` with one dask array per pyramid level
+        and :attr:`metadata` with the normalized PyMIF metadata schema.
+        ``_open_files`` stores any file handles that should be closed through
+        :meth:`close`.
+        """
         self.data: List[da.Array] = []
         self.metadata: Dict[str, Any] = {}
         self._open_files = []
@@ -38,6 +45,17 @@ class MicroscopeManager(ABC):
 
     def to_zarr(self, path: str,
                 **kwargs) -> None:
+        """Write the current dataset to an OME-Zarr store.
+
+        Parameters
+        ----------
+        path : str
+            Output zarr path.
+        **kwargs
+            Keyword arguments forwarded to :class:`~pymif.microscope_manager.utils.ngff.ZarrWriteConfig`,
+            such as ``ngff_version``, ``zarr_format``, ``compressor``,
+            ``compressor_level`` or ``overwrite``.
+        """
         from .utils.to_zarr import to_zarr as _to_zarr
         from .utils.ngff import ZarrWriteConfig
         return _to_zarr(path, 
@@ -53,6 +71,20 @@ class MicroscopeManager(ABC):
         in_memory: bool = False,
         viewer: "napari.Viewer | None" = None,
     ) -> Any:
+        """Open the dataset in napari using the shared visualization helper.
+
+        Parameters
+        ----------
+        start_level, stop_level : int
+            Pyramid levels to expose. ``stop_level=-1`` means all available
+            levels from ``start_level`` onward.
+        in_memory : bool
+            If ``True``, compute the selected levels before handing them to
+            napari. Otherwise keep the dask-backed lazy representation.
+        viewer : napari.Viewer | None
+            Existing napari viewer to reuse. When omitted, a new viewer is
+            created by the helper function.
+        """
         from .utils.visualize import visualize as _visualize
         return _visualize(
             self.data,
@@ -68,11 +100,13 @@ class MicroscopeManager(ABC):
                       downscale_factor: Optional[int] = 2,
                       start_level: Optional[int] = 0,
                       ) -> None:
+        """Build additional pyramid levels from the current base-resolution data.
+
+        The resulting data and scale metadata replace ``self.data`` and
+        ``self.metadata`` in-place. This is mainly useful for managers that
+        initially expose only one resolution level.
+        """
         from .utils.pyramid import build_pyramid as _build_pyramid
-        """
-        Converts single-resolution data into a pyramidal multiscale structure
-        and updates self.data and self.metadata in-place.
-        """
         self.data, self.metadata = _build_pyramid(
             self.data, self.metadata, 
             num_levels=num_levels, 

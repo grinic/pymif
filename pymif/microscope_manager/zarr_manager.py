@@ -31,6 +31,23 @@ class ZarrManager(MicroscopeManager):
         ngff_version: str | None = None,
         zarr_format: int | None = None,
     ):
+        """Open or create an OME-Zarr dataset.
+
+        Parameters
+        ----------
+        path : str or path-like
+            Path to the zarr root directory.
+        chunks : tuple[int, ...] | None
+            Optional dask chunking to use when lazily reopening arrays.
+        mode : {"r", "r+", "a", "w"}
+            Open mode. ``"r"`` reads an existing dataset, ``"a"`` opens or
+            creates one, and ``"w"`` creates a new root from metadata.
+        metadata : dict | None
+            Metadata required when creating an empty dataset. Ignored when
+            reading an existing dataset.
+        ngff_version, zarr_format : optional
+            Explicit format override used when creating a new store.
+        """
         super().__init__()
         self.path = path
         self.chunks = chunks
@@ -94,10 +111,12 @@ class ZarrManager(MicroscopeManager):
         return attrs
 
     def _get_multiscales(self, group: zarr.Group) -> list[dict[str, Any]]:
+        """Return the NGFF ``multiscales`` block for ``group`` regardless of version."""
         image_meta = self._get_image_meta(group)
         return image_meta.get("multiscales", [])
 
     def _get_omero(self, group: zarr.Group) -> dict[str, Any]:
+        """Return the OMERO-style channel metadata stored on ``group``."""
         image_meta = self._get_image_meta(group)
         return image_meta.get("omero", {})
 
@@ -108,6 +127,7 @@ class ZarrManager(MicroscopeManager):
         multiscales: dict[str, Any],
         omero: dict[str, Any],
     ) -> Dict[str, Any]:
+        """Translate NGFF metadata blocks into the normalized PyMIF metadata schema."""
         axes_info = multiscales.get("axes", [])
         axis_names = [a["name"] for a in axes_info]
         axes = "".join(axis_names)
@@ -178,6 +198,7 @@ class ZarrManager(MicroscopeManager):
         self,
         group: zarr.Group,
     ) -> tuple[List[da.Array], List[Any], Dict[str, Any]]:
+        """Load one multiscale image group as dask arrays plus normalized metadata."""
         multiscales_all = self._get_multiscales(group)
         if not multiscales_all:
             raise ValueError(f"Group '{group.name}' does not contain multiscales metadata.")
@@ -214,6 +235,12 @@ class ZarrManager(MicroscopeManager):
         return data_levels, zarr_levels, metadata
 
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
+        """Read the root image plus discover additional image groups and labels.
+
+        The root image is exposed through ``self.data`` and ``self.metadata``.
+        Additional multiscale subgroups are indexed in ``self.groups`` and label
+        pyramids in ``self.labels``.
+        """
         data_levels, zarr_levels, metadata = self._read_multiscale_group(self.root)
 
         self.data = data_levels
@@ -237,6 +264,7 @@ class ZarrManager(MicroscopeManager):
         return self.data, self.metadata
 
     def _load_group(self, name):
+        """Attempt to load a named subgroup if it contains NGFF image metadata."""
         group = self.root[name]
         try:
             arrays, _, _ = self._read_multiscale_group(group)
@@ -245,6 +273,7 @@ class ZarrManager(MicroscopeManager):
             return None
 
     def _load_labels(self) -> Dict[str, List[da.Array]]:
+        """Discover label pyramids stored below the root ``labels`` group."""
         labels: Dict[str, List[da.Array]] = {}
 
         if "labels" not in self.root:
@@ -286,6 +315,7 @@ class ZarrManager(MicroscopeManager):
         compressor_level: Any = 3,
         parallelize: Any = False,
     ) -> None:
+        """Register a new multiscale label pyramid in the current zarr store."""
         from .utils.add_label import add_label as _add_label
         return _add_label(
             root=self.root,
@@ -302,6 +332,7 @@ class ZarrManager(MicroscopeManager):
         self,
         viewer: "napari.Viewer | None " = None,
     ) -> "napari.Viewer | None":
+        """Open the root image and all multiscale subgroups in napari."""
         try:
             import napari
         except ImportError:
@@ -346,6 +377,7 @@ class ZarrManager(MicroscopeManager):
         metadata: Dict[str, Any],
         is_label: bool = False,
     ):
+        """Create an empty image subgroup or label subgroup below the current root."""
         from .utils.create_empty_group import create_empty_group as _create_empty_group
         return _create_empty_group(
             root=self.root,
@@ -365,6 +397,7 @@ class ZarrManager(MicroscopeManager):
         level: int = 0,
         group: Optional[str] = None,
     ):
+        """Write an image patch into a root or subgroup pyramid and refresh lower levels."""
         from .utils.write_image_region import write_image_region as _write_image_region
         return _write_image_region(
             root=self.root,
@@ -389,6 +422,7 @@ class ZarrManager(MicroscopeManager):
         level: int = 0,
         group: str = None,
     ):
+        """Write a label patch into a label pyramid and regenerate coarser levels."""
         from .utils.write_label_region import write_label_region as _write_label_region
         return _write_label_region(
             root=self.root,

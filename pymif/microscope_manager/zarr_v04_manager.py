@@ -149,6 +149,7 @@ class ZarrV04Manager(MicroscopeManager):
             print(f"{i.upper()}: {self.metadata[i]}")
 
     def _load_group(self, name):
+        """Attempt to load a named subgroup if it contains readable multiscale data."""
         group = self.root[name]
         multiscale = group.attrs.get("multiscales", [{}])[0]
         datasets = multiscale.get("datasets", [])

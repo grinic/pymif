@@ -13,6 +13,7 @@ SPATIAL_AXES = {"z", "y", "x"}
 
 @dataclass(slots=True)
 class ZarrWriteConfig:
+    """Configuration container for NGFF/OME-Zarr writing operations."""
     ngff_version: Literal["0.4", "0.5"] | None = None
     zarr_format: Literal[2, 3] | None = None
     overwrite: bool = True
@@ -22,12 +23,14 @@ class ZarrWriteConfig:
     compressor_level: int = 3
 
 def _infer_ngff_version(group: zarr.Group) -> str:
+    """Infer the NGFF metadata layout used by an existing group."""
     attrs = group.attrs.asdict()
     if "ome" in attrs:
         return attrs["ome"].get("version", "0.5")
     return "0.4"
 
 def _register_label_on_root(root: zarr.Group, label_name: str, ngff_version: str) -> None:
+    """Register a label group in the root label list for the active NGFF version."""
     label_path = f"labels/{label_name}"
     attrs = root.attrs.asdict()
 
@@ -45,6 +48,7 @@ def _register_label_on_root(root: zarr.Group, label_name: str, ngff_version: str
         root.attrs["labels"] = labels
 
 def _get_multiscales(group: zarr.Group) -> list[dict[str, Any]]:
+    """Return the raw ``multiscales`` list from a group across NGFF versions."""
     attrs = group.attrs.asdict()
     if "ome" in attrs:
         return attrs["ome"].get("multiscales", [])
@@ -58,6 +62,7 @@ def _set_group_ngff_metadata(
     omero: dict[str, Any] | None = None,
     extra: dict[str, Any] | None = None,
 ) -> None:
+    """Write NGFF metadata to ``group`` using either the v0.4 or v0.5 layout."""
     extra = extra or {}
 
     if ngff_version == "0.5":
@@ -74,6 +79,7 @@ def _set_group_ngff_metadata(
             group.attrs[k] = v
 
 def _get_group_multiscales(group: zarr.Group):
+    """Compatibility helper returning the stored multiscales block for a group."""
     attrs = group.attrs.asdict()
     if "ome" in attrs:
         return attrs["ome"].get("multiscales")
@@ -83,6 +89,7 @@ def _get_group_multiscales(group: zarr.Group):
 
 
 def _resolve_format(cfg: ZarrWriteConfig) -> tuple[str, int]:
+    """Resolve and validate the NGFF version / zarr format pair to use."""
     ngff_version = cfg.ngff_version or ("0.5" if cfg.zarr_format in (None, 3) else "0.4")
     zarr_format = cfg.zarr_format or (3 if ngff_version == "0.5" else 2)
 
@@ -101,6 +108,7 @@ def _write_pyramid_v2(
     data_levels: Sequence[da.Array],
     cfg: ZarrWriteConfig,
 ):
+    """Create and populate zarr v2 arrays for each pyramid level."""
     delayed = []
 
     for i, arr in enumerate(data_levels):
@@ -133,6 +141,7 @@ def _write_pyramid_v3(
     data_levels: Sequence[da.Array],
     cfg: ZarrWriteConfig,
 ):
+    """Create and populate zarr v3 arrays for each pyramid level."""
     delayed = []
 
     for i, arr in enumerate(data_levels):
@@ -162,12 +171,14 @@ def _write_pyramid_v3(
 
 
 def _get_chunks(arr: da.Array) -> tuple[int, ...]:
+    """Return one normalized chunk tuple for a dask array."""
     if hasattr(arr, "chunksize") and arr.chunksize is not None:
         return tuple(int(x) for x in arr.chunksize)
     return tuple(int(c[0]) for c in arr.chunks)
 
 
 def _build_v2_compressor(compressor: str | None, level: int):
+    """Construct a zarr v2-compatible compressor configuration."""
     if compressor is None:
         return None
     if compressor == "blosc":
@@ -178,6 +189,7 @@ def _build_v2_compressor(compressor: str | None, level: int):
 
 
 def _build_v3_compressors(compressor: str | None, level: int):
+    """Construct a zarr v3-compatible compressor chain."""
     if compressor is None:
         return None
     if compressor == "blosc":
@@ -196,6 +208,7 @@ def _validate_metadata(
     metadata: dict[str, Any],
     axes: tuple[str, ...],
 ) -> None:
+    """Validate the minimal metadata contract required for NGFF writing."""
     ndim = data_levels[0].ndim
     if len(axes) != ndim:
         raise ValueError(f"`axes` has length {len(axes)} but arrays have ndim={ndim}.")
@@ -228,6 +241,7 @@ def _validate_metadata(
 
 
 def _build_axes(axes: tuple[str, ...], metadata: dict[str, Any]) -> list[dict[str, Any]]:
+    """Build the NGFF ``axes`` description from the normalized PyMIF metadata."""
     axis_types = {"t": "time", "c": "channel", "z": "space", "y": "space", "x": "space"}
     spatial_axes = [ax for ax in axes if ax in SPATIAL_AXES]
     spatial_units = [
@@ -253,6 +267,7 @@ def _build_coordinate_transformations(
     scales: Sequence[Sequence[float]],
     time_increment: float | None,
 ) -> list[list[dict[str, Any]]]:
+    """Generate one NGFF scale transformation entry per pyramid level."""
     out = []
     for spatial_scale in scales:
         spatial_iter = iter(spatial_scale)
@@ -276,6 +291,7 @@ def _build_omero_metadata(
     axes: tuple[str, ...],
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
+    """Create OMERO channel display metadata for an array."""
     c_size = arr.shape[axes.index("c")] if "c" in axes else 1
     ch_names = list(metadata.get("channel_names") or [])
     ch_colors = list(metadata.get("channel_colors") or [])
@@ -301,6 +317,7 @@ def _build_omero_metadata(
 
 
 def _default_window(dtype: np.dtype | str) -> tuple[float, float]:
+    """Return a default display range for the provided dtype."""
     dt = np.dtype(dtype)
     if np.issubdtype(dt, np.integer):
         info = np.iinfo(dt)
@@ -309,6 +326,7 @@ def _default_window(dtype: np.dtype | str) -> tuple[float, float]:
 
 
 def _normalize_color(color: Any) -> str:
+    """Normalize different color inputs to a six-digit uppercase hex string."""
     if isinstance(color, int):
         return f"{color & 0xFFFFFF:06X}"
 
@@ -323,6 +341,7 @@ def _normalize_color(color: Any) -> str:
 
 
 def _normalize_unit(unit: str | None) -> str | None:
+    """Map common unit aliases to the names expected in NGFF metadata."""
     if not unit:
         return None
 
@@ -338,6 +357,7 @@ def _normalize_unit(unit: str | None) -> str | None:
     return aliases.get(unit.strip(), unit.strip())
 
 def _get_group_ome_attrs(group: zarr.Group) -> dict[str, Any]:
+    """Return the effective image metadata mapping for a group."""
     attrs = group.attrs.asdict()
     return attrs.get("ome", attrs)
 
