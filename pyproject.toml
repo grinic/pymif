@@ -11,11 +11,11 @@ license = { file = "LICENSE" }
 authors = [
   { name = "Nicola Gritti", email = "nicola.gritti@embl.es" },
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 keywords = ["microscopy", "zarr", "ome-zarr", "napari"]
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
