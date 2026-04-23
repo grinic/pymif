@@ -9,12 +9,14 @@
 # this is a trick to make sphinx find the modules in the parent directory
 import os
 import sys
+from importlib.metadata import version as get_version
 sys.path.insert(0, os.path.abspath("../../"))
 
 project = 'PyMIF'
 copyright = '2025, Nicola Gritti'
 author = 'Nicola Gritti'
-release = '2026.04.22'
+release = get_version("pymif")
+version = release
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

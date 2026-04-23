@@ -7,5 +7,10 @@ The most important public entry points are in ``pymif.microscope_manager`` for d
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
 
    autoapi/pymif/index
+
+See the generated package documentation here:
+
+:doc:`autoapi/pymif/index`
