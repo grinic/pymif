@@ -38,7 +38,8 @@ class MicroscopeManager(ABC):
 
     def to_zarr(self, path: str,
                 **kwargs) -> None:
-        from .utils.to_zarr import ZarrWriteConfig, to_zarr as _to_zarr
+        from .utils.to_zarr import to_zarr as _to_zarr
+        from .utils.ngff import ZarrWriteConfig
         return _to_zarr(path, 
                       self.data, 
                       self.metadata, 

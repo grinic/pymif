@@ -245,7 +245,7 @@ class ZarrManager(MicroscopeManager):
             return None
 
     def _load_labels(self) -> Dict[str, List[da.Array]]:
-        labels = {}
+        labels: Dict[str, List[da.Array]] = {}
 
         if "labels" not in self.root:
             return labels
@@ -253,11 +253,28 @@ class ZarrManager(MicroscopeManager):
         labels_grp = self.root["labels"]
 
         for label_name, label_grp in labels_grp.groups():
-            try:
-                arrays, _, _ = self._read_multiscale_group(label_grp)
-                labels[label_name] = arrays
-            except ValueError:
+            multiscales_all = self._get_multiscales(label_grp)
+            if not multiscales_all:
                 continue
+
+            multiscales = multiscales_all[0]
+            datasets = multiscales.get("datasets", [])
+            if not datasets:
+                continue
+
+            arrays = []
+            for ds in datasets:
+                arr_path = ds["path"]
+                zarr_array = label_grp[arr_path]
+
+                if self.chunks is not None and len(self.chunks) == len(zarr_array.shape):
+                    arr = da.from_zarr(zarr_array, chunks=self.chunks)
+                else:
+                    arr = da.from_zarr(zarr_array)
+
+                arrays.append(arr)
+
+            labels[label_name] = arrays
 
         return labels
 
