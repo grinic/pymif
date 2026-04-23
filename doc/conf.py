@@ -9,13 +9,21 @@
 # this is a trick to make sphinx find the modules in the parent directory
 import os
 import sys
-from importlib.metadata import version as get_version
+from importlib.metadata import version as get_version, PackageNotFoundError
+from pathlib import Path
+import tomllib
 sys.path.insert(0, os.path.abspath("../../"))
 
 project = 'PyMIF'
 copyright = '2025, Nicola Gritti'
 author = 'Nicola Gritti'
-release = get_version("pymif")
+try:
+    release = get_version("pymif")
+except PackageNotFoundError:
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    release = data["project"]["version"]
+
 version = release
 
 # -- General configuration ---------------------------------------------------
