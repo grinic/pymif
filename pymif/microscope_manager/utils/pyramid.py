@@ -147,4 +147,8 @@ def build_pyramid(
 
     metadata["size"] = [level.shape for level in pyramid]
 
+    metadata["chunksize"] = [
+        tuple(level.chunksize) for level in pyramid
+    ]
+
     return pyramid, metadata
