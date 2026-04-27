@@ -8,11 +8,50 @@ import dask.array as da
 import zarr
 
 from .microscope_manager import MicroscopeManager
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 
 if TYPE_CHECKING:
     import napari
 
+from dataclasses import dataclass
+
+@dataclass
+class ZarrDataset(Sequence):
+    data: List[da.Array]
+    zarr_data: List[Any]
+    metadata: Dict[str, Any]
+    name: str | None = None
+    path: str | None = None
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, item):
+        return self.data[item]
+
+    def __iter__(self) -> Iterator[da.Array]:
+        return iter(self.data)
+
+    def __repr__(self):
+        return (
+            f"ZarrDataset("
+            f"name={self.name!r}, "
+            f"levels={len(self.data)}, "
+            f"shape={self.data[0].shape if self.data else None}, "
+            f"dtype={self.data[0].dtype if self.data else None}, "
+            f"axes={self.metadata.get('axes')!r}"
+            f")"
+        )
+
+
+class AttrDict(dict):
+    """Dictionary with optional attribute access for valid Python names."""
+
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError as e:
+            raise AttributeError(name) from e
 
 class ZarrManager(MicroscopeManager):
     """
@@ -219,10 +258,10 @@ class ZarrManager(MicroscopeManager):
             zarr_array = group[path]
             zarr_levels.append(zarr_array)
 
-            if self.chunks is None:
-                arr = da.from_zarr(zarr_array)
-            else:
+            if self.chunks is not None and len(self.chunks) == len(zarr_array.shape):
                 arr = da.from_zarr(zarr_array, chunks=self.chunks)
+            else:
+                arr = da.from_zarr(zarr_array)
 
             data_levels.append(arr)
 
@@ -244,19 +283,35 @@ class ZarrManager(MicroscopeManager):
         """
         data_levels, zarr_levels, metadata = self._read_multiscale_group(self.root)
 
-        self.data = data_levels
-        self.zarr_data = zarr_levels
-        self.metadata = metadata
+        self.raw = ZarrDataset(
+            data=data_levels,
+            zarr_data=zarr_levels,
+            metadata=metadata,
+            name="raw",
+            path="/",
+        )
+
+        # Backward-compatible aliases
+        self.data = self.raw.data
+        self.zarr_data = self.raw.zarr_data
+        self.metadata = self.raw.metadata
         self.chunks = data_levels[0].chunksize
 
-        self.groups = {}
-        self.labels = {}
+        self.groups = AttrDict()
+        self.labels = AttrDict()
 
         for name in self.root.group_keys():
             if name == "labels":
                 self.labels = self._load_labels()
             else:
-                self.groups[name] = self._load_group(name)
+                group_dataset = self._load_group(name)
+
+                if group_dataset is not None:
+                    self.groups[name] = group_dataset
+
+                    # Optional convenience: d.proc.data
+                    if name.isidentifier() and not hasattr(self, name):
+                        setattr(self, name, group_dataset)
 
         print(self.root.tree())
         for k, v in self.metadata.items():
@@ -265,17 +320,26 @@ class ZarrManager(MicroscopeManager):
         return self.data, self.metadata
 
     def _load_group(self, name):
-        """Attempt to load a named subgroup if it contains NGFF image metadata."""
         group = self.root[name]
+
         try:
-            arrays, _, _ = self._read_multiscale_group(group)
-            return arrays
+            arrays, zarr_arrays, metadata = self._read_multiscale_group(group)
         except ValueError:
             return None
 
-    def _load_labels(self) -> Dict[str, List[da.Array]]:
-        """Discover label pyramids stored below the root ``labels`` group."""
-        labels: Dict[str, List[da.Array]] = {}
+        metadata["is_label"] = False
+        metadata["name"] = name
+
+        return ZarrDataset(
+            data=arrays,
+            zarr_data=zarr_arrays,
+            metadata=metadata,
+            name=name,
+            path=name,
+        )
+
+    def _load_labels(self):
+        labels = AttrDict()
 
         if "labels" not in self.root:
             return labels
@@ -283,51 +347,24 @@ class ZarrManager(MicroscopeManager):
         labels_grp = self.root["labels"]
 
         for label_name, label_grp in labels_grp.groups():
-            multiscales_all = self._get_multiscales(label_grp)
-            if not multiscales_all:
+            try:
+                arrays, zarr_arrays, metadata = self._read_multiscale_group(label_grp)
+            except ValueError:
                 continue
 
-            multiscales = multiscales_all[0]
-            datasets = multiscales.get("datasets", [])
-            if not datasets:
-                continue
+            metadata = dict(metadata)
+            metadata["is_label"] = True
+            metadata["name"] = label_name
 
-            arrays = []
-            for ds in datasets:
-                arr_path = ds["path"]
-                zarr_array = label_grp[arr_path]
-
-                if self.chunks is not None and len(self.chunks) == len(zarr_array.shape):
-                    arr = da.from_zarr(zarr_array, chunks=self.chunks)
-                else:
-                    arr = da.from_zarr(zarr_array)
-
-                arrays.append(arr)
-
-            labels[label_name] = arrays
+            labels[label_name] = ZarrDataset(
+                data=arrays,
+                zarr_data=zarr_arrays,
+                metadata=metadata,
+                name=label_name,
+                path=f"labels/{label_name}",
+            )
 
         return labels
-
-    def add_label(
-        self,
-        label_levels: List[da.Array],
-        label_name: str = "new_label",
-        compressor: Any = None,
-        compressor_level: Any = 3,
-        parallelize: Any = False,
-    ) -> None:
-        """Register a new multiscale label pyramid in the current zarr store."""
-        from .utils.add_label import add_label as _add_label
-        return _add_label(
-            root=self.root,
-            mode=self.mode,
-            label_levels=label_levels,
-            label_name=label_name,
-            metadata=self.metadata,
-            compressor=compressor,
-            compressor_level=compressor_level,
-            parallelize=parallelize,
-        )
 
     def visualize_zarr(
         self,
@@ -440,3 +477,4 @@ class ZarrManager(MicroscopeManager):
             group_name=group,
             downscale_factor=downscale_factor,
         )
+    
