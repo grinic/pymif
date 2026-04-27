@@ -36,6 +36,20 @@ def normalize_spatial_factor(
     return factors
 
 
+def get_spatial_axes(metadata: Dict[str, Any]) -> Tuple[int, int, int]:
+    """Return axis indices for Z, Y, X from metadata['axes']."""
+    axes = metadata.get("axes", "").lower()
+
+    missing = [ax for ax in "zyx" if ax not in axes]
+    if missing:
+        raise ValueError(
+            f"metadata['axes'] must contain z, y and x. "
+            f"Got axes={axes!r}; missing {missing}."
+        )
+
+    return axes.index("z"), axes.index("y"), axes.index("x")
+
+
 def factor_power(
     factors: Tuple[int, int, int],
     exponent: int,
@@ -53,13 +67,14 @@ def multiply_scales(
 def pad_to_divisible(
     array: da.Array,
     factors: SpatialFactor,
+    spatial_axes: Tuple[int, int, int],
 ) -> da.Array:
     """Pad spatial axes ZYX so they are divisible by downsampling factors."""
     factors = normalize_spatial_factor(factors, name="factors")
 
     pad_width = [(0, 0)] * array.ndim
 
-    for axis, factor in zip([-3, -2, -1], factors):
+    for axis, factor in zip(spatial_axes, factors):
         if factor == 1:
             continue
 
@@ -75,13 +90,14 @@ def pad_to_divisible(
 def downsample_nn(
     array: da.Array,
     factors: SpatialFactor,
+    spatial_axes: Tuple[int, int, int],
 ) -> da.Array:
     """Nearest-neighbor downsampling via striding in spatial ZYX axes."""
     factors = normalize_spatial_factor(factors, name="factors")
 
     slicing = [slice(None)] * array.ndim
 
-    for axis, factor in zip([-3, -2, -1], factors):
+    for axis, factor in zip(spatial_axes, factors):
         slicing[axis] = slice(0, None, factor)
 
     return array[tuple(slicing)]
@@ -98,15 +114,38 @@ def build_pyramid(
     Generate a multiscale pyramid and updated metadata for NGFF-compatible
     OME-Zarr writing.
 
+    This function is axis-aware and uses metadata["axes"] to find Z, Y, X.
+
     downscale_factor can be either:
 
     - 2, meaning downsample Z, Y and X by 2
     - (1, 2, 2), meaning keep Z unchanged and downsample only YX
     """
-    factors = normalize_spatial_factor(downscale_factor)
+    if not data_levels:
+        raise ValueError("data_levels cannot be empty.")
 
-    if data_levels[0].ndim != 5:
-        raise ValueError("Expected base_level to have shape (T, C, Z, Y, X)")
+    if num_levels is None:
+        num_levels = len(data_levels)
+
+    if num_levels < 1:
+        raise ValueError("num_levels must be >= 1.")
+
+    if start_level < 0:
+        raise ValueError("start_level must be >= 0.")
+
+    axes = metadata.get("axes", "").lower()
+
+    if data_levels[0].ndim != len(axes):
+        raise ValueError(
+            f"Array ndim ({data_levels[0].ndim}) does not match "
+            f"metadata['axes'] ({metadata.get('axes')!r})."
+        )
+
+    if "scales" not in metadata or not metadata["scales"]:
+        raise ValueError("metadata must contain a non-empty 'scales' list.")
+
+    factors = normalize_spatial_factor(downscale_factor)
+    spatial_axes = get_spatial_axes(metadata)
 
     print(f"Requested start level {start_level}")
 
@@ -120,8 +159,16 @@ def build_pyramid(
 
         base_downscale = factor_power(factors, start_level)
 
-        current = pad_to_divisible(data_levels[0], base_downscale)
-        down = downsample_nn(current, base_downscale)
+        current = pad_to_divisible(
+            data_levels[0],
+            base_downscale,
+            spatial_axes=spatial_axes,
+        )
+        down = downsample_nn(
+            current,
+            base_downscale,
+            spatial_axes=spatial_axes,
+        )
 
         pyramid = [down]
         new_scales = [
@@ -131,8 +178,16 @@ def build_pyramid(
     print("Creating pyramid.")
 
     for _ in range(1, num_levels):
-        current = pad_to_divisible(pyramid[-1], factors)
-        down = downsample_nn(current, factors)
+        current = pad_to_divisible(
+            pyramid[-1],
+            factors,
+            spatial_axes=spatial_axes,
+        )
+        down = downsample_nn(
+            current,
+            factors,
+            spatial_axes=spatial_axes,
+        )
         pyramid.append(down)
 
     print("Updating metadata.")
@@ -143,10 +198,9 @@ def build_pyramid(
             multiply_scales(new_scales[0], scale_factor)
         )
 
+    metadata = dict(metadata)
     metadata["scales"] = new_scales
-
-    metadata["size"] = [level.shape for level in pyramid]
-
+    metadata["size"] = [tuple(level.shape) for level in pyramid]
     metadata["chunksize"] = [
         tuple(level.chunksize) for level in pyramid
     ]

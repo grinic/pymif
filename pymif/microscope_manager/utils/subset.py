@@ -4,6 +4,7 @@ from typing import Optional, Union, Sequence
 
 def subset_dask_array(
     arr: da.Array,
+    axes: str,
     T: Optional[Union[slice, Sequence[int]]] = None,
     C: Optional[Union[slice, Sequence[int]]] = None,
     Z: Optional[Union[slice, Sequence[int]]] = None,
@@ -11,13 +12,25 @@ def subset_dask_array(
     X: Optional[Union[slice, Sequence[int]]] = None,
 ) -> da.Array:
     """Subset a 5D Dask array with optional indexing for each axis."""
-    axes = [T, C, Z, Y, X]
-    for axis, index in enumerate(axes):
-        if index is not None:
-            index = np.array(index)
-            if index.ndim != 1:
-                raise NotImplementedError("Only 1D fancy indexing is supported.")
-            arr = arr[tuple(slice(None) if i != axis else index for i in range(arr.ndim))]
+    axis_indices = {
+        "t": T,
+        "c": C,
+        "z": Z,
+        "y": Y,
+        "x": X,
+    }
+    for ax, indices in axis_indices.items():
+        if indices is None:
+            continue
+
+        if ax not in axes:
+            continue
+
+        axis = axes.index(ax)
+        slicer = [slice(None)] * arr.ndim
+        slicer[axis] = indices
+        arr = arr[tuple(slicer)]
+
     return arr
 
 def validate_uniform_spacing(indices: Sequence[int], name: str):

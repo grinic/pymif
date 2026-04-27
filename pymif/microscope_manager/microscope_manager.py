@@ -44,7 +44,8 @@ class MicroscopeManager(ABC):
         """
         pass
 
-    def to_zarr(self, path: str,
+    def to_zarr(self, 
+                path: str,
                 **kwargs) -> None:
         """Write the current dataset to an OME-Zarr store.
 
@@ -124,9 +125,9 @@ class MicroscopeManager(ABC):
                 print(f"Warning: failed to close file: {e}")
         self._open_files = []
         
-    # def print_info(self) -> None:
-    
-    def reorder_channels(self, new_order: List[int]):
+    def reorder_channels(self, 
+                         new_order: List[int]
+                         ) -> None:
         """
         Reorder the channel axis and update channel-related metadata.
 
@@ -158,7 +159,9 @@ class MicroscopeManager(ABC):
 
         print(f"✅ Channels reordered to {new_order}")
         
-    def update_metadata(self, updates: Dict[str, Any]):
+    def update_metadata(self, 
+                        updates: Dict[str, Any]
+                        ) -> None:
         """
         Safely update entries in the metadata dictionary with validation.
 
@@ -257,7 +260,8 @@ class MicroscopeManager(ABC):
                     C: Optional[Sequence[int]] = None,
                     Z: Optional[Sequence[int]] = None,
                     Y: Optional[Sequence[int]] = None,
-                    X: Optional[Sequence[int]] = None):
+                    X: Optional[Sequence[int]] = None
+                    ) -> None:
         """
         Subset the dataset by timepoints, channels, or spatial coordinates.
 
@@ -307,4 +311,3 @@ class MicroscopeManager(ABC):
 
         print("Dataset subset complete.")
             
-

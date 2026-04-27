@@ -100,3 +100,104 @@ def to_zarr(
         root.attrs["omero"] = omero
 
     return root if cfg.compute else delayed
+
+def write_multiscale_to_group(
+    group: zarr.Group,
+    data_levels: Sequence[da.Array],
+    metadata: dict[str, Any],
+    *,
+    config: ZarrWriteConfig | None = None,
+    name: str | None = None,
+    is_label: bool = False,
+):
+    """Write a pyramid of dask arrays into an existing zarr group.
+
+    This is the same logic as to_zarr(), but it writes into an already-open
+    group instead of opening a new root store.
+
+    Used by ZarrManager.to_zarr() for:
+        - raw data at /
+        - groups at /group_name
+        - labels at /labels/label_name
+    """
+    cfg = config or ZarrWriteConfig()
+
+    if not data_levels:
+        raise ValueError("`data_levels` cannot be empty.")
+
+    axes = tuple(metadata["axes"])
+    _validate_metadata(data_levels, metadata, axes)
+
+    ngff_version, zarr_format = _resolve_format(cfg)
+
+    # Remove old pyramid arrays if overwriting into an existing group.
+    if cfg.overwrite:
+        for key in list(group.array_keys()):
+            if str(key).isdigit():
+                del group[key]
+
+    if zarr_format == 3:
+        delayed = _write_pyramid_v3(
+            root=group,
+            data_levels=data_levels,
+            cfg=cfg,
+        )
+    else:
+        delayed = _write_pyramid_v2(
+            root=group,
+            data_levels=data_levels,
+            cfg=cfg,
+        )
+
+    multiscales = {
+        "name": name or metadata.get("name") or "dataset",
+        "axes": _build_axes(axes, metadata),
+        "datasets": [
+            {
+                "path": str(i),
+                "coordinateTransformations": ct,
+            }
+            for i, ct in enumerate(
+                _build_coordinate_transformations(
+                    axes=axes,
+                    scales=metadata["scales"],
+                    time_increment=metadata.get("time_increment"),
+                )
+            )
+        ],
+    }
+
+    if is_label:
+        # Labels usually do not need OMERO channel metadata.
+        if ngff_version == "0.5":
+            group.attrs["ome"] = {
+                "version": "0.5",
+                "multiscales": [multiscales],
+                "image-label": {
+                    "version": "0.5",
+                    "source": {
+                        "image": "../../",
+                    },
+                },
+            }
+        else:
+            group.attrs["multiscales"] = [multiscales]
+            group.attrs["image-label"] = {
+                "source": {
+                    "image": "../../",
+                },
+            }
+    else:
+        omero = _build_omero_metadata(data_levels[0], axes, metadata)
+
+        if ngff_version == "0.5":
+            group.attrs["ome"] = {
+                "version": "0.5",
+                "multiscales": [multiscales],
+                "omero": omero,
+            }
+        else:
+            group.attrs["multiscales"] = [multiscales]
+            group.attrs["omero"] = omero
+
+    return group if cfg.compute else delayed
