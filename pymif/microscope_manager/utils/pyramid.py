@@ -133,7 +133,24 @@ def build_pyramid(
     if start_level < 0:
         raise ValueError("start_level must be >= 0.")
 
-    axes = metadata.get("axes", "").lower()
+    axes = metadata.get("axes")
+
+    if axes is None:
+        if data_levels[0].ndim == 5:
+            axes = "tczyx"
+        elif data_levels[0].ndim == 4:
+            axes = "tzyx"
+        elif data_levels[0].ndim == 3:
+            axes = "zyx"
+        else:
+            raise ValueError(
+                "metadata['axes'] is required when data ndim is not 3, 4, or 5."
+            )
+
+        metadata = dict(metadata)
+        metadata["axes"] = axes
+
+    axes = axes.lower()
 
     if data_levels[0].ndim != len(axes):
         raise ValueError(
