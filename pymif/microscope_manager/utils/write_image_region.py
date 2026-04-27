@@ -6,6 +6,12 @@ import warnings
 
 from .zoom import _zoom_numpy, _zoom_dask
 from .ngff import _get_group_multiscales
+from .downsampling import (
+    SpatialFactor,
+    level_scale_ratios_from_multiscales,
+    normalize_spatial_factor,
+    relative_level_factors,
+)
 
 
 def write_image_region(
@@ -19,6 +25,7 @@ def write_image_region(
     x: int | slice = slice(None),
     level: int = 0,
     group_name: Optional[str] = None,
+    downscale_factor: SpatialFactor | None = None,
 ):
     """
     Internal function that writes image data (pyramid or single array) to a zarr group.
@@ -70,6 +77,29 @@ def write_image_region(
     datasets = multiscales.get("datasets", [])
     n_levels = len(datasets)
 
+    if not 0 <= level < n_levels:
+        raise ValueError(f"`level` must be in [0, {n_levels}), got {level}.")
+
+    if downscale_factor is None:
+        level_scale_ratios = level_scale_ratios_from_multiscales(
+            multiscales,
+            datasets,
+            level,
+        )
+
+        if level_scale_ratios is None:
+            level_scale_ratios = relative_level_factors(
+                total_levels=n_levels,
+                ref_level=level,
+                downscale_factor=2,
+            )
+    else:
+        level_scale_ratios = relative_level_factors(
+            total_levels=n_levels,
+            ref_level=level,
+            downscale_factor=downscale_factor,
+        )
+
     if n_levels == 0:
         warnings.warn(
             f"Group '{group_name or '/'}' contains no pyramid datasets.",
@@ -78,7 +108,12 @@ def write_image_region(
         return
 
     if isinstance(data, (np.ndarray, da.Array)):
-        data_list = _generate_pyramid(data, total_levels=n_levels, ref_level=level)
+        data_list = _generate_pyramid(
+            data,
+            total_levels=n_levels,
+            ref_level=level,
+            level_scale_ratios=level_scale_ratios,
+        )
     elif isinstance(data, list):
         data_list = data
         if len(data_list) != n_levels:
@@ -91,6 +126,8 @@ def write_image_region(
         raise TypeError("`data` must be a NumPy array, Dask array, or list of such.")
 
     for i, subdata in enumerate(data_list):
+        scale_factor = level_scale_ratios[i]
+        
         if i >= n_levels:
             break
 
@@ -103,6 +140,12 @@ def write_image_region(
             continue
 
         zarr_array = group[arr_path]
+        
+        index = _scale_index(
+            (t, c, z, y, x),
+            subdata.shape,
+            scale_factor,
+        )
 
         if isinstance(subdata, da.Array):
             subdata = subdata.compute()
@@ -114,9 +157,6 @@ def write_image_region(
                 UserWarning,
             )
             continue
-
-        scale_factor = 2 ** (i - level)
-        index = _scale_index((t, c, z, y, x), subdata.shape, scale_factor)
 
         expected_shape = zarr_array[index].shape
         if subdata.shape != expected_shape:
@@ -133,50 +173,78 @@ def write_image_region(
     if store is not None and hasattr(store, "flush"):
         store.flush()
 
-
 def _generate_pyramid(
-    ref_data: Union[np.ndarray, da.Array],
+    ref_data,
     total_levels: int,
     ref_level: int = 0,
-) -> List[Union[np.ndarray, da.Array]]:
+    *,
+    downscale_factor: SpatialFactor = 2,
+    level_scale_ratios: list[tuple[float, float, float]] | None = None,
+):
+    """Generate a full pyramid from a given reference level.
+
+    `level_scale_ratios[i]` is the spatial scale of level i relative to
+    `ref_level`, in ZYX order.
     """
-    Generate a full pyramid from a given reference level.
-    """
+    if level_scale_ratios is None:
+        level_scale_ratios = relative_level_factors(
+            total_levels=total_levels,
+            ref_level=ref_level,
+            downscale_factor=downscale_factor,
+        )
+
+    if len(level_scale_ratios) != total_levels:
+        raise ValueError(
+            "`level_scale_ratios` must contain one entry per pyramid level."
+        )
+
     zoom_fn = _zoom_dask if isinstance(ref_data, da.Array) else _zoom_numpy
 
     pyramid = [None] * total_levels
     pyramid[ref_level] = ref_data
 
+    # Generate finer levels.
     for i in range(ref_level - 1, -1, -1):
-        pyramid[i] = zoom_fn(pyramid[i + 1], scale=2.0)
+        scale = tuple(
+            level_scale_ratios[i + 1][axis] / level_scale_ratios[i][axis]
+            for axis in range(3)
+        )
+        pyramid[i] = zoom_fn(pyramid[i + 1], scale=scale)
 
+    # Generate coarser levels.
     for i in range(ref_level + 1, total_levels):
-        pyramid[i] = zoom_fn(pyramid[i - 1], scale=0.5)
+        scale = tuple(
+            level_scale_ratios[i - 1][axis] / level_scale_ratios[i][axis]
+            for axis in range(3)
+        )
+        pyramid[i] = zoom_fn(pyramid[i - 1], scale=scale)
 
     return pyramid
 
 
-def _scale_index(index_tuple, shape, scale_factor: float):
-    """
-    Scale only spatial indices (z, y, x) for a target pyramid level.
+def _scale_index(index_tuple, shape, scale_factor: SpatialFactor):
+    """Scale only spatial indices for image arrays shaped T, C, Z, Y, X."""
+    zyx_factors = normalize_spatial_factor(
+        scale_factor,
+        name="scale_factor",
+        allow_float=True,
+    )
 
-    t and c are never scaled.
-    `shape` is the shape of the data being written at that target level.
-    """
     t, c, z, y, x = index_tuple
 
-    def scale_spatial(sel, size):
+    def scale_spatial(sel, size, factor):
         if isinstance(sel, int):
-            return int(sel / scale_factor)
+            return int(sel / factor)
 
-        start = None if sel.start is None else int(sel.start / scale_factor)
-        stop = start + size if start is not None else size
+        start = None if sel.start is None else int(sel.start / factor)
+        stop = size if start is None else start + size
+
         return slice(start, stop, None)
 
     return (
         t,
         c,
-        scale_spatial(z, shape[2]),
-        scale_spatial(y, shape[3]),
-        scale_spatial(x, shape[4]),
+        scale_spatial(z, shape[2], zyx_factors[0]),
+        scale_spatial(y, shape[3], zyx_factors[1]),
+        scale_spatial(x, shape[4], zyx_factors[2]),
     )

@@ -6,6 +6,7 @@ import dask.array as da
 import warnings
 
 from typing import TYPE_CHECKING, Optional
+from collections.abc import Sequence
 
 if TYPE_CHECKING:
     import napari
@@ -97,7 +98,7 @@ class MicroscopeManager(ABC):
 
     def build_pyramid(self, 
                       num_levels: Optional[int] = 3, 
-                      downscale_factor: Optional[int] = 2,
+                      downscale_factor: int | Sequence[int] | None = 2,
                       start_level: Optional[int] = 0,
                       ) -> None:
         """Build additional pyramid levels from the current base-resolution data.
@@ -110,7 +111,7 @@ class MicroscopeManager(ABC):
         self.data, self.metadata = _build_pyramid(
             self.data, self.metadata, 
             num_levels=num_levels, 
-            downscale_factor=downscale_factor,
+            downscale_factor=2 if downscale_factor is None else downscale_factor,
             start_level = start_level,
         )
 

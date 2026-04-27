@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Tuple, List, Dict, Any, Optional, TYPE_CHECKING
+from typing import Sequence, Tuple, List, Dict, Any, Optional, TYPE_CHECKING
 from pathlib import Path
 import os
 
@@ -8,6 +8,7 @@ import dask.array as da
 import zarr
 
 from .microscope_manager import MicroscopeManager
+from collections.abc import Sequence
 
 if TYPE_CHECKING:
     import napari
@@ -396,6 +397,7 @@ class ZarrManager(MicroscopeManager):
         x: int | slice = slice(None),
         level: int = 0,
         group: Optional[str] = None,
+        downscale_factor: int | Sequence[int] | None = None,
     ):
         """Write an image patch into a root or subgroup pyramid and refresh lower levels."""
         from .utils.write_image_region import write_image_region as _write_image_region
@@ -410,6 +412,7 @@ class ZarrManager(MicroscopeManager):
             x=x,
             level=level,
             group_name=group,
+            downscale_factor=downscale_factor,
         )
 
     def write_label_region(
@@ -421,6 +424,7 @@ class ZarrManager(MicroscopeManager):
         x: int | slice = slice(None),
         level: int = 0,
         group: str = None,
+        downscale_factor: int | Sequence[int] | None = None,
     ):
         """Write a label patch into a label pyramid and regenerate coarser levels."""
         from .utils.write_label_region import write_label_region as _write_label_region
@@ -434,4 +438,5 @@ class ZarrManager(MicroscopeManager):
             x=x,
             level=level,
             group_name=group,
+            downscale_factor=downscale_factor,
         )
