@@ -1,19 +1,41 @@
-import zarr
-import numpy as np
-import dask.array as da
-from typing import Any, Literal, Sequence
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import Any, Literal, Sequence
+
+import dask.array as da
+import numpy as np
+import zarr
 from numcodecs import Blosc, GZip
+
+from .axes import (
+    DATA_TYPES,
+    SPATIAL_AXIS_SET,
+    normalize_axes,
+    normalize_data_type,
+    spatial_axes_in_order,
+)
 
 DEFAULT_COLORS = (
     "FF0000", "00FF00", "0000FF", "FFFF00",
     "FF00FF", "00FFFF", "FFFFFF", "808080",
 )
-SPATIAL_AXES = {"z", "y", "x"}
+SPATIAL_AXES = SPATIAL_AXIS_SET
+
 
 @dataclass(slots=True)
 class ZarrWriteConfig:
-    """Configuration container for NGFF/OME-Zarr writing operations."""
+    """Configuration container for NGFF/OME-Zarr writing operations.
+
+    Parameters
+    ----------
+    ngff_version, zarr_format
+        ``0.4``/Zarr v2 and ``0.5``/Zarr v3 are the supported pairs.
+    data_type
+        Optional dataset semantic type.  Use ``"intensity"`` for regular image
+        intensities or ``"label"`` for integer segmentation/annotation data.
+    """
+
     ngff_version: Literal["0.4", "0.5"] | None = None
     zarr_format: Literal[2, 3] | None = None
     overwrite: bool = True
@@ -21,6 +43,7 @@ class ZarrWriteConfig:
     storage_options: dict[str, Any] | None = None
     compressor: Literal["blosc", "gzip"] | None = None
     compressor_level: int = 3
+    data_type: Literal["intensity", "label"] | None = None
 
 def _infer_ngff_version(group: zarr.Group) -> str:
     """Infer the NGFF metadata layout used by an existing group."""
@@ -29,30 +52,75 @@ def _infer_ngff_version(group: zarr.Group) -> str:
         return attrs["ome"].get("version", "0.5")
     return "0.4"
 
+def _label_entry(label_name: str) -> dict[str, Any]:
+    label_path = f"labels/{label_name}"
+    return label_path
+
+
+def _labels_contains(labels: Sequence[Any], label_name: str) -> bool:
+    label_path = f"labels/{label_name}"
+    for item in labels:
+        if item == label_name or item == label_path:
+            return True
+        if isinstance(item, dict) and item.get("name") == label_name:
+            return True
+        if isinstance(item, dict) and item.get("path") == label_path:
+            return True
+    return False
+
 def _register_label_on_root(root: zarr.Group, label_name: str, ngff_version: str) -> None:
     """Register a label group in the root label list for the active NGFF version."""
-    label_path = f"labels/{label_name}"
     attrs = root.attrs.asdict()
+    entry = _label_entry(label_name)
 
     if ngff_version == "0.5":
         ome = dict(attrs.get("ome", {}))
+        ome.setdefault("version", "0.5")
         labels = list(ome.get("labels", []))
-        if label_path not in labels:
-            labels.append(label_path)
+        if not _labels_contains(labels, label_name):
+            labels.append(entry)
         ome["labels"] = labels
         root.attrs["ome"] = ome
     else:
         labels = list(attrs.get("labels", []))
-        if label_path not in labels:
-            labels.append(label_path)
+        if not _labels_contains(labels, label_name):
+            labels.append(entry)
         root.attrs["labels"] = labels
+
+
+def _get_group_ome_attrs(group: zarr.Group) -> dict[str, Any]:
+    """Return the effective OME-NGFF metadata mapping for a group."""
+    attrs = group.attrs.asdict()
+    ome = attrs.get("ome")
+    return ome if isinstance(ome, dict) else attrs
 
 def _get_multiscales(group: zarr.Group) -> list[dict[str, Any]]:
     """Return the raw ``multiscales`` list from a group across NGFF versions."""
+    return _get_group_ome_attrs(group).get("multiscales", [])
+
+def _get_group_multiscales(group: zarr.Group):
+    """Compatibility helper returning the stored multiscales block for a group."""
+    return _get_group_ome_attrs(group).get("multiscales")
+
+def _infer_data_type_from_group(group: zarr.Group) -> str:
+    """Infer ``intensity`` or ``label`` from explicit and legacy metadata."""
     attrs = group.attrs.asdict()
-    if "ome" in attrs:
-        return attrs["ome"].get("multiscales", [])
-    return attrs.get("multiscales", [])
+    image_meta = _get_group_ome_attrs(group)
+
+    explicit = image_meta.get("data_type") or attrs.get("data_type")
+    if explicit is not None:
+        return normalize_data_type(explicit)
+
+    if "image-label" in image_meta or "image-label" in attrs:
+        return "label"
+
+    multiscales = image_meta.get("multiscales", [])
+    if multiscales:
+        ms_type = multiscales[0].get("type")
+        if ms_type in DATA_TYPES or ms_type in {"image", "labels"}:
+            return normalize_data_type(ms_type)
+
+    return "intensity"
 
 def _set_group_ngff_metadata(
     group: zarr.Group,
@@ -60,32 +128,51 @@ def _set_group_ngff_metadata(
     ngff_version: str,
     multiscales: dict[str, Any],
     omero: dict[str, Any] | None = None,
+    data_type: str | None = None,
     extra: dict[str, Any] | None = None,
 ) -> None:
     """Write NGFF metadata to ``group`` using either the v0.4 or v0.5 layout."""
-    extra = extra or {}
+    extra = dict(extra or {})
+    normalized_data_type = normalize_data_type(data_type)
+    multiscales = dict(multiscales)
+    multiscales.setdefault("type", "label" if normalized_data_type == "label" else "image")
+
+    if normalized_data_type == "label":
+        extra.setdefault("image-label", {"source": {"image": "../../"}})
 
     if ngff_version == "0.5":
-        payload = {"version": "0.5", "multiscales": [multiscales]}
-        if omero is not None:
+        payload = {
+            "version": "0.5",
+            "data_type": normalized_data_type,
+            "multiscales": [multiscales],
+        }
+        if omero is not None and normalized_data_type == "intensity":
             payload["omero"] = omero
         payload.update(extra)
         group.attrs["ome"] = payload
     else:
+        group.attrs["data_type"] = normalized_data_type
         group.attrs["multiscales"] = [multiscales]
-        if omero is not None:
+        if omero is not None and normalized_data_type == "intensity":
             group.attrs["omero"] = omero
-        for k, v in extra.items():
-            group.attrs[k] = v
+        for key, value in extra.items():
+            group.attrs[key] = value
 
-def _get_group_multiscales(group: zarr.Group):
-    """Compatibility helper returning the stored multiscales block for a group."""
-    attrs = group.attrs.asdict()
-    if "ome" in attrs:
-        return attrs["ome"].get("multiscales")
-    return attrs.get("multiscales")
-
-
+def _set_dimension_names(
+    group: zarr.Group,
+    datasets: Sequence[dict[str, Any]],
+    axes: Sequence[str],
+    *,
+    zarr_format: int,
+) -> None:
+    """Write Zarr v3 array-level dimension names required by NGFF v0.5."""
+    if zarr_format != 3:
+        return
+    names = [str(axis) for axis in axes]
+    for dataset in datasets:
+        path = dataset.get("path")
+        if path in group:
+            group[path].attrs["dimension_names"] = names
 
 
 def _resolve_format(cfg: ZarrWriteConfig) -> tuple[str, int]:
@@ -209,19 +296,33 @@ def _validate_metadata(
     axes: tuple[str, ...],
 ) -> None:
     """Validate the minimal metadata contract required for NGFF writing."""
+    if not data_levels:
+        raise ValueError("data_levels cannot be empty.")
+
     ndim = data_levels[0].ndim
-    if len(axes) != ndim:
-        raise ValueError(f"`axes` has length {len(axes)} but arrays have ndim={ndim}.")
+    axes = normalize_axes(axes, ndim=ndim)
 
     for arr in data_levels[1:]:
         if arr.ndim != ndim:
             raise ValueError("All pyramid levels must have the same ndim.")
 
+    data_type = normalize_data_type(metadata.get("data_type"))
+    if data_type == "label" and not np.issubdtype(np.dtype(data_levels[0].dtype), np.integer):
+        raise ValueError("Label datasets must use an integer dtype.")
+
+    sizes = metadata.get("size")
+    if sizes is not None and len(sizes) != len(data_levels):
+        raise ValueError("metadata['size'] must contain one entry per pyramid level.")
+
+    chunks = metadata.get("chunksize")
+    if chunks is not None and len(chunks) != len(data_levels):
+        raise ValueError("metadata['chunksize'] must contain one entry per pyramid level.")
+
     scales = metadata.get("scales")
     if scales is None or len(scales) != len(data_levels):
-        raise ValueError("`metadata['scales']` must contain one entry per pyramid level.")
+        raise ValueError("metadata['scales'] must contain one entry per pyramid level.")
 
-    spatial_axes = [ax for ax in axes if ax in SPATIAL_AXES]
+    spatial_axes = spatial_axes_in_order(axes)
     for scale in scales:
         if len(scale) != len(spatial_axes):
             raise ValueError(
@@ -232,27 +333,28 @@ def _validate_metadata(
     spatial_units = list(metadata.get("units", ()))
     if spatial_units and len(spatial_units) != len(spatial_axes):
         raise ValueError(
-            "`metadata['units']` must match the number of spatial axes "
+            "metadata['units'] must match the number of spatial axes "
             f"({len(spatial_axes)})."
         )
 
     if "t" in axes and metadata.get("time_increment") is None:
-        raise ValueError("A `t` axis requires `metadata['time_increment']`.")
+        raise ValueError("A 't' axis requires metadata['time_increment'].")
 
 
 def _build_axes(axes: tuple[str, ...], metadata: dict[str, Any]) -> list[dict[str, Any]]:
     """Build the NGFF ``axes`` description from the normalized PyMIF metadata."""
+    axes = normalize_axes(axes)
     axis_types = {"t": "time", "c": "channel", "z": "space", "y": "space", "x": "space"}
-    spatial_axes = [ax for ax in axes if ax in SPATIAL_AXES]
+    spatial_labels = spatial_axes_in_order(axes)
     spatial_units = [
-        _normalize_unit(u) for u in metadata.get("units", [None] * len(spatial_axes))
+        _normalize_unit(u) for u in metadata.get("units", [None] * len(spatial_labels))
     ]
-    spatial_unit_map = dict(zip(spatial_axes, spatial_units))
+    spatial_unit_map = dict(zip(spatial_labels, spatial_units))
     time_unit = _normalize_unit(metadata.get("time_increment_unit"))
 
     out = []
     for ax in axes:
-        entry = {"name": ax, "type": axis_types.get(ax, "unknown")}
+        entry = {"name": ax, "type": axis_types[ax]}
         if ax == "t" and time_unit:
             entry["unit"] = time_unit
         elif ax in spatial_unit_map and spatial_unit_map[ax]:
@@ -263,11 +365,12 @@ def _build_axes(axes: tuple[str, ...], metadata: dict[str, Any]) -> list[dict[st
 
 def _build_coordinate_transformations(
     *,
-    axes: tuple[str, ...],
+    axes: tuple[str, ...] | str,
     scales: Sequence[Sequence[float]],
     time_increment: float | None,
 ) -> list[list[dict[str, Any]]]:
     """Generate one NGFF scale transformation entry per pyramid level."""
+    axes = normalize_axes(axes)
     out = []
     for spatial_scale in scales:
         spatial_iter = iter(spatial_scale)
@@ -277,21 +380,21 @@ def _build_coordinate_transformations(
                 full_scale.append(float(time_increment if time_increment is not None else 1.0))
             elif ax == "c":
                 full_scale.append(1.0)
-            elif ax in SPATIAL_AXES:
+            elif ax in SPATIAL_AXIS_SET:
                 full_scale.append(float(next(spatial_iter)))
             else:
                 full_scale.append(1.0)
-
         out.append([{"type": "scale", "scale": full_scale}])
     return out
 
 
 def _build_omero_metadata(
     arr: da.Array,
-    axes: tuple[str, ...],
+    axes: tuple[str, ...] | str,
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
-    """Create OMERO channel display metadata for an array."""
+    """Create OMERO channel display metadata for an intensity array."""
+    axes = normalize_axes(axes, ndim=arr.ndim)
     c_size = arr.shape[axes.index("c")] if "c" in axes else 1
     ch_names = list(metadata.get("channel_names") or [])
     ch_colors = list(metadata.get("channel_colors") or [])
@@ -319,6 +422,8 @@ def _build_omero_metadata(
 def _default_window(dtype: np.dtype | str) -> tuple[float, float]:
     """Return a default display range for the provided dtype."""
     dt = np.dtype(dtype)
+    if np.issubdtype(dt, np.bool_):
+        return 0.0, 1.0
     if np.issubdtype(dt, np.integer):
         info = np.iinfo(dt)
         return float(info.min), float(info.max)
@@ -341,24 +446,16 @@ def _normalize_color(color: Any) -> str:
 
 
 def _normalize_unit(unit: str | None) -> str | None:
-    """Map common unit aliases to the names expected in NGFF metadata."""
+    """Map common unit aliases to names expected in NGFF metadata."""
     if not unit:
         return None
 
     aliases = {
         "um": "micrometer",
-        "μm": "micrometer",
-        "\u00b5m": "micrometer",
         "micron": "micrometer",
         "microns": "micrometer",
         "s": "second",
         "sec": "second",
     }
-    return aliases.get(unit.strip(), unit.strip())
-
-def _get_group_ome_attrs(group: zarr.Group) -> dict[str, Any]:
-    """Return the effective image metadata mapping for a group."""
-    attrs = group.attrs.asdict()
-    return attrs.get("ome", attrs)
-
-
+    unit = str(unit).strip()
+    return aliases.get(unit, unit)

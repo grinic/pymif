@@ -1,17 +1,28 @@
-from typing import Union, List, Optional
-import numpy as np
-import dask.array as da
-import zarr
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Optional, Union
 import warnings
 
-from .zoom import _zoom_numpy, _zoom_dask
-from .ngff import _get_group_multiscales
+import dask.array as da
+import numpy as np
+import zarr
+
+from .axes import normalize_axes, spatial_axis_indices, spatial_values_for_axes
+from .downsampling import (
+    SpatialFactor,
+    axis_names_from_multiscales,
+    level_scale_ratios_from_multiscales,
+    relative_level_factors_for_axes,
+)
+from .ngff import _get_group_multiscales, _infer_data_type_from_group
+from .zoom import _zoom_dask, _zoom_numpy
 
 
 def write_image_region(
     root: zarr.Group,
     mode: str,
-    data: Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]],
+    data: Union[np.ndarray, da.Array, list[Union[np.ndarray, da.Array]]],
     t: int | slice = slice(None),
     c: int | slice = slice(None),
     z: int | slice = slice(None),
@@ -19,114 +30,133 @@ def write_image_region(
     x: int | slice = slice(None),
     level: int = 0,
     group_name: Optional[str] = None,
+    downscale_factor: SpatialFactor | None = None,
 ):
-    """
-    Internal function that writes image data (pyramid or single array) to a zarr group.
+    """Write image data into an existing OME-Zarr pyramid region.
 
-    If a single array is provided, the function automatically generates
-    the complete pyramid by upsampling and downsampling from the given level.
-
-    Parameters
-    ----------
-    root : zarr.Group
-        The root Zarr group.
-    mode : str
-        Zarr open mode ("r+", "a", or "w"). Must allow writing.
-    data : np.ndarray, da.Array, or list thereof
-        Array(s) to write. If a list, each entry corresponds to one resolution level.
-        If a single array, pyramid levels will be generated automatically.
-    t, c, z, y, x : int or slice
-        Indices/slices for each dimension.
-    level : int
-        Pyramid level of the provided `data` if `data` is a single array.
-    group_name : str, optional
-        Name of the subgroup inside the root. If None, writes to root image.
+    The target array axes are read from the group's multiscales metadata.  Axes
+    may be any subset of ``tczyx``; selectors for missing axes are ignored.
     """
+    return _write_region(
+        root=root,
+        mode=mode,
+        data=data,
+        selectors={"t": t, "c": c, "z": z, "y": y, "x": x},
+        level=level,
+        group_name=group_name,
+        downscale_factor=downscale_factor,
+        expected_data_type="intensity",
+    )
+
+
+def _write_region(
+    *,
+    root: zarr.Group,
+    mode: str,
+    data: Union[np.ndarray, da.Array, list[Union[np.ndarray, da.Array]]],
+    selectors: dict[str, int | slice],
+    level: int,
+    group_name: Optional[str],
+    downscale_factor: SpatialFactor | None,
+    expected_data_type: str | None = None,
+):
     if mode not in ("r+", "a", "w"):
         raise PermissionError(
-            f"Dataset opened in read-only mode ('{mode}'). "
-            "Reopen with mode='r+' to allow modifications."
+            f"Dataset opened in read-only mode ({mode!r}). Reopen with mode='r+' to allow modifications."
         )
 
-    group = root if group_name is None else (root[group_name] if group_name in root else None)
+    group = _get_nested_group(root, group_name)
     if group is None:
         available = list(root.group_keys())
+        warnings.warn(f"Group {group_name!r} not found. Available root groups: {available}", UserWarning)
+        return
+
+    if expected_data_type is not None:
+        actual_data_type = _infer_data_type_from_group(group)
+        if actual_data_type != expected_data_type:
+            raise ValueError(
+                f"write_{expected_data_type}_region cannot write to a "
+                f"{actual_data_type!r} dataset ({group_name or '/'})."
+            )
+
+    multiscales_all = _get_group_multiscales(group)
+    if not multiscales_all:
         warnings.warn(
-            f"Group '{group_name}' not found. Available groups: {available}",
+            f"No 'multiscales' attribute found in group {group_name or '/'!r}. Nothing to write.",
             UserWarning,
         )
         return
 
-    multiscales = _get_group_multiscales(group)
-    if not multiscales:
-        warnings.warn(
-            f"No 'multiscales' attribute found in group '{group_name or '/'}'. "
-            "Nothing to write.",
-            UserWarning,
-        )
-        return
-
-    multiscales = multiscales[0]
+    multiscales = multiscales_all[0]
     datasets = multiscales.get("datasets", [])
     n_levels = len(datasets)
-
     if n_levels == 0:
-        warnings.warn(
-            f"Group '{group_name or '/'}' contains no pyramid datasets.",
-            UserWarning,
-        )
+        warnings.warn(f"Group {group_name or '/'!r} contains no pyramid datasets.", UserWarning)
         return
+    if not 0 <= level < n_levels:
+        raise ValueError(f"level must be in [0, {n_levels}), got {level}.")
+
+    axes = normalize_axes(axis_names_from_multiscales(multiscales), ndim=group[datasets[level]["path"]].ndim)
+
+    if downscale_factor is None:
+        level_scale_ratios = level_scale_ratios_from_multiscales(multiscales, datasets, level)
+        if level_scale_ratios is None:
+            level_scale_ratios = relative_level_factors_for_axes(n_levels, level, axes, downscale_factor=2)
+    else:
+        level_scale_ratios = relative_level_factors_for_axes(n_levels, level, axes, downscale_factor=downscale_factor)
 
     if isinstance(data, (np.ndarray, da.Array)):
-        data_list = _generate_pyramid(data, total_levels=n_levels, ref_level=level)
+        data_list = _generate_pyramid(
+            data,
+            total_levels=n_levels,
+            ref_level=level,
+            axes=axes,
+            level_scale_ratios=level_scale_ratios,
+        )
     elif isinstance(data, list):
         data_list = data
         if len(data_list) != n_levels:
             warnings.warn(
-                f"Provided pyramid has {len(data_list)} levels, "
-                f"but dataset expects {n_levels}.",
+                f"Provided pyramid has {len(data_list)} levels, but dataset expects {n_levels}.",
                 UserWarning,
             )
     else:
-        raise TypeError("`data` must be a NumPy array, Dask array, or list of such.")
+        raise TypeError("data must be a NumPy array, Dask array, or list of such arrays.")
 
     for i, subdata in enumerate(data_list):
         if i >= n_levels:
             break
-
         arr_path = datasets[i]["path"]
         if arr_path not in group:
+            warnings.warn(f"Dataset path {arr_path!r} not found in group {group_name or '/'!r}.", UserWarning)
+            continue
+
+        zarr_array = group[arr_path]
+        if subdata.ndim != len(axes):
             warnings.warn(
-                f"Dataset path '{arr_path}' not found in group '{group_name or '/'}'.",
+                f"Region write for axes {''.join(axes)!r} expects {len(axes)}D data, "
+                f"got shape {subdata.shape}. Skipping level {i}.",
                 UserWarning,
             )
             continue
 
-        zarr_array = group[arr_path]
+        index = _scale_index(
+            (selectors.get("t", slice(None)), selectors.get("c", slice(None)), selectors.get("z", slice(None)), selectors.get("y", slice(None)), selectors.get("x", slice(None))),
+            subdata.shape,
+            level_scale_ratios[i],
+            axes=axes,
+        )
 
         if isinstance(subdata, da.Array):
             subdata = subdata.compute()
 
-        if subdata.ndim != 5:
-            warnings.warn(
-                f"Image write expects 5D data (tczyx), got shape {subdata.shape}. "
-                f"Skipping level {i}.",
-                UserWarning,
-            )
-            continue
-
-        scale_factor = 2 ** (i - level)
-        index = _scale_index((t, c, z, y, x), subdata.shape, scale_factor)
-
         expected_shape = zarr_array[index].shape
         if subdata.shape != expected_shape:
             warnings.warn(
-                f"Shape mismatch for level {i}: data={subdata.shape}, "
-                f"expected={expected_shape}. Skipping level.",
+                f"Shape mismatch for level {i}: data={subdata.shape}, expected={expected_shape}. Skipping level.",
                 UserWarning,
             )
             continue
-
         zarr_array[index] = subdata
 
     store = getattr(root, "store", None)
@@ -134,49 +164,171 @@ def write_image_region(
         store.flush()
 
 
+def _get_nested_group(root: zarr.Group, group_name: str | None) -> zarr.Group | None:
+    """Resolve a potentially nested group path such as ``labels/nuclei``."""
+    if group_name in (None, "", "/"):
+        return root
+    parts = [p for p in str(group_name).split("/") if p]
+    group = root
+    for part in parts:
+        if part not in group:
+            return None
+        group = group[part]
+    return group
+
+
+def _is_reciprocal_integer_shrink(scale: Sequence[float]) -> tuple[bool, tuple[int, ...]]:
+    """Return integer downsampling factors for shrink scales such as 1, 1/2, 1/4."""
+    factors = []
+    for value in scale:
+        value = float(value)
+        if value <= 0 or value > 1:
+            return False, ()
+        factor = 1.0 / value
+        rounded = int(round(factor))
+        if rounded < 1 or abs(factor - rounded) > 1e-6:
+            return False, ()
+        factors.append(rounded)
+    return True, tuple(factors)
+
+
+def _downsample_nearest_exact_numpy(
+    arr: np.ndarray,
+    factors: Sequence[int],
+    spatial_axes: Sequence[int],
+) -> np.ndarray:
+    """Nearest-neighbor downsampling with ceil output sizes on odd axes."""
+    pad_width = [(0, 0)] * arr.ndim
+    slicing = [slice(None)] * arr.ndim
+    for axis, factor in zip(spatial_axes, factors):
+        factor = int(factor)
+        if factor <= 1:
+            continue
+        size = int(arr.shape[axis])
+        remainder = size % factor
+        if remainder:
+            pad_width[axis] = (0, factor - remainder)
+        slicing[axis] = slice(0, None, factor)
+    if any(width != (0, 0) for width in pad_width):
+        arr = np.pad(arr, pad_width, mode="edge")
+    return arr[tuple(slicing)]
+
+
+def _downsample_nearest_exact_dask(
+    arr: da.Array,
+    factors: Sequence[int],
+    spatial_axes: Sequence[int],
+) -> da.Array:
+    """Dask equivalent of _downsample_nearest_exact_numpy."""
+    if not isinstance(arr, da.Array):
+        arr = da.from_array(arr, chunks="auto")
+
+    pad_width = [(0, 0)] * arr.ndim
+    slicing = [slice(None)] * arr.ndim
+    for axis, factor in zip(spatial_axes, factors):
+        factor = int(factor)
+        if factor <= 1:
+            continue
+        size = int(arr.shape[axis])
+        remainder = size % factor
+        if remainder:
+            pad_width[axis] = (0, factor - remainder)
+        slicing[axis] = slice(0, None, factor)
+    if any(width != (0, 0) for width in pad_width):
+        arr = da.pad(arr, pad_width, mode="edge")
+    return arr[tuple(slicing)]
+
+
 def _generate_pyramid(
-    ref_data: Union[np.ndarray, da.Array],
+    ref_data,
     total_levels: int,
     ref_level: int = 0,
-) -> List[Union[np.ndarray, da.Array]]:
-    """
-    Generate a full pyramid from a given reference level.
-    """
-    zoom_fn = _zoom_dask if isinstance(ref_data, da.Array) else _zoom_numpy
+    *,
+    axes: str | Sequence[str] = "tczyx",
+    downscale_factor: SpatialFactor = 2,
+    level_scale_ratios: list[tuple[float, ...]] | None = None,
+):
+    """Generate a full pyramid from a reference level using axis-aware zoom."""
+    axes = normalize_axes(axes, ndim=ref_data.ndim)
+    if level_scale_ratios is None:
+        level_scale_ratios = relative_level_factors_for_axes(total_levels, ref_level, axes, downscale_factor)
+    if len(level_scale_ratios) != total_levels:
+        raise ValueError("level_scale_ratios must contain one entry per pyramid level.")
 
+    zoom_fn = _zoom_dask if isinstance(ref_data, da.Array) else _zoom_numpy
+    spatial_axes = spatial_axis_indices(axes)
     pyramid = [None] * total_levels
     pyramid[ref_level] = ref_data
 
+    if not spatial_axes:
+        for i in range(total_levels):
+            if pyramid[i] is None:
+                pyramid[i] = ref_data
+        return pyramid
+
     for i in range(ref_level - 1, -1, -1):
-        pyramid[i] = zoom_fn(pyramid[i + 1], scale=2.0)
+        scale = tuple(
+            level_scale_ratios[i + 1][axis] / level_scale_ratios[i][axis]
+            for axis in range(len(spatial_axes))
+        )
+        pyramid[i] = zoom_fn(pyramid[i + 1], scale=scale, spatial_axes=spatial_axes)
 
     for i in range(ref_level + 1, total_levels):
-        pyramid[i] = zoom_fn(pyramid[i - 1], scale=0.5)
+        scale = tuple(
+            level_scale_ratios[i - 1][axis] / level_scale_ratios[i][axis]
+            for axis in range(len(spatial_axes))
+        )
+        is_integer_shrink, integer_factors = _is_reciprocal_integer_shrink(scale)
+        if is_integer_shrink:
+            if isinstance(pyramid[i - 1], da.Array):
+                pyramid[i] = _downsample_nearest_exact_dask(
+                    pyramid[i - 1], integer_factors, spatial_axes=spatial_axes
+                )
+            else:
+                pyramid[i] = _downsample_nearest_exact_numpy(
+                    pyramid[i - 1], integer_factors, spatial_axes=spatial_axes
+                )
+        else:
+            pyramid[i] = zoom_fn(pyramid[i - 1], scale=scale, spatial_axes=spatial_axes)
 
     return pyramid
 
 
-def _scale_index(index_tuple, shape, scale_factor: float):
-    """
-    Scale only spatial indices (z, y, x) for a target pyramid level.
+def _scale_index(
+    index_tuple,
+    shape,
+    scale_factor: SpatialFactor,
+    axes: str | Sequence[str] = "tczyx",
+):
+    """Scale spatial selectors for an array with arbitrary ``tczyx`` axes."""
+    axes = normalize_axes(axes, ndim=len(shape))
+    if len(index_tuple) == 5:
+        selectors = dict(zip(("t", "c", "z", "y", "x"), index_tuple))
+    elif len(index_tuple) == 4:
+        selectors = dict(zip(("t", "z", "y", "x"), index_tuple))
+        selectors.setdefault("c", slice(None))
+    else:
+        raise ValueError("index_tuple must be ordered as (t,c,z,y,x) or (t,z,y,x).")
 
-    t and c are never scaled.
-    `shape` is the shape of the data being written at that target level.
-    """
-    t, c, z, y, x = index_tuple
+    spatial_factors = spatial_values_for_axes(scale_factor, axes, name="scale_factor", allow_float=True)
+    spatial_iter = iter(spatial_factors)
 
-    def scale_spatial(sel, size):
-        if isinstance(sel, int):
-            return int(sel / scale_factor)
+    def scale_spatial(sel, size, factor):
+        if isinstance(sel, (int, np.integer)):
+            return int(sel / factor)
+        if isinstance(sel, slice):
+            start = None if sel.start is None else int(sel.start / factor)
+            stop = size if start is None else start + size
+            return slice(start, stop, None)
+        if isinstance(sel, Sequence) and not isinstance(sel, (str, bytes)):
+            return [int(v / factor) for v in sel]
+        return sel
 
-        start = None if sel.start is None else int(sel.start / scale_factor)
-        stop = start + size if start is not None else size
-        return slice(start, stop, None)
-
-    return (
-        t,
-        c,
-        scale_spatial(z, shape[2]),
-        scale_spatial(y, shape[3]),
-        scale_spatial(x, shape[4]),
-    )
+    out = []
+    for axis_number, ax in enumerate(axes):
+        sel = selectors.get(ax, slice(None))
+        if ax in {"z", "y", "x"}:
+            out.append(scale_spatial(sel, shape[axis_number], next(spatial_iter)))
+        else:
+            out.append(sel)
+    return tuple(out)

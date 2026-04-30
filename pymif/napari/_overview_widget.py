@@ -16,28 +16,59 @@ rc('pdf', fonttype=42)
 # rc('text', usetex=True)
 
 # -------------------------
-# Your existing functions
+# Axis-aware helpers
 # -------------------------
+
+def _dataset_axes(dataset):
+    return str(dataset.metadata.get("axes", "tczyx")).lower()
+
+
+def _axis_index(dataset, axis):
+    axes = _dataset_axes(dataset)
+    return axes.index(axis) if axis in axes else None
+
+
+def _axis_size(dataset, axis, default=1):
+    idx = _axis_index(dataset, axis)
+    if idx is None:
+        return default
+    return int(dataset.metadata["size"][0][idx])
+
+
+def _scale_for_axes(dataset, requested_axes):
+    axes = _dataset_axes(dataset)
+    spatial_axes = [ax for ax in axes if ax in "zyx"]
+    scales = dataset.metadata.get("scales", [(1,) * len(spatial_axes)])
+    scale_map = dict(zip(spatial_axes, scales[0]))
+    return tuple(scale_map.get(ax, 1) for ax in requested_axes if ax in axes)
+
+
 
 def draw_3d_polygon(viewer, dataset):
     """Update the 3D crop box layer from the current 2D ROI and z-range markers."""
+    if any(name not in viewer.layers for name in ("ROI", "Zrange", "box")):
+        return
+    axes = _dataset_axes(dataset)
+    if not {"z", "y", "x"}.issubset(axes):
+        return
+
     roi_layer = viewer.layers["ROI"]
     zrange_layer = viewer.layers["Zrange"]
     zvals = [d[0] for d in zrange_layer.data]
 
     if len(zvals) == 0:
-        zrange = [0, dataset.data[0].shape[2]]
+        zrange = [0, _axis_size(dataset, "z") - 1]
     elif len(zvals) == 1:
-        zrange = [zvals[0], dataset.data[0].shape[2]]
+        zrange = [zvals[0], _axis_size(dataset, "z") - 1]
     else:
         zrange = list(zvals[:2])
 
     if len(roi_layer.data) == 0:
         roi = [
             [0, 0],
-            [0, dataset.data[0].shape[4]],
-            [dataset.data[0].shape[3], dataset.data[0].shape[4]],
-            [dataset.data[0].shape[3], 0],
+            [0, _axis_size(dataset, "x") - 1],
+            [_axis_size(dataset, "y") - 1, _axis_size(dataset, "x") - 1],
+            [_axis_size(dataset, "y") - 1, 0],
         ]
     else:
         roi = [list(r) for r in roi_layer.data[0]]
@@ -54,113 +85,168 @@ def draw_3d_polygon(viewer, dataset):
     viewer.layers["box"].data = polygon
     viewer.layers["box"].refresh()
 
+
 def add_roi_layer(viewer, dataset):
     """Add the editable 2D ROI rectangle layer used by the overview widget."""
+    if not {"y", "x"}.issubset(_dataset_axes(dataset)):
+        return None
+
+    ymax = _axis_size(dataset, "y") - 1
+    xmax = _axis_size(dataset, "x") - 1
     shapes_layer = viewer.add_shapes(
-        data=np.empty((0, 4, 2)),
+        data=np.array([[0, 0], [0, xmax], [ymax, xmax], [ymax, 0]]),
         shape_type="rectangle",
         name="ROI",
         face_color="transparent",
         edge_color="white",
         edge_width=10,
         ndim=2,
-        scale=dataset.metadata["scales"][0][1:],
+        scale=_scale_for_axes(dataset, "yx"),
     )
     shapes_layer.mode = "add_rectangle"
 
     def check_shape_count(event=None):
-
         if len(shapes_layer.data) > 0:
             shapes_layer.mode = 'select'
             draw_3d_polygon(viewer, dataset)
         else:
-            viewer.layers["box"].data = []
+            if "box" in viewer.layers:
+                viewer.layers["box"].data = []
             shapes_layer.mode = 'add_rectangle'
 
-        # shapes_layer.refresh()
-
-    # Add/delete shapes
     shapes_layer.events.data.connect(check_shape_count)
-
-    # Mode changes
     shapes_layer.events.mode.connect(check_shape_count)
 
     return shapes_layer
 
+
 def add_zrange_layer(viewer, dataset):
     """Add the point layer used to mark the z-range for overview generation."""
+    if not {"z", "y", "x"}.issubset(_dataset_axes(dataset)):
+        return None
+
     points_layer = viewer.add_points(
-        data=np.empty((0, 2, 3)),
+        data=np.array([[0, _axis_size(dataset, "y") // 2, _axis_size(dataset, "x") // 2],
+                       [_axis_size(dataset, "z") - 1, _axis_size(dataset, "y") // 2, _axis_size(dataset, "x") // 2]]),
         name="Zrange",
         face_color="white",
         ndim=3,
         size=20,
         out_of_slice_display=True,
-        scale=dataset.metadata["scales"][0],
+        scale=_scale_for_axes(dataset, "zyx"),
     )
     points_layer.mode = "add"
 
     def check_points_count(event=None):
-
         if len(points_layer.data) == 1:
             if not points_layer.mode == 'select':
                 points_layer.mode = 'add'
         elif len(points_layer.data) > 1:
             points_layer.mode = 'select'
-            viewer.layers.selection.active = viewer.layers['box']
+            if 'box' in viewer.layers:
+                viewer.layers.selection.active = viewer.layers['box']
         else:
             points_layer.mode = 'add'
         draw_3d_polygon(viewer, dataset)
 
-    # Add/delete shapes
     points_layer.events.data.connect(check_points_count)
-
-    # Mode changes
     points_layer.events.mode.connect(check_points_count)
     
     return points_layer
 
+
 def make_overview(dataset, viewer, output_path, overview_filename="overview", overview_format="pdf"):
     """Render per-channel and merged maximum projections for the selected ROI."""
-    roi_layer = viewer.layers["ROI"]
-    zrange_layer = viewer.layers["Zrange"]
+    axes = _dataset_axes(dataset)
+    if not {"y", "x"}.issubset(axes):
+        raise ValueError("Overview export requires Y and X axes.")
 
-    ymin = int(roi_layer.data[0][:, 0].min())
-    xmin = int(roi_layer.data[0][:, 1].min())
-    ymax = int(roi_layer.data[0][:, 0].max())
-    xmax = int(roi_layer.data[0][:, 1].max())
+    if "ROI" in viewer.layers and len(viewer.layers["ROI"].data) > 0:
+        roi_layer = viewer.layers["ROI"]
+        ymin = int(roi_layer.data[0][:, 0].min())
+        xmin = int(roi_layer.data[0][:, 1].min())
+        ymax = int(roi_layer.data[0][:, 0].max())
+        xmax = int(roi_layer.data[0][:, 1].max())
+    else:
+        ymin, xmin = 0, 0
+        ymax, xmax = _axis_size(dataset, "y") - 1, _axis_size(dataset, "x") - 1
 
-    if len(zrange_layer.data)>0:
+    if "z" in axes and "Zrange" in viewer.layers and len(viewer.layers["Zrange"].data) > 0:
+        zrange_layer = viewer.layers["Zrange"]
         zmin = int(min([d[0] for d in zrange_layer.data]))
         zmax = int(max([d[0] for d in zrange_layer.data]))
     else:
         zmin = 0
-        zmax = dataset.metadata["size"][0][2]
+        zmax = _axis_size(dataset, "z") - 1
 
-    crop = dataset.data[0][0, :, zmin:zmax, ymin:ymax, xmin:xmax].compute()
+    slicer = []
+    kept_axes = []
+    for ax_name in axes:
+        if ax_name == "t":
+            slicer.append(0)
+        elif ax_name == "c":
+            slicer.append(slice(None))
+            kept_axes.append("c")
+        elif ax_name == "z":
+            slicer.append(slice(zmin, zmax + 1))
+            kept_axes.append("z")
+        elif ax_name == "y":
+            slicer.append(slice(ymin, ymax + 1))
+            kept_axes.append("y")
+        elif ax_name == "x":
+            slicer.append(slice(xmin, xmax + 1))
+            kept_axes.append("x")
 
-    channel_names = dataset.metadata["channel_names"]
+    crop = dataset.data[0][tuple(slicer)].compute()
+
+    # Normalize to CZYX for plotting.
+    order = [kept_axes.index(ax) for ax in kept_axes if ax in "czyx"]
+    crop = np.moveaxis(crop, order, range(len(order))) if order else np.asarray(crop)
+    kept_axes = [ax for ax in kept_axes if ax in "czyx"]
+
+    if "c" not in kept_axes:
+        crop = np.expand_dims(crop, axis=0)
+        kept_axes.insert(0, "c")
+    if "z" not in kept_axes:
+        c_axis = kept_axes.index("c")
+        if c_axis != 0:
+            crop = np.moveaxis(crop, c_axis, 0)
+            kept_axes.insert(0, kept_axes.pop(c_axis))
+        crop = np.expand_dims(crop, axis=1)
+        kept_axes.insert(1, "z")
+
+    # Move to CZYX explicitly if a non-standard axis order was used.
+    target = [kept_axes.index(ax) for ax in "czyx" if ax in kept_axes]
+    crop = np.moveaxis(crop, target, range(len(target)))
+
+    channel_names = dataset.metadata.get("channel_names") or ["image"]
+    if len(channel_names) != crop.shape[0]:
+        channel_names = [f"Channel {i}" for i in range(crop.shape[0])]
+
     fig, ax = plt.subplots(
         nrows=1,
         ncols=len(channel_names) + 1,
         figsize=(3 * (len(channel_names) + 1), 3),
         tight_layout=True,
     )
+    ax = np.atleast_1d(ax)
 
     merged = None
 
     for i, channel_name in enumerate(channel_names):
-        colors = [list(c) for c in viewer.layers[channel_name].colormap.colors]
-        pos = [j / (len(colors) - 1) for j in range(len(colors))]
-
-        cdict = {
-            "red": [[p, c[0], c[0]] for p, c in zip(pos, colors)],
-            "green": [[p, c[1], c[1]] for p, c in zip(pos, colors)],
-            "blue": [[p, c[2], c[2]] for p, c in zip(pos, colors)],
-        }
-
-        newcmp = LinearSegmentedColormap("testCmap", segmentdata=cdict, N=256)
-        clims = [int(v) for v in viewer.layers[channel_name].contrast_limits]
+        if channel_name in viewer.layers and hasattr(viewer.layers[channel_name], "colormap"):
+            colors = [list(c) for c in viewer.layers[channel_name].colormap.colors]
+            pos = [j / (len(colors) - 1) for j in range(len(colors))]
+            cdict = {
+                "red": [[p, c[0], c[0]] for p, c in zip(pos, colors)],
+                "green": [[p, c[1], c[1]] for p, c in zip(pos, colors)],
+                "blue": [[p, c[2], c[2]] for p, c in zip(pos, colors)],
+            }
+            newcmp = LinearSegmentedColormap("pymif_channel_colormap", segmentdata=cdict, N=256)
+            clims = [int(v) for v in viewer.layers[channel_name].contrast_limits]
+        else:
+            newcmp = "gray"
+            clims = [int(np.min(crop[i])), int(np.max(crop[i])) or 1]
 
         img = np.max(crop[i], 0)
         ax[i].imshow(img, cmap=newcmp, vmin=clims[0], vmax=clims[1])
@@ -168,7 +254,7 @@ def make_overview(dataset, viewer, output_path, overview_filename="overview", ov
 
         norm = Normalize(vmin=clims[0], vmax=clims[1], clip=True)
         img_norm = norm(img)
-        img_rgb = newcmp(img_norm)[..., :3]
+        img_rgb = plt.get_cmap(newcmp)(img_norm)[..., :3] if isinstance(newcmp, str) else newcmp(img_norm)[..., :3]
 
         if merged is None:
             merged = img_rgb.copy()
@@ -184,7 +270,6 @@ def make_overview(dataset, viewer, output_path, overview_filename="overview", ov
         os.makedirs(output_path)
 
     fig.savefig(output_path / f"{overview_filename}.{overview_format}", dpi=300)
-    # plt.close(fig)
 
 # -------------------------
 # MagicGUI controls
@@ -252,7 +337,7 @@ def overview_widget():
         if "Zrange" not in viewer.layers:
             add_zrange_layer(viewer, dataset)
 
-        if "box" not in viewer.layers:
+        if "box" not in viewer.layers and {"z", "y", "x"}.issubset(_dataset_axes(dataset)):
             viewer.add_shapes(
                 data=[],
                 shape_type="polygon",
@@ -260,7 +345,7 @@ def overview_widget():
                 edge_color="coral",
                 face_color="cyan",
                 ndim=3,
-                scale=dataset.metadata["scales"][0],
+                scale=_scale_for_axes(dataset, "zyx"),
             )
 
     @make_overview_widget_inner.input_path.changed.connect

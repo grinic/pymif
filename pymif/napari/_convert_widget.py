@@ -61,38 +61,100 @@ def dataset_reader(microscope):
     
     return reader
 
-def get_chunk_size(dataset_size, max_size_mb=100):
-    """Estimate a chunk shape that stays under the requested size budget."""
-    # --- Select chunk size ---
-    n_chunks = [4,1,1]
-    chunk_size = [
-        1, 1, # T, C
-        int((dataset_size[2]/n_chunks[0])+1),  # Z
-        int((dataset_size[3]/n_chunks[1])+1),  # Y
-        int((dataset_size[4]/n_chunks[2])+1)   # X
-    ]
-    size_mb = 2*chunk_size[2]*chunk_size[3]*chunk_size[4]/1024/1024
-    while size_mb > max_size_mb:
-        n_chunks = [n_chunks[0]*2,n_chunks[1]*2,n_chunks[2]*2]
-        chunk_size = [
-            1, 1, # T, C
-            int((dataset_size[2]/n_chunks[0])+1),  # Z
-            int((dataset_size[3]/n_chunks[1])+1),  # Y
-            int((dataset_size[4]/n_chunks[2])+1)   # X
-        ]
-        size_mb = 2*chunk_size[2]*chunk_size[3]*chunk_size[4]/1024/1024
 
-    return chunk_size
+def _dataset_axes(dataset):
+    """Return normalized dataset axes, defaulting to legacy TCZYX metadata."""
+    return str(dataset.metadata.get("axes", "tczyx")).lower()
 
-def get_n_levels(dataset_size):
-    """Estimate a default number of pyramid levels from the spatial shape."""
+
+def _axis_index(dataset, axis):
+    axes = _dataset_axes(dataset)
+    return axes.index(axis) if axis in axes else None
+
+
+def _axis_size(dataset, axis, default=1):
+    idx = _axis_index(dataset, axis)
+    if idx is None:
+        return default
+    return int(dataset.metadata["size"][0][idx])
+
+
+def _scale_for_axes(dataset, requested_axes):
+    """Return a napari scale tuple for the requested spatial axis labels."""
+    axes = _dataset_axes(dataset)
+    spatial_axes = [ax for ax in axes if ax in "zyx"]
+    scale_map = dict(zip(spatial_axes, dataset.metadata.get("scales", [(1,) * len(spatial_axes)])[0]))
+    return tuple(scale_map.get(ax, 1) for ax in requested_axes if ax in axes)
+
+
+def _chunk_shape_for_dataset(dataset, chunk_z=16, chunk_y=512, chunk_x=512):
+    """Map widget Z/Y/X chunk values onto whatever axes the dataset has."""
+    chunk_map = {"t": 1, "c": 1, "z": chunk_z, "y": chunk_y, "x": chunk_x}
+    axes = _dataset_axes(dataset)
+    return tuple(int(max(1, min(_axis_size(dataset, ax), chunk_map[ax]))) for ax in axes)
+
+
+def _present_range(dataset, axis, requested_range):
+    """Return a clipped inclusive range tuple for a present axis, else None."""
+    if _axis_index(dataset, axis) is None:
+        return None
+    max_idx = _axis_size(dataset, axis) - 1
+    start, end = requested_range
+    return int(max(0, min(start, max_idx))), int(max(0, min(end, max_idx)))
+
+
+def _set_range_widget(widget, size, enabled=True):
+    max_idx = max(0, int(size) - 1)
+    widget.max = max_idx
+    widget.value = (0, max_idx)
+    widget.enabled = bool(enabled and size > 1)
+
+def get_chunk_size(dataset_size, max_size_mb=100, axes="tczyx"):
+    """Estimate a chunk shape for any dataset axis subset.
+
+    The returned tuple follows ``axes``.  Legacy callers that pass a five-value
+    TCZYX size still receive a five-value chunk tuple.
+    """
+    axes = str(axes).lower()
+    size_map = dict(zip(axes, dataset_size))
+    z = max(1, int(size_map.get("z", 1)))
+    y = max(1, int(size_map.get("y", 1)))
+    x = max(1, int(size_map.get("x", 1)))
+
+    n_chunks = {"z": 4, "y": 1, "x": 1}
+    chunk_map = {"t": 1, "c": 1}
+
+    while True:
+        chunk_map.update(
+            {
+                "z": int(z / n_chunks["z"] + 1),
+                "y": int(y / n_chunks["y"] + 1),
+                "x": int(x / n_chunks["x"] + 1),
+            }
+        )
+        size_mb = 2 * chunk_map["z"] * chunk_map["y"] * chunk_map["x"] / 1024 / 1024
+        if size_mb <= max_size_mb:
+            break
+        n_chunks = {k: v * 2 for k, v in n_chunks.items()}
+
+    return tuple(int(max(1, min(size_map.get(ax, 1), chunk_map[ax]))) for ax in axes)
+
+
+def get_n_levels(dataset_size, axes="tczyx"):
+    """Estimate a default number of pyramid levels from present spatial axes."""
+    axes = str(axes).lower()
+    size_map = dict(zip(axes, dataset_size))
+    shape = [max(1, int(size_map[ax])) for ax in axes if ax in "zyx"]
+    if not shape:
+        return 1
+
     n = 1
-    shape = [dataset_size[2], dataset_size[3], dataset_size[4]] # [Y, X]
-    while (shape[0]>2048) or (shape[1]>2048) or (shape[2]>2048):
-        n+=1
-        shape = [shape[0]//2, shape[1]//2, shape[2]//2]
+    while any(s > 2048 for s in shape):
+        n += 1
+        shape = [max(1, s // 2) for s in shape]
 
     return max(3, n)
+
 
 def _run_conversion(
     reader,
@@ -119,33 +181,43 @@ def _run_conversion(
     else:
         dataset = reader(path, chunks=chunks)
 
-    t_start, t_end = t_range
-    z_start, z_end = z_range
-    y_start, y_end = y_range
-    x_start, x_end = x_range
+    axes = _dataset_axes(dataset)
+    print("Dataset axes:", axes)
 
-    print(t_start,t_end)
-
-    if len(channels) == 0:
+    if len(channels) == 0 or "c" not in axes:
         channels_index = None
     else:
         channels_index = [
             dataset.metadata["channel_names"].index(ch)
             for ch in channels
+            if ch in dataset.metadata.get("channel_names", [])
         ]
 
-    if dataset.metadata["size"][0][0] > 1:
-        dataset.subset_dataset(T=list(range(t_start, t_end + 1)))
+    subset_kwargs = {}
+    tr = _present_range(dataset, "t", t_range)
+    zr = _present_range(dataset, "z", z_range)
+    yr = _present_range(dataset, "y", y_range)
+    xr = _present_range(dataset, "x", x_range)
 
-    if dataset.metadata["size"][0][1] > 1:
-        dataset.subset_dataset(C=channels_index)
+    if tr is not None and _axis_size(dataset, "t") > 1:
+        subset_kwargs["T"] = list(range(tr[0], tr[1] + 1))
+    if channels_index is not None and _axis_size(dataset, "c") > 1:
+        subset_kwargs["C"] = channels_index
+    if zr is not None and _axis_size(dataset, "z") > 1:
+        subset_kwargs["Z"] = list(range(zr[0], zr[1] + 1))
+    if yr is not None:
+        subset_kwargs["Y"] = list(range(yr[0], yr[1] + 1))
+    if xr is not None:
+        subset_kwargs["X"] = list(range(xr[0], xr[1] + 1))
 
-    if dataset.metadata["size"][0][2] > 1:
-        dataset.subset_dataset(Z=list(range(z_start, z_end + 1)))
+    if subset_kwargs:
+        dataset.subset_dataset(**subset_kwargs)
 
-    dataset.subset_dataset(
-        Y=list(range(y_start, y_end + 1)),
-        X=list(range(x_start, x_end + 1)),
+    chunks = _chunk_shape_for_dataset(
+        dataset,
+        chunk_z=chunks[2] if len(chunks) > 2 else 1,
+        chunk_y=chunks[3] if len(chunks) > 3 else 512,
+        chunk_x=chunks[4] if len(chunks) > 4 else 512,
     )
 
     print("Requested input chunks:", chunks)
@@ -154,7 +226,7 @@ def _run_conversion(
     dataset.build_pyramid(num_levels=n_levels)
 
     dataset.data = [
-        arr.rechunk(chunks) if arr.ndim == 5 else arr
+        arr.rechunk(chunks) if arr.ndim == len(chunks) else arr
         for arr in dataset.data
     ]
 
@@ -176,6 +248,8 @@ def convert_widget():
     viewer = current_viewer()
     
     def lock_roi_in_3d(event=None):
+        if "ROI" not in viewer.layers:
+            return
         if viewer.dims.ndisplay == 3:
             viewer.layers["ROI"].editable = False
             viewer.layers["ROI"].selectable = False
@@ -184,16 +258,20 @@ def convert_widget():
         else:
             viewer.layers["ROI"].editable = True
             viewer.layers["ROI"].selectable = True
-            make_convert_widget.y_range.enabled = True
-            make_convert_widget.x_range.enabled = True
+            dataset = _state.get("dataset")
+            make_convert_widget.y_range.enabled = bool(dataset and _axis_index(dataset, "y") is not None)
+            make_convert_widget.x_range.enabled = bool(dataset and _axis_index(dataset, "x") is not None)
 
     def ensure_crop_layers(dataset):
-        if "ROI" not in viewer.layers:
+        axes = _dataset_axes(dataset)
+        if "ROI" not in viewer.layers and {"y", "x"}.issubset(axes):
+            ymax = _axis_size(dataset, "y") - 1
+            xmax = _axis_size(dataset, "x") - 1
             rect = np.array([
                 [0, 0],
-                [0, dataset.metadata["size"][0][4]-1],
-                [dataset.metadata["size"][0][3]-1, dataset.metadata["size"][0][4]-1],
-                [dataset.metadata["size"][0][3]-1, 0],
+                [0, xmax],
+                [ymax, xmax],
+                [ymax, 0],
             ])
             layer = viewer.add_shapes(
                 data=rect,
@@ -203,27 +281,27 @@ def convert_widget():
                 face_color="transparent",
                 edge_width=10,
                 ndim=2,
-                scale=dataset.metadata["scales"][0][1:],  # YX
+                scale=_scale_for_axes(dataset, "yx"),
             )
             layer.mode = "add_rectangle"
 
-        if "Zrange" not in viewer.layers:
+        if "Zrange" not in viewer.layers and {"z", "y", "x"}.issubset(axes):
             points = np.array([
-                [0, dataset.metadata["size"][0][3]//2, dataset.metadata["size"][0][4]//2],
-                [dataset.metadata["size"][0][2]-1, dataset.metadata["size"][0][3]//2, dataset.metadata["size"][0][4]//2],
+                [0, _axis_size(dataset, "y") // 2, _axis_size(dataset, "x") // 2],
+                [_axis_size(dataset, "z") - 1, _axis_size(dataset, "y") // 2, _axis_size(dataset, "x") // 2],
             ])
             layer = viewer.add_points(
                 data=points,
                 name="Zrange",
                 face_color="lime",
                 size=20,
-                ndim=3,  # (z, y, x) but we'll only use z
+                ndim=3,
                 out_of_slice_display=True,
-                scale=dataset.metadata["scales"][0],
+                scale=_scale_for_axes(dataset, "zyx"),
             )
             layer.mode = "add"
 
-        if "CropBox" not in viewer.layers:
+        if "CropBox" not in viewer.layers and {"z", "y", "x"}.issubset(axes):
             layer = viewer.add_shapes(
                 data=np.empty((0, 2, 3)),
                 shape_type="polygon",
@@ -231,7 +309,7 @@ def convert_widget():
                 edge_color="cyan",
                 face_color="transparent",
                 ndim=3,
-                scale=dataset.metadata["scales"][0],
+                scale=_scale_for_axes(dataset, "zyx"),
             )
             layer.editable = False          # prevents adding/moving/editing shapes
             layer.selectable = False        # prevents selecting the shape
@@ -241,8 +319,12 @@ def convert_widget():
             layer.blending = "additive"
 
     def update_3d_box():
+        if any(name not in viewer.layers for name in ("ROI", "Zrange", "CropBox")):
+            return
         roi_layer = viewer.layers["ROI"]
         zrange_layer = viewer.layers["Zrange"]
+        if len(roi_layer.data) == 0 or len(zrange_layer.data) < 2:
+            return
         zvals = [d[0] for d in zrange_layer.data]
 
         zrange = list(zvals[:2])
@@ -284,8 +366,8 @@ def convert_widget():
 
             dataset = _state["dataset"]
             b = {
-                "y_max": dataset.metadata["size"][0][3] - 1,
-                "x_max": dataset.metadata["size"][0][4] - 1,
+                "y_max": _axis_size(dataset, "y") - 1,
+                "x_max": _axis_size(dataset, "x") - 1,
             }
 
             y0 = clamp(y0, 0, b["y_max"])
@@ -334,8 +416,8 @@ def convert_widget():
 
             dataset = _state["dataset"]
             b = {
-                "y_max": dataset.metadata["size"][0][3] - 1,
-                "x_max": dataset.metadata["size"][0][4] - 1,
+                "y_max": _axis_size(dataset, "y") - 1,
+                "x_max": _axis_size(dataset, "x") - 1,
             }
 
             y0 = clamp(make_convert_widget.y_range.value[0], 0, b["y_max"])
@@ -442,24 +524,24 @@ def convert_widget():
                 viewer=viewer
             )
 
-        # initialize ROI to full image
+        # initialize ROI to full image when spatial axes are available
         ensure_crop_layers(dataset)
 
         widget_to_roi()
         widget_to_zpoints()
         update_3d_box()
 
-        viewer.layers["ROI"].mode = "add_rectangle"
+        if "ROI" in viewer.layers:
+            viewer.layers["ROI"].mode = "add_rectangle"
+            viewer.layers["ROI"].events.data.connect(keep_single_roi)
+            viewer.layers["ROI"].events.data.connect(roi_to_widget)
+            make_convert_widget.y_range.changed.connect(widget_to_roi)
+            make_convert_widget.x_range.changed.connect(widget_to_roi)
 
-        viewer.layers["ROI"].events.data.connect(keep_single_roi)
-        viewer.layers["ROI"].events.data.connect(roi_to_widget)
-
-        viewer.layers["Zrange"].events.data.connect(keep_two_zpoints)
-        viewer.layers["Zrange"].events.data.connect(zpoints_to_widget)
-
-        make_convert_widget.y_range.changed.connect(widget_to_roi)
-        make_convert_widget.x_range.changed.connect(widget_to_roi)
-        make_convert_widget.z_range.changed.connect(widget_to_zpoints)
+        if "Zrange" in viewer.layers:
+            viewer.layers["Zrange"].events.data.connect(keep_two_zpoints)
+            viewer.layers["Zrange"].events.data.connect(zpoints_to_widget)
+            make_convert_widget.z_range.changed.connect(widget_to_zpoints)
 
     # ---
 
@@ -603,38 +685,40 @@ def convert_widget():
 
         make_convert_widget.enabled = True
 
-        chunk_size = get_chunk_size(dataset.metadata["size"][0], max_size_mb=100)
-        num_levels = get_n_levels(dataset.metadata["size"][0])
+        axes = _dataset_axes(dataset)
+        chunk_size = get_chunk_size(dataset.metadata["size"][0], max_size_mb=100, axes=axes)
+        chunk_map = dict(zip(axes, chunk_size))
+        num_levels = get_n_levels(dataset.metadata["size"][0], axes=axes)
 
-        make_convert_widget.chunk_x.max = dataset.metadata["size"][0][4]+1
-        make_convert_widget.chunk_x.value = chunk_size[4]
+        make_convert_widget.chunk_x.max = _axis_size(dataset, "x") + 1
+        make_convert_widget.chunk_x.value = chunk_map.get("x", 1)
+        make_convert_widget.chunk_x.enabled = "x" in axes
 
-        make_convert_widget.chunk_y.max = dataset.metadata["size"][0][3]+1
-        make_convert_widget.chunk_y.value = chunk_size[3]
+        make_convert_widget.chunk_y.max = _axis_size(dataset, "y") + 1
+        make_convert_widget.chunk_y.value = chunk_map.get("y", 1)
+        make_convert_widget.chunk_y.enabled = "y" in axes
 
-        make_convert_widget.chunk_z.max = dataset.metadata["size"][0][2]+1
-        make_convert_widget.chunk_z.value = chunk_size[2]
+        make_convert_widget.chunk_z.max = _axis_size(dataset, "z") + 1
+        make_convert_widget.chunk_z.value = chunk_map.get("z", 1)
+        make_convert_widget.chunk_z.enabled = "z" in axes
 
         make_convert_widget.n_levels.value = num_levels
 
-        make_convert_widget.t_range.max = dataset.metadata["size"][0][0] - 1
-        make_convert_widget.t_range.value = (0, dataset.metadata["size"][0][0] - 1)
+        _set_range_widget(make_convert_widget.t_range, _axis_size(dataset, "t"), enabled="t" in axes)
+        _set_range_widget(make_convert_widget.z_range, _axis_size(dataset, "z"), enabled="z" in axes)
+        _set_range_widget(make_convert_widget.y_range, _axis_size(dataset, "y"), enabled="y" in axes)
+        _set_range_widget(make_convert_widget.x_range, _axis_size(dataset, "x"), enabled="x" in axes)
+        make_convert_widget.single_t.enabled = "t" in axes
+        make_convert_widget.single_z.enabled = "z" in axes
 
-        make_convert_widget.z_range.max = dataset.metadata["size"][0][2] - 1
-        make_convert_widget.z_range.value = (0, dataset.metadata["size"][0][2] - 1)
-
-        make_convert_widget.y_range.max = dataset.metadata["size"][0][3] - 1
-        make_convert_widget.y_range.value = (0, dataset.metadata["size"][0][3] - 1)
-
-        make_convert_widget.x_range.max = dataset.metadata["size"][0][4] - 1
-        make_convert_widget.x_range.value = (0, dataset.metadata["size"][0][4] - 1)
-
-        n_channels = len(dataset.metadata["channel_names"])
+        channel_names = dataset.metadata.get("channel_names", []) if "c" in axes else []
+        n_channels = len(channel_names)
         row_height = 20  # approx height per item in pixels
         channels_widget = make_convert_widget.channels.native
-        channels_widget.setMaximumHeight(row_height * n_channels)
-        make_convert_widget.channels.choices = dataset.metadata["channel_names"]
-        make_convert_widget.channels.value = tuple(dataset.metadata["channel_names"])
+        channels_widget.setMaximumHeight(row_height * max(1, n_channels))
+        make_convert_widget.channels.choices = channel_names
+        make_convert_widget.channels.value = tuple(channel_names)
+        make_convert_widget.channels.enabled = n_channels > 0
 
         make_convert_widget.output_path.value = default_output
 
@@ -646,24 +730,28 @@ def convert_widget():
     # lock_roi_in_3d()
 
     def sync_single_z(checked):
-        if checked:
+        dataset = _state.get("dataset")
+        has_z = bool(dataset and _axis_index(dataset, "z") is not None and _axis_size(dataset, "z") > 1)
+        if checked and has_z:
             z_val = make_convert_widget.z_range.value
             # clamp to single plane
             make_convert_widget.z_range.value = (z_val[0], z_val[0])
             make_convert_widget.z_range.enabled = False
         else:
-            make_convert_widget.z_range.enabled = True
+            make_convert_widget.z_range.enabled = has_z
 
     make_convert_widget.single_z.changed.connect(sync_single_z)
 
     def sync_single_t(checked):
-        if checked:
+        dataset = _state.get("dataset")
+        has_t = bool(dataset and _axis_index(dataset, "t") is not None and _axis_size(dataset, "t") > 1)
+        if checked and has_t:
             t_val = make_convert_widget.t_range.value
             # clamp to single frame
             make_convert_widget.t_range.value = (t_val[0], t_val[0])
             make_convert_widget.t_range.enabled = False
         else:
-            make_convert_widget.t_range.enabled = True
+            make_convert_widget.t_range.enabled = has_t
 
     make_convert_widget.single_t.changed.connect(sync_single_t)
     # -------------------------

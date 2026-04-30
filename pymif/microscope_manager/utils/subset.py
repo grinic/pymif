@@ -1,71 +1,99 @@
-import numpy as np
+from __future__ import annotations
+
+from typing import Optional, Sequence, Union
+
 import dask.array as da
-from typing import Optional, Union, Sequence
+
+from .axes import index_list_from_selection, normalize_axes, selection_length_and_spacing, spatial_axes_in_order
+
+Selection = Optional[Union[int, slice, Sequence[int]]]
+
 
 def subset_dask_array(
     arr: da.Array,
-    T: Optional[Union[slice, Sequence[int]]] = None,
-    C: Optional[Union[slice, Sequence[int]]] = None,
-    Z: Optional[Union[slice, Sequence[int]]] = None,
-    Y: Optional[Union[slice, Sequence[int]]] = None,
-    X: Optional[Union[slice, Sequence[int]]] = None,
+    axes: str,
+    T: Selection = None,
+    C: Selection = None,
+    Z: Selection = None,
+    Y: Selection = None,
+    X: Selection = None,
 ) -> da.Array:
-    """Subset a 5D Dask array with optional indexing for each axis."""
-    axes = [T, C, Z, Y, X]
-    for axis, index in enumerate(axes):
-        if index is not None:
-            index = np.array(index)
-            if index.ndim != 1:
-                raise NotImplementedError("Only 1D fancy indexing is supported.")
-            arr = arr[tuple(slice(None) if i != axis else index for i in range(arr.ndim))]
+    """Subset a Dask array using axis labels rather than fixed TCZYX positions."""
+    axes_tuple = normalize_axes(axes, ndim=arr.ndim)
+    axis_indices = {"t": T, "c": C, "z": Z, "y": Y, "x": X}
+    for ax, indices in axis_indices.items():
+        if indices is None or ax not in axes_tuple:
+            continue
+        axis = axes_tuple.index(ax)
+        slicer = [slice(None)] * arr.ndim
+        # Preserve dimensionality when a single integer is requested; PyMIF
+        # metadata keeps the axis with length 1 after subsetting.
+        slicer[axis] = [indices] if isinstance(indices, int) else indices
+        arr = arr[tuple(slicer)]
     return arr
 
+
 def validate_uniform_spacing(indices: Sequence[int], name: str):
-    """Ensure spacing between indices is uniform."""
+    """Ensure spacing between integer indices is uniform."""
     if len(indices) < 2:
-        return 1  # No spacing to validate for 0 or 1 index
-    diffs = np.diff(indices)
-    if not np.all(diffs == diffs[0]):
+        return 1
+    diffs = [b - a for a, b in zip(indices[:-1], indices[1:])]
+    if len(set(diffs)) != 1:
         raise ValueError(f"Non-uniform spacing in {name} axis: {indices}")
     return diffs[0]
 
-def subset_metadata(metadata: dict, 
-                    T: Optional[Sequence[int]] = None,
-                    C: Optional[Sequence[int]] = None,
-                    Z: Optional[Sequence[int]] = None,
-                    Y: Optional[Sequence[int]] = None,
-                    X: Optional[Sequence[int]] = None) -> dict:
-    """Update metadata after subsetting."""
-    new_metadata = metadata.copy()
-    shape = list(metadata["size"][0])  # start from the first level always
 
+def _subset_list(values, selection, axis_size):
+    if values is None:
+        return values
+    if selection is None:
+        return values
+    idx = index_list_from_selection(selection, axis_size)
+    return [values[i] for i in idx]
+
+
+def subset_metadata(
+    metadata: dict,
+    T: Selection = None,
+    C: Selection = None,
+    Z: Selection = None,
+    Y: Selection = None,
+    X: Selection = None,
+) -> dict:
+    """Update metadata after subsetting any available subset of image axes."""
+    new_metadata = metadata.copy()
+    axes = normalize_axes(metadata["axes"])
+    shape = list(metadata["size"][0])
     axis_map = {"t": T, "c": C, "z": Z, "y": Y, "x": X}
-    axes = metadata["axes"]
 
     new_size = list(shape)
+    spacing_by_axis = {}
     for i, ax in enumerate(axes):
-        index = axis_map[ax]
-        if index is not None:
-            new_size[i] = len(index)
+        selection = axis_map[ax]
+        if selection is None:
+            continue
+        selected_len, spacing = selection_length_and_spacing(selection, shape[i], ax)
+        new_size[i] = selected_len
+        spacing_by_axis[ax] = spacing
+
     new_metadata["size"] = [tuple(new_size)]
 
-    # Adjust time increment if T is subset
-    if T is not None:
-        t_gap = validate_uniform_spacing(T, "T")
-        new_metadata["time_increment"] = t_gap * metadata["time_increment"]
-        
-    # Adjust scales for Z, Y, X
-    new_scales = list(metadata["scales"][0])
-    for i, ax in enumerate("zyx"):
-        idx = axis_map[ax]
-        if idx is not None:
-            spacing = validate_uniform_spacing(idx, ax.upper())
-            new_scales[i] *= spacing
+    if T is not None and "t" in axes and metadata.get("time_increment") is not None:
+        new_metadata["time_increment"] = spacing_by_axis.get("t", 1) * metadata["time_increment"]
+
+    spatial_axes = spatial_axes_in_order(axes)
+    old_scales = list(metadata.get("scales", [tuple(1.0 for _ in spatial_axes)])[0])
+    new_scales = list(old_scales)
+    for scale_index, ax in enumerate(spatial_axes):
+        if axis_map[ax] is not None:
+            new_scales[scale_index] *= spacing_by_axis.get(ax, 1)
     new_metadata["scales"] = [tuple(new_scales)]
 
-    # Subset channel names/colors
-    if C is not None:
-        new_metadata["channel_names"] = [metadata["channel_names"][i] for i in C]
-        new_metadata["channel_colors"] = [metadata["channel_colors"][i] for i in C]
+    if C is not None and "c" in axes:
+        c_axis = axes.index("c")
+        if "channel_names" in metadata:
+            new_metadata["channel_names"] = _subset_list(metadata.get("channel_names"), C, shape[c_axis])
+        if "channel_colors" in metadata:
+            new_metadata["channel_colors"] = _subset_list(metadata.get("channel_colors"), C, shape[c_axis])
 
     return new_metadata

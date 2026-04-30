@@ -1,0 +1,16 @@
+{
+  "notebooks": [
+    "00_installation_and_mental_model.ipynb",
+    "01_read_microscope_datasets_templates.ipynb",
+    "02_array_manager_from_numpy_dask.ipynb",
+    "03_create_ome_zarr_with_metadata.ipynb",
+    "04_read_zarr_inspect_groups_labels.ipynb",
+    "05_add_groups_and_write_image_regions.ipynb",
+    "06_labels_append_inside_existing_zarr.ipynb",
+    "07_create_new_zarr_dataset_with_labels.ipynb",
+    "08_metadata_subset_pyramid_and_channels.ipynb",
+    "09_legacy_options_v04_and_troubleshooting.ipynb"
+  ],
+  "readme": "README.md",
+  "purpose": "Beginner examples for the current PyMIF manager API, OME-Zarr groups, labels, and legacy options."
+}

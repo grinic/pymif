@@ -1,23 +1,26 @@
-from typing import Union, List
-import numpy as np
-import dask.array as da
-import zarr
-import warnings
+from __future__ import annotations
 
-from .zoom import _zoom_numpy, _zoom_dask
-from .ngff import _get_group_multiscales
+from typing import Union
+
+import dask.array as da
+import numpy as np
+import zarr
+
+from .downsampling import SpatialFactor
+from .write_image_region import _scale_index as _scale_index_general, _write_region
 
 
 def write_label_region(
     root: zarr.Group,
     mode: str,
-    data: Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]],
+    data: Union[np.ndarray, da.Array, list[Union[np.ndarray, da.Array]]],
     t: int | slice = slice(None),
     z: int | slice = slice(None),
     y: int | slice = slice(None),
     x: int | slice = slice(None),
     level: int = 0,
     group_name: str = "labels/nuclei",
+    downscale_factor: SpatialFactor | None = None,
 ):
     """
     Internal function that writes label data (pyramid or single array) to a zarr group.
@@ -41,153 +44,17 @@ def write_label_region(
     group_name : str, optional
         Name of the label group inside the root (e.g. "labels/nuclei").
     """
-    if mode not in ("r+", "a", "w"):
-        raise PermissionError(
-            f"Dataset opened in read-only mode ('{mode}'). "
-            "Reopen with mode='r+' to allow modifications."
-        )
-
-    group = _get_nested_group(root, group_name)
-    if group is None:
-        available = list(root.group_keys())
-        warnings.warn(
-            f"Group '{group_name}' not found. Available root groups: {available}",
-            UserWarning,
-        )
-        return
-
-    multiscales = _get_group_multiscales(group)
-    if not multiscales:
-        warnings.warn(
-            f"No 'multiscales' attribute found in group '{group_name or '/'}'. "
-            "Nothing to write.",
-            UserWarning,
-        )
-        return
-
-    multiscales = multiscales[0]
-    datasets = multiscales.get("datasets", [])
-    n_levels = len(datasets)
-
-    if n_levels == 0:
-        warnings.warn(
-            f"Group '{group_name}' contains no pyramid datasets.",
-            UserWarning,
-        )
-        return
-
-    if isinstance(data, (np.ndarray, da.Array)):
-        data_list = _generate_pyramid(data, total_levels=n_levels, ref_level=level)
-    elif isinstance(data, list):
-        data_list = data
-        if len(data_list) != n_levels:
-            warnings.warn(
-                f"Provided pyramid has {len(data_list)} levels, "
-                f"but dataset expects {n_levels}.",
-                UserWarning,
-            )
-    else:
-        raise TypeError("`data` must be a NumPy array, Dask array, or list of such.")
-
-    for i, subdata in enumerate(data_list):
-        if i >= n_levels:
-            break
-
-        arr_path = datasets[i]["path"]
-        if arr_path not in group:
-            warnings.warn(
-                f"Dataset path '{arr_path}' not found in group '{group_name}'.",
-                UserWarning,
-            )
-            continue
-
-        zarr_array = group[arr_path]
-
-        if isinstance(subdata, da.Array):
-            subdata = subdata.compute()
-
-        if subdata.ndim != 4:
-            warnings.warn(
-                f"Label write expects 4D data (tzyx), got shape {subdata.shape}. "
-                f"Skipping level {i}.",
-                UserWarning,
-            )
-            continue
-
-        scale_factor = 2 ** (i - level)
-        index = _scale_index((t, z, y, x), subdata.shape, scale_factor)
-
-        expected_shape = zarr_array[index].shape
-        if subdata.shape != expected_shape:
-            warnings.warn(
-                f"Shape mismatch for level {i}: data={subdata.shape}, "
-                f"expected={expected_shape}. Skipping level.",
-                UserWarning,
-            )
-            continue
-
-        zarr_array[index] = subdata
-
-    store = getattr(root, "store", None)
-    if store is not None and hasattr(store, "flush"):
-        store.flush()
-
-
-def _get_nested_group(root: zarr.Group, group_name: str) -> zarr.Group | None:
-    """
-    Resolve a potentially nested group path like 'labels/nuclei'.
-    """
-    parts = [p for p in group_name.split("/") if p]
-    group = root
-    for part in parts:
-        if part not in group:
-            return None
-        group = group[part]
-    return group
-
-
-def _generate_pyramid(
-    ref_data: Union[np.ndarray, da.Array],
-    total_levels: int,
-    ref_level: int = 0,
-) -> List[Union[np.ndarray, da.Array]]:
-    """
-    Generate a full pyramid from a given reference level.
-    """
-    zoom_fn = _zoom_dask if isinstance(ref_data, da.Array) else _zoom_numpy
-
-    pyramid = [None] * total_levels
-    pyramid[ref_level] = ref_data
-
-    for i in range(ref_level - 1, -1, -1):
-        pyramid[i] = zoom_fn(pyramid[i + 1], scale=2.0)
-
-    for i in range(ref_level + 1, total_levels):
-        pyramid[i] = zoom_fn(pyramid[i - 1], scale=0.5)
-
-    return pyramid
-
-
-def _scale_index(index_tuple, shape, scale_factor: float):
-    """
-    Scale only spatial indices (z, y, x) for a target pyramid level.
-
-    t is never scaled.
-    `shape` is the shape of the data being written at that target level.
-    """
-    t, z, y, x = index_tuple
-
-    def scale_spatial(sel, size):
-        if isinstance(sel, int):
-            return int(sel / scale_factor)
-
-        start = None if sel.start is None else int(sel.start / scale_factor)
-        stop = start + size if start is not None else size
-        return slice(start, stop, None)
-
-    return (
-        t,
-        scale_spatial(z, shape[1]),
-        scale_spatial(y, shape[2]),
-        scale_spatial(x, shape[3]),
+    return _write_region(
+        root=root,
+        mode=mode,
+        data=data,
+        selectors={"t": t, "c": slice(None), "z": z, "y": y, "x": x},
+        level=level,
+        group_name=group_name,
+        downscale_factor=downscale_factor,
+        expected_data_type="label",
     )
+
+def _scale_index(index_tuple, shape, scale_factor: SpatialFactor, axes="tzyx"):
+    """Compatibility wrapper for tests and legacy callers."""
+    return _scale_index_general(index_tuple, shape, scale_factor, axes=axes)
