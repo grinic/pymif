@@ -8,6 +8,8 @@ import dask.array as da
 import zarr
 
 from .microscope_manager import MicroscopeManager
+from .utils.axes import normalize_axes, normalize_data_type
+from .utils.ngff import _infer_data_type_from_group, _register_label_on_root
 from collections.abc import Iterator, Sequence
 
 if TYPE_CHECKING:
@@ -128,6 +130,7 @@ class ZarrManager(MicroscopeManager):
                     ngff_version=resolved_ngff_version,
                     zarr_format=resolved_zarr_format,
                 )
+                self.read()
             else:
                 raise FileNotFoundError(
                     f"Zarr path {self.path} does not exist and mode='{mode}' is read-only. "
@@ -165,11 +168,26 @@ class ZarrManager(MicroscopeManager):
         datasets: list[dict[str, Any]],
         multiscales: dict[str, Any],
         omero: dict[str, Any],
+        data_type: str = "intensity",
     ) -> Dict[str, Any]:
-        """Translate NGFF metadata blocks into the normalized PyMIF metadata schema."""
+        """Translate NGFF metadata blocks into the normalized PyMIF schema.
+
+        The normalized schema is axis-aware: ``axes`` may be any unique
+        combination of ``t``, ``c``, ``z``, ``y`` and ``x``. Spatial ``scales``
+        and ``units`` are stored in the same order as the spatial axes appear in
+        ``axes``.
+        """
         axes_info = multiscales.get("axes", [])
-        axis_names = [a["name"] for a in axes_info]
+        axis_names = []
+        for axis in axes_info:
+            if isinstance(axis, dict):
+                axis_names.append(axis.get("name"))
+            else:
+                axis_names.append(axis)
+        axis_names = list(normalize_axes(axis_names, ndim=data_levels[0].ndim))
+        axes_info = axes_info if len(axes_info) == len(axis_names) else [{"name": ax} for ax in axis_names]
         axes = "".join(axis_names)
+        data_type = normalize_data_type(data_type)
 
         sizes = [tuple(arr.shape) for arr in data_levels]
         chunksize = [arr.chunksize for arr in data_levels]
@@ -184,38 +202,52 @@ class ZarrManager(MicroscopeManager):
             ct = ds.get("coordinateTransformations", [{}])
             scale_vec = None
             if ct and isinstance(ct, list):
-                scale_vec = ct[0].get("scale", None)
-
+                for transform in ct:
+                    if isinstance(transform, dict) and transform.get("type", "scale") == "scale":
+                        scale_vec = transform.get("scale", None)
+                        break
             if scale_vec is None:
                 scales.append(tuple([1.0] * len(spatial_idx)))
             else:
-                scales.append(tuple(scale_vec[i] for i in spatial_idx))
+                scales.append(tuple(float(scale_vec[i]) for i in spatial_idx))
 
-        units = tuple(axes_info[i].get("unit", None) for i in spatial_idx)
+        units = tuple(
+            axes_info[i].get("unit", None) if isinstance(axes_info[i], dict) else None
+            for i in spatial_idx
+        )
 
         if time_idx is not None:
             ct0 = datasets[0].get("coordinateTransformations", [{}])
             scale0 = None
             if ct0 and isinstance(ct0, list):
-                scale0 = ct0[0].get("scale", None)
-
+                for transform in ct0:
+                    if isinstance(transform, dict) and transform.get("type", "scale") == "scale":
+                        scale0 = transform.get("scale", None)
+                        break
             time_increment = scale0[time_idx] if scale0 is not None else None
-            time_increment_unit = axes_info[time_idx].get("unit", None)
+            time_increment_unit = (
+                axes_info[time_idx].get("unit", None)
+                if isinstance(axes_info[time_idx], dict)
+                else None
+            )
         else:
             time_increment = None
             time_increment_unit = None
 
-        channels = omero.get("channels", [])
-        c_size = data_levels[0].shape[channel_idx] if channel_idx is not None else 1
-
-        channel_names = [
-            channels[i].get("label", f"Channel {i}") if i < len(channels) else f"Channel {i}"
-            for i in range(c_size)
-        ]
-        channel_colors = [
-            channels[i].get("color", "FFFFFF") if i < len(channels) else "FFFFFF"
-            for i in range(c_size)
-        ]
+        if channel_idx is not None and data_type == "intensity":
+            channels = omero.get("channels", [])
+            c_size = data_levels[0].shape[channel_idx]
+            channel_names = [
+                channels[i].get("label", f"Channel {i}") if i < len(channels) else f"Channel {i}"
+                for i in range(c_size)
+            ]
+            channel_colors = [
+                channels[i].get("color", "FFFFFF") if i < len(channels) else "FFFFFF"
+                for i in range(c_size)
+            ]
+        else:
+            channel_names = []
+            channel_colors = []
 
         return {
             "size": sizes,
@@ -229,9 +261,11 @@ class ZarrManager(MicroscopeManager):
             "dtype": str(dtype),
             "plane_files": None,
             "axes": axes,
+            "data_type": data_type,
+            "is_label": data_type == "label",
             "ngff_version": self.ngff_version,
             "zarr_format": 3 if self.ngff_version == "0.5" else 2,
-            }
+        }
 
     def _read_multiscale_group(
         self,
@@ -269,6 +303,7 @@ class ZarrManager(MicroscopeManager):
             datasets=datasets,
             multiscales=multiscales,
             omero=omero,
+            data_type=_infer_data_type_from_group(group),
         )
 
         return data_levels, zarr_levels, metadata
@@ -459,15 +494,24 @@ class ZarrManager(MicroscopeManager):
         group_name: str,
         metadata: Dict[str, Any],
         is_label: bool = False,
+        data_type: str | None = None,
     ):
-        """Create an empty image subgroup or label subgroup and update this manager."""
+        """Create an empty image subgroup or label subgroup and update this manager.
+
+        ``metadata['axes']`` may be any unique subset of ``tczyx``. Use
+        ``data_type='label'`` or ``is_label=True`` for label data.
+        """
         from .utils.create_empty_group import create_empty_group as _create_empty_group
+
+        effective_data_type = normalize_data_type(data_type or metadata.get("data_type"), is_label=True if is_label else None)
+        is_label = is_label or effective_data_type == "label"
 
         grp = _create_empty_group(
             root=self.root,
             group_name=group_name,
             metadata=metadata,
             is_label=is_label,
+            data_type=data_type,
         )
 
         # Read the newly created group back into the in-memory ZarrDataset model.
@@ -589,7 +633,7 @@ class ZarrManager(MicroscopeManager):
         """
         from .utils.subset import subset_dask_array, subset_metadata
         from .utils.pyramid import build_pyramid as _build_pyramid
-        import numpy as np
+        from .utils.axes import index_list_from_selection
 
         for name, dataset in self._iter_datasets(
             include_raw=True,
@@ -624,13 +668,12 @@ class ZarrManager(MicroscopeManager):
                 axis = axes.index(ax_name)
                 max_size = shape[axis]
 
-                indices = np.atleast_1d(user_index)
-                if indices.size > 0:
-                    if indices.min() < 0 or indices.max() >= max_size:
-                        raise ValueError(
-                            f"Index for axis '{ax_name}' out of range in dataset "
-                            f"{name!r}. Axis size is {max_size}."
-                        )
+                indices = index_list_from_selection(user_index, max_size)
+                if indices and (min(indices) < 0 or max(indices) >= max_size):
+                    raise ValueError(
+                        f"Index for axis '{ax_name}' out of range in dataset "
+                        f"{name!r}. Axis size is {max_size}."
+                    )
 
             num_levels = len(dataset.data)
 
@@ -779,6 +822,7 @@ class ZarrManager(MicroscopeManager):
             "time_increment",
             "time_increment_unit",
             "units",
+            "data_type",
         }
 
         hex_pattern = re.compile(r"^#?[0-9a-fA-F]{6}$")
@@ -870,6 +914,10 @@ class ZarrManager(MicroscopeManager):
                     if not isinstance(value, (tuple, list)):
                         raise TypeError("'units' must be a tuple or list.")
 
+                elif key == "data_type":
+                    value = normalize_data_type(value)
+                    dataset.metadata["is_label"] = value == "label"
+
                 dataset.metadata[key] = value
 
         self._sync_raw_aliases()
@@ -952,30 +1000,9 @@ class ZarrManager(MicroscopeManager):
                     is_label=True,
                 )
 
-            # Minimal root-level labels discovery metadata.
-            if ngff_version == "0.5":
-                ome = root.attrs.get("ome", {})
-                ome["version"] = "0.5"
-                ome["labels"] = [
-                    {
-                        "name": name,
-                        "source": {
-                            "image": "../",
-                        },
-                    }
-                    for name in label_names
-                ]
-                root.attrs["ome"] = ome
-            else:
-                root.attrs["labels"] = [
-                    {
-                        "name": name,
-                        "source": {
-                            "image": "../",
-                        },
-                    }
-                    for name in label_names
-                ]
+            # Root-level label discovery metadata for the active NGFF layout.
+            for name in label_names:
+                _register_label_on_root(root, name, ngff_version)
 
         self.path = str(path)
         self.root = root

@@ -1,6 +1,10 @@
-import dask.array as da
-from typing import List, Tuple, Dict, Any, Sequence, Union
+from __future__ import annotations
 
+from typing import Any, Dict, List, Sequence, Tuple, Union
+
+import dask.array as da
+
+from .axes import normalize_axes, spatial_axis_indices, spatial_axes_in_order, spatial_values_for_axes
 
 SpatialFactor = Union[int, Sequence[int]]
 
@@ -9,97 +13,76 @@ def normalize_spatial_factor(
     factor: SpatialFactor,
     name: str = "downscale_factor",
 ) -> Tuple[int, int, int]:
-    """Normalize scalar or ZYX downsampling factor.
-
-    Examples
-    --------
-    2 -> (2, 2, 2)
-    (1, 2, 2) -> (1, 2, 2)
-    """
+    """Normalize scalar or legacy ZYX downsampling factor to a 3-tuple."""
     if isinstance(factor, int):
         factors = (factor, factor, factor)
     else:
         factors = tuple(factor)
 
     if len(factors) != 3:
-        raise ValueError(
-            f"{name} must be an int or a ZYX sequence of length 3, "
-            f"got {factor!r}"
-        )
-
+        raise ValueError(f"{name} must be an int or a ZYX sequence of length 3, got {factor!r}")
     if any(not isinstance(f, int) for f in factors):
         raise TypeError(f"{name} values must be integers, got {factor!r}")
-
     if any(f <= 0 for f in factors):
         raise ValueError(f"{name} values must be > 0, got {factor!r}")
-
     return factors
 
 
-def get_spatial_axes(metadata: Dict[str, Any]) -> Tuple[int, int, int]:
-    """Return axis indices for Z, Y, X from metadata['axes']."""
-    axes = metadata.get("axes", "").lower()
-
-    missing = [ax for ax in "zyx" if ax not in axes]
-    if missing:
-        raise ValueError(
-            f"metadata['axes'] must contain z, y and x. "
-            f"Got axes={axes!r}; missing {missing}."
-        )
-
-    return axes.index("z"), axes.index("y"), axes.index("x")
+def normalize_spatial_factor_for_axes(
+    factor: SpatialFactor,
+    axes: str | Sequence[str],
+    name: str = "downscale_factor",
+) -> tuple[int, ...]:
+    """Normalize scalar/sequence to the spatial axes present in ``axes``."""
+    return spatial_values_for_axes(factor, axes, name=name, allow_float=False)
 
 
-def factor_power(
-    factors: Tuple[int, int, int],
-    exponent: int,
-) -> Tuple[int, int, int]:
-    return tuple(f ** exponent for f in factors)
+def get_spatial_axes(metadata: Dict[str, Any]) -> tuple[int, ...]:
+    """Return axis indices for all spatial axes present in metadata['axes']."""
+    axes = normalize_axes(metadata.get("axes"))
+    return spatial_axis_indices(axes)
 
 
-def multiply_scales(
-    scales,
-    factors: Tuple[int, int, int],
-) -> Tuple[float, float, float]:
+def factor_power(factors: Sequence[int], exponent: int) -> tuple[int, ...]:
+    return tuple(int(f) ** exponent for f in factors)
+
+
+def multiply_scales(scales: Sequence[float], factors: Sequence[int]) -> tuple[float, ...]:
+    if len(scales) != len(factors):
+        raise ValueError("scales and factors must have the same length.")
     return tuple(float(s) * f for s, f in zip(scales, factors))
 
 
 def pad_to_divisible(
     array: da.Array,
-    factors: SpatialFactor,
-    spatial_axes: Tuple[int, int, int],
+    factors: Sequence[int],
+    spatial_axes: Sequence[int],
 ) -> da.Array:
-    """Pad spatial axes ZYX so they are divisible by downsampling factors."""
-    factors = normalize_spatial_factor(factors, name="factors")
-
+    """Pad spatial axes so they are divisible by the requested factors."""
+    if len(factors) != len(spatial_axes):
+        raise ValueError("factors must match spatial_axes length.")
     pad_width = [(0, 0)] * array.ndim
-
     for axis, factor in zip(spatial_axes, factors):
         if factor == 1:
             continue
-
         size = array.shape[axis]
         remainder = size % factor
-
         if remainder != 0:
             pad_width[axis] = (0, factor - remainder)
-
-    return da.pad(array, pad_width, mode="edge")
+    return da.pad(array, pad_width, mode="edge") if any(p != (0, 0) for p in pad_width) else array
 
 
 def downsample_nn(
     array: da.Array,
-    factors: SpatialFactor,
-    spatial_axes: Tuple[int, int, int],
+    factors: Sequence[int],
+    spatial_axes: Sequence[int],
 ) -> da.Array:
-    """Nearest-neighbor downsampling via striding in spatial ZYX axes."""
-    factors = normalize_spatial_factor(factors, name="factors")
-
+    """Nearest-neighbor downsampling via striding on spatial axes."""
+    if len(factors) != len(spatial_axes):
+        raise ValueError("factors must match spatial_axes length.")
     slicing = [slice(None)] * array.ndim
-
     for axis, factor in zip(spatial_axes, factors):
         slicing[axis] = slice(0, None, factor)
-
     return array[tuple(slicing)]
 
 
@@ -123,103 +106,59 @@ def build_pyramid(
     """
     if not data_levels:
         raise ValueError("data_levels cannot be empty.")
-
     if num_levels is None:
         num_levels = len(data_levels)
-
     if num_levels < 1:
         raise ValueError("num_levels must be >= 1.")
-
     if start_level < 0:
         raise ValueError("start_level must be >= 0.")
 
-    axes = metadata.get("axes")
+    axes = normalize_axes(metadata.get("axes"), ndim=data_levels[0].ndim)
+    metadata = dict(metadata)
+    metadata["axes"] = "".join(axes)
 
-    if axes is None:
-        if data_levels[0].ndim == 5:
-            axes = "tczyx"
-        elif data_levels[0].ndim == 4:
-            axes = "tzyx"
-        elif data_levels[0].ndim == 3:
-            axes = "zyx"
-        else:
+    for level in data_levels:
+        if level.ndim != len(axes):
             raise ValueError(
-                "metadata['axes'] is required when data ndim is not 3, 4, or 5."
+                f"Array ndim ({level.ndim}) does not match metadata['axes'] ({metadata['axes']!r})."
             )
 
-        metadata = dict(metadata)
-        metadata["axes"] = axes
+    spatial_axes = spatial_axis_indices(axes)
+    spatial_labels = spatial_axes_in_order(axes)
+    if "scales" not in metadata or not metadata["scales"]:
+        metadata["scales"] = [tuple(1.0 for _ in spatial_labels) for _ in data_levels]
 
-    axes = axes.lower()
-
-    if data_levels[0].ndim != len(axes):
+    if len(metadata["scales"][0]) != len(spatial_axes):
         raise ValueError(
-            f"Array ndim ({data_levels[0].ndim}) does not match "
-            f"metadata['axes'] ({metadata.get('axes')!r})."
+            "metadata['scales'] entries must match the number of spatial axes "
+            f"({len(spatial_axes)})."
         )
 
-    if "scales" not in metadata or not metadata["scales"]:
-        raise ValueError("metadata must contain a non-empty 'scales' list.")
-
-    factors = normalize_spatial_factor(downscale_factor)
-    spatial_axes = get_spatial_axes(metadata)
-
-    print(f"Requested start level {start_level}")
+    factors = normalize_spatial_factor_for_axes(downscale_factor, axes)
 
     if start_level < len(data_levels):
-        print("Resolution layer already available.")
         pyramid = [data_levels[start_level]]
         new_scales = [tuple(metadata["scales"][start_level])]
-
     else:
-        print("Resolution layer not available: will compute.")
-
         base_downscale = factor_power(factors, start_level)
-
-        current = pad_to_divisible(
-            data_levels[0],
-            base_downscale,
-            spatial_axes=spatial_axes,
-        )
-        down = downsample_nn(
-            current,
-            base_downscale,
-            spatial_axes=spatial_axes,
-        )
-
+        current = pad_to_divisible(data_levels[0], base_downscale, spatial_axes=spatial_axes)
+        down = downsample_nn(current, base_downscale, spatial_axes=spatial_axes)
         pyramid = [down]
-        new_scales = [
-            multiply_scales(metadata["scales"][0], base_downscale)
-        ]
-
-    print("Creating pyramid.")
+        new_scales = [multiply_scales(metadata["scales"][0], base_downscale)]
 
     for _ in range(1, num_levels):
-        current = pad_to_divisible(
-            pyramid[-1],
-            factors,
-            spatial_axes=spatial_axes,
-        )
-        down = downsample_nn(
-            current,
-            factors,
-            spatial_axes=spatial_axes,
-        )
+        if spatial_axes:
+            current = pad_to_divisible(pyramid[-1], factors, spatial_axes=spatial_axes)
+            down = downsample_nn(current, factors, spatial_axes=spatial_axes)
+        else:
+            down = pyramid[-1]
         pyramid.append(down)
-
-    print("Updating metadata.")
 
     for level in range(1, num_levels):
         scale_factor = factor_power(factors, level)
-        new_scales.append(
-            multiply_scales(new_scales[0], scale_factor)
-        )
+        new_scales.append(multiply_scales(new_scales[0], scale_factor))
 
-    metadata = dict(metadata)
     metadata["scales"] = new_scales
     metadata["size"] = [tuple(level.shape) for level in pyramid]
-    metadata["chunksize"] = [
-        tuple(level.chunksize) for level in pyramid
-    ]
-
+    metadata["chunksize"] = [tuple(level.chunksize) for level in pyramid]
     return pyramid, metadata

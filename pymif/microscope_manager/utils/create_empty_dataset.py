@@ -1,24 +1,32 @@
-from typing import Dict, Any
+from __future__ import annotations
+
+from typing import Any
+
+import dask.array as da
 import zarr
 
+from .axes import normalize_axes, normalize_data_type
 from .ngff import (
-    _set_group_ngff_metadata,
-    _build_v2_compressor,
-    _build_v3_compressors,
     ZarrWriteConfig,
-    _resolve_format,
     _build_axes,
     _build_coordinate_transformations,
     _build_omero_metadata,
+    _build_v2_compressor,
+    _build_v3_compressors,
+    _resolve_format,
+    _set_group_ngff_metadata,
+    _set_dimension_names,
+    _validate_metadata,
 )
 
 def create_empty_dataset(
     root: zarr.Group,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     ngff_version: str | None = None,
     zarr_format: int | None = None,
     compressor: str | None = None,
     compressor_level: int = 3,
+    data_type: str | None = None,
 ):
     """Create an on-disk empty OME-Zarr image pyramid from metadata only.
 
@@ -34,13 +42,21 @@ def create_empty_dataset(
         zarr_format=zarr_format or metadata.get("zarr_format"),
         compressor=compressor,
         compressor_level=compressor_level,
+        data_type=data_type or metadata.get("data_type"),
     )
     ngff_version, zarr_format = _resolve_format(cfg)
 
-    sizes = metadata["size"]
-    chunks = metadata["chunksize"]
+    sizes = [tuple(s) for s in metadata["size"]]
+    chunks = [tuple(c) for c in metadata["chunksize"]]
     dtype = metadata.get("dtype", "uint16")
-    axes = tuple(metadata["axes"])
+    axes = normalize_axes(metadata.get("axes"), ndim=len(sizes[0]))
+
+    effective_metadata = dict(metadata)
+    effective_metadata["axes"] = "".join(axes)
+    effective_metadata["data_type"] = normalize_data_type(cfg.data_type or metadata.get("data_type"))
+
+    dummy_levels = [da.empty(shape=s, dtype=dtype, chunks=c) for s, c in zip(sizes, chunks)]
+    _validate_metadata(dummy_levels, effective_metadata, axes)
 
     for i, (shape, chunk) in enumerate(zip(sizes, chunks)):
         kwargs = {
@@ -59,6 +75,7 @@ def create_empty_dataset(
 
         root.create_array(**kwargs)
 
+    data_type = normalize_data_type(effective_metadata.get("data_type"))
     multiscales = {
         "name": metadata.get("name", "OME-Zarr image"),
         "axes": _build_axes(axes, metadata),
@@ -75,16 +92,23 @@ def create_empty_dataset(
                 )
             )
         ],
-        "type": "image",
+        "type": "label" if data_type == "label" else "image",
     }
 
-    import dask.array as da
-    dummy = da.empty(shape=sizes[0], dtype=dtype, chunks=chunks[0])
-    omero = _build_omero_metadata(dummy, axes, metadata)
+    _set_dimension_names(root, multiscales["datasets"], axes, zarr_format=zarr_format)
+
+    omero = None
+    extra = None
+    if data_type == "intensity":
+        omero = _build_omero_metadata(dummy_levels[0], axes, effective_metadata)
+    else:
+        extra = {"image-label": {"source": {"image": "../"}}}
 
     _set_group_ngff_metadata(
         root,
         ngff_version=ngff_version,
         multiscales=multiscales,
         omero=omero,
+        data_type=data_type,
+        extra=extra,
     )

@@ -139,25 +139,30 @@ class MicroscopeManager(ABC):
         if not self.data:
             raise ValueError("No data loaded.")
 
-        c_dim = self.metadata["axes"].index("c")
+        axes = self.metadata.get("axes", "").lower()
+        if "c" not in axes:
+            raise ValueError("Dataset has no channel axis to reorder.")
+
+        c_dim = axes.index("c")
         original_c = self.data[0].shape[c_dim]
-        
         if sorted(new_order) != list(range(original_c)):
             raise ValueError(f"new_order must be a permutation of 0..{original_c - 1}")
 
-        # Reorder each resolution level
-        self.data = [
-            da.moveaxis(level, c_dim, 1)[:, new_order, ...]
-            for level in self.data
-        ]
+        reordered = []
+        for level in self.data:
+            slicer = [slice(None)] * level.ndim
+            slicer[c_dim] = new_order
+            reordered.append(level[tuple(slicer)])
+        self.data = reordered
 
-        # Reorder metadata
         if "channel_names" in self.metadata:
             self.metadata["channel_names"] = [self.metadata["channel_names"][i] for i in new_order]
         if "channel_colors" in self.metadata:
             self.metadata["channel_colors"] = [self.metadata["channel_colors"][i] for i in new_order]
 
-        print(f"✅ Channels reordered to {new_order}")
+        self.metadata["size"] = [tuple(level.shape) for level in self.data]
+        self.metadata["chunksize"] = [tuple(level.chunksize) for level in self.data]
+        print(f"Channels reordered to {new_order}")
         
     def update_metadata(self, 
                         updates: Dict[str, Any]
@@ -188,6 +193,8 @@ class MicroscopeManager(ABC):
             "scales",
             "time_increment",
             "time_increment_unit",
+            "units",
+            "data_type",
         }
 
         from matplotlib.colors import cnames
@@ -226,28 +233,45 @@ class MicroscopeManager(ABC):
                 continue
 
             if key in {"channel_names", "channel_colors"}:
-                c_dim = self.metadata["axes"].index("c")
+                axes = self.metadata.get("axes", "").lower()
+                if "c" not in axes:
+                    warnings.warn(f"Dataset has no channel axis. Skipping '{key}'.")
+                    continue
+                c_dim = axes.index("c")
                 expected_len = self.data[0].shape[c_dim]
                 if len(value) != expected_len:
                     warnings.warn(
-                        f"⚠️ Length of '{key}' ({len(value)}) does not match number of channels ({expected_len}). Skipping."
+                        f"Length of '{key}' ({len(value)}) does not match number of channels ({expected_len}). Skipping."
                     )
                     continue
 
             if key == "scales":
                 if not isinstance(value, list) or len(value) != len(self.data):
                     raise ValueError("❌ 'scales' must be a list with one entry per pyramid level.")
+                spatial_axes = [ax for ax in self.metadata.get("axes", "").lower() if ax in "zyx"]
                 for s in value:
-                    if not isinstance(s, (list, tuple)) or len(s) != 3:
-                        raise ValueError("❌ Each scale entry must be a tuple/list of (Z, Y, X).")
+                    if not isinstance(s, (list, tuple)) or len(s) != len(spatial_axes):
+                        raise ValueError("Each scale entry must match the dataset spatial axes.")
 
             if key == "time_increment":
                 if not isinstance(value, (float, int)) or value <= 0:
                     raise ValueError("❌ 'time_increment' must be a positive float.")
 
             if key == "time_increment_unit":
-                if not isinstance(value, str):
-                    raise ValueError("❌ 'time_increment_unit' must be a string.")
+                if value is not None and not isinstance(value, str):
+                    raise ValueError("❌ 'time_increment_unit' must be a string or None.")
+
+            if key == "units":
+                if not isinstance(value, (tuple, list)):
+                    raise TypeError("'units' must be a tuple or list.")
+                spatial_axes = [ax for ax in self.metadata.get("axes", "").lower() if ax in "zyx"]
+                if len(value) != len(spatial_axes):
+                    raise ValueError("'units' must match the dataset spatial axes.")
+
+            if key == "data_type":
+                from .utils.axes import normalize_data_type
+                value = normalize_data_type(value)
+                self.metadata["is_label"] = value == "label"
                 
             if key == "channel_colors":
                 value = [parse_color(v) for v in value]
@@ -278,36 +302,37 @@ class MicroscopeManager(ABC):
             if index spacing is not uniform or out of bounds.
         """
         from .utils.subset import subset_dask_array, subset_metadata
+        from .utils.axes import index_list_from_selection
         import numpy as np
         
         if not self.data:
             raise ValueError("No data loaded.")
 
-        # Validate bounds
         shape = self.metadata["size"][0]
         axis_order = self.metadata["axes"].lower()
-        for name, index in zip("tczyx", [T, C, Z, Y, X]):
-            if index is not None:
-                max_len = shape[axis_order.index(name)]
-                if max(index) >= max_len or min(index) < 0:
-                    raise ValueError(f"Index for {name.upper()} out of range.")
+        requested = {"t": T, "c": C, "z": Z, "y": Y, "x": X}
+        for name, index in requested.items():
+            if index is None or name not in axis_order:
+                continue
+            axis = axis_order.index(name)
+            indices = index_list_from_selection(index, shape[axis])
+            if indices and (min(indices) < 0 or max(indices) >= shape[axis]):
+                raise ValueError(f"Index for {name.upper()} out of range.")
 
         num_levels = len(self.data)
         downscale_factor = 2
-        if num_levels>1:
-            downscale_factor = int(np.round(self.metadata["size"][0][-1]/self.metadata["size"][1][-1]))
+        if num_levels > 1 and self.metadata["size"][1][-1] != 0:
+            downscale_factor = int(np.round(self.metadata["size"][0][-1] / self.metadata["size"][1][-1]))
 
-        # Subset data
-        self.data = [subset_dask_array(self.data[0], T=T, C=C, Z=Z, Y=Y, X=X)]
-
-        # Subset metadata
-        self.metadata = subset_metadata(self.metadata, T=T, C=C, Z=Z, Y=Y, X=X)
-        
-        # rebuild pyramid
-        self.build_pyramid(
-            num_levels = num_levels,
-            downscale_factor = downscale_factor,
-        )
+        subset_kwargs = {
+            "T": T if "t" in axis_order else None,
+            "C": C if "c" in axis_order else None,
+            "Z": Z if "z" in axis_order else None,
+            "Y": Y if "y" in axis_order else None,
+            "X": X if "x" in axis_order else None,
+        }
+        self.data = [subset_dask_array(self.data[0], axes=axis_order, **subset_kwargs)]
+        self.metadata = subset_metadata(self.metadata, **subset_kwargs)
+        self.build_pyramid(num_levels=num_levels, downscale_factor=downscale_factor)
 
         print("Dataset subset complete.")
-            

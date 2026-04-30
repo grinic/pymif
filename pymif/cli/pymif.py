@@ -2,6 +2,59 @@ from typing import List, Dict, Any, Optional
 from pymif.cli.__arguments import _parse_arguments, parse_color
 import pymif.microscope_manager as mm
 import pandas as pd
+import numpy as np
+
+
+def _axes(metadata):
+    return str(metadata.get("axes", "tczyx")).lower()
+
+
+def _axis_size(metadata, axis, default=1):
+    axes = _axes(metadata)
+    return int(metadata["size"][0][axes.index(axis)]) if axis in axes else default
+
+
+def _dataset_size_mb(metadata):
+    dtype = np.dtype(metadata.get("dtype", "uint16"))
+    nbytes = dtype.itemsize
+    for size in metadata["size"][0]:
+        nbytes *= int(size)
+    return nbytes / 1024 / 1024
+
+
+def _select_chunk_size(metadata, max_size):
+    axes = _axes(metadata)
+    size_map = dict(zip(axes, metadata["size"][0]))
+    n_chunks = {"z": 2, "y": 1, "x": 1}
+    chunk_map = {"t": 1, "c": 1}
+    while True:
+        chunk_map.update({
+            "z": int(size_map.get("z", 1) / n_chunks["z"] + 1),
+            "y": int(size_map.get("y", 1) / n_chunks["y"] + 1),
+            "x": int(size_map.get("x", 1) / n_chunks["x"] + 1),
+        })
+        dtype_size = np.dtype(metadata.get("dtype", "uint16")).itemsize
+        size_mb = dtype_size * chunk_map["z"] * chunk_map["y"] * chunk_map["x"] / 1024 / 1024
+        if size_mb <= max_size:
+            break
+        n_chunks = {key: value * 2 for key, value in n_chunks.items()}
+    chunks = tuple(int(max(1, min(size_map.get(ax, 1), chunk_map[ax]))) for ax in axes)
+    return chunks, size_mb, n_chunks
+
+
+def _estimate_levels(metadata):
+    axes = _axes(metadata)
+    size_map = dict(zip(axes, metadata["size"][0]))
+    shape = [int(size_map[ax]) for ax in axes if ax in "zyx"]
+    if not shape:
+        return 1
+    n = 1
+    print(f"Layer {n}, shape {shape}")
+    while any(s > 2048 for s in shape):
+        n += 1
+        shape = [max(1, s // 2) for s in shape]
+        print(f"Layer {n}, shape {shape}")
+    return n
 
 def zarr_convert(
         input_path, 
@@ -72,23 +125,7 @@ def zarr_convert(
 
     # --- Select chunk size ---
     print(f"\n--->Select chunks, should not exceed {max_size} MB")
-    n_chunks = [2,1,1]
-    chunk_size = [
-        1, 1, # T, C
-        int((dataset.metadata["size"][0][2]/n_chunks[0])+1),  # Z
-        int((dataset.metadata["size"][0][3]/n_chunks[1])+1),  # Y
-        int((dataset.metadata["size"][0][4]/n_chunks[2])+1)   # X
-    ]
-    size_mb = 2*chunk_size[2]*chunk_size[3]*chunk_size[4]/1024/1024
-    while size_mb > max_size:
-        n_chunks = [n_chunks[0]*2,n_chunks[1]*2,n_chunks[2]*2]
-        chunk_size = [
-            1, 1, # T, C
-            int((dataset.metadata["size"][0][2]/n_chunks[0])+1),  # Z
-            int((dataset.metadata["size"][0][3]/n_chunks[1])+1),  # Y
-            int((dataset.metadata["size"][0][4]/n_chunks[2])+1)   # X
-        ]
-        size_mb = 2*chunk_size[2]*chunk_size[3]*chunk_size[4]/1024/1024
+    chunk_size, size_mb, n_chunks = _select_chunk_size(dataset.metadata, max_size)
 
     print(f"Chunk size: {chunk_size}, {size_mb} MB.")
     print(f"N chunks: {n_chunks}.")
@@ -101,13 +138,7 @@ def zarr_convert(
 
     # --- Build pyramid ---
     print(f"\n--->Selected pyramidal layers, lower layer should have dims<2048")
-    n = 1
-    shape = [dataset.metadata["size"][0][2], dataset.metadata["size"][0][3], dataset.metadata["size"][0][4]] # [Y, X]
-    print(f"Layer {n}, shape {shape}")
-    while (shape[0]>2048) or (shape[1]>2048) or (shape[2]>2048):
-        n+=1
-        shape = [shape[0]//2, shape[1]//2, shape[2]//2]
-        print(f"Layer {n}, shape {shape}")
+    n = _estimate_levels(dataset.metadata)
 
     dataset.build_pyramid(
                         num_levels=n, 
@@ -132,13 +163,15 @@ def zarr_convert(
     print("\n--->Updating metadata to selected channel_names and channel_colors")
     metadata = {}
     if channel_names:
-        n_ch = dataset.metadata["size"][0][1]
+        if "c" not in _axes(dataset.metadata):
+            raise TypeError("channel_names were provided, but the dataset has no channel axis.")
+        n_ch = _axis_size(dataset.metadata, "c")
         if len(channel_names)!=n_ch:
-            TypeError(f"Length of channel_names={channel_names} does not match dataset channels of length={n_ch}.")
+            raise TypeError(f"Length of channel_names={channel_names} does not match dataset channels of length={n_ch}.")
         metadata["channel_names"] = channel_names
         if channel_colors:
             if len(channel_colors)!=n_ch:
-                TypeError(f"Length of channel_colors={channel_colors} does not match dataset channels of length={n_ch}.")
+                raise TypeError(f"Length of channel_colors={channel_colors} does not match dataset channels of length={n_ch}.")
             metadata["channel_colors"] = channel_colors
     dataset.update_metadata(metadata)
 
