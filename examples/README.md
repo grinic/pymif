@@ -1,6 +1,6 @@
-# PyMIF beginner notebooks
+# PyMIF notebooks
 
-This folder contains a beginner-friendly notebook collection for the current PyMIF API.
+This folder contains a user-friendly notebook collection for the current PyMIF API.
 
 Recommended order:
 

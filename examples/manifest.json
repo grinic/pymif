@@ -12,5 +12,5 @@
     "09_legacy_options_v04_and_troubleshooting.ipynb"
   ],
   "readme": "README.md",
-  "purpose": "Beginner examples for the current PyMIF manager API, OME-Zarr groups, labels, and legacy options."
+  "purpose": "Examples for the current PyMIF manager API, OME-Zarr groups, labels, and legacy options."
 }
