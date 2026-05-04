@@ -63,24 +63,3 @@ def metadata():
         "axes": "tczyx",
         "name": "test_image",
     }
-
-def label_metadata_from_image_metadata(image_metadata, name="nuclei", dtype="uint16"):
-    """Create explicit label metadata by removing the channel axis from image metadata."""
-    md = dict(image_metadata)
-    axes = str(md["axes"]).lower()
-    if "c" in axes:
-        c_axis = axes.index("c")
-        md["axes"] = "".join(ax for ax in axes if ax != "c")
-        md["size"] = [tuple(v for i, v in enumerate(size) if i != c_axis) for size in md["size"]]
-        md["chunksize"] = [tuple(v for i, v in enumerate(chunks) if i != c_axis) for chunks in md["chunksize"]]
-    md["name"] = name
-    md["dtype"] = dtype
-    md["data_type"] = "label"
-    md["channel_names"] = []
-    md["channel_colors"] = []
-    return md
-
-
-@pytest.fixture
-def label_metadata(metadata):
-    return label_metadata_from_image_metadata(metadata)

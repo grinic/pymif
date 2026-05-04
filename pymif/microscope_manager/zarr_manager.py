@@ -262,6 +262,7 @@ class ZarrManager(MicroscopeManager):
             "plane_files": None,
             "axes": axes,
             "data_type": data_type,
+            "is_label": data_type == "label",
             "ngff_version": self.ngff_version,
             "zarr_format": 3 if self.ngff_version == "0.5" else 2,
         }
@@ -406,6 +407,7 @@ class ZarrManager(MicroscopeManager):
         except ValueError:
             return None
 
+        metadata["is_label"] = False
         metadata["name"] = name
 
         return ZarrDataset(
@@ -491,6 +493,7 @@ class ZarrManager(MicroscopeManager):
         self,
         group_name: str,
         metadata: Dict[str, Any],
+        is_label: bool = False,
         data_type: str | None = None,
     ):
         """Create an empty image subgroup or label subgroup and update this manager.
@@ -501,19 +504,24 @@ class ZarrManager(MicroscopeManager):
         from .utils.create_empty_group import create_empty_group as _create_empty_group
 
         effective_data_type = normalize_data_type(data_type or metadata.get("data_type"), is_label=True if is_label else None)
+        is_label = is_label or effective_data_type == "label"
+
         grp = _create_empty_group(
             root=self.root,
             group_name=group_name,
             metadata=metadata,
-            data_type=effective_data_type,
+            is_label=is_label,
+            data_type=data_type,
         )
 
-        arrays, zarr_arrays, group_metadata = self._read_multiscale_group(grp)
-        group_metadata = dict(group_metadata)
-        group_metadata["data_type"] = effective_data_type
-        group_metadata["name"] = group_name
+        # Read the newly created group back into the in-memory ZarrDataset model.
+        if is_label:
+            arrays, zarr_arrays, group_metadata = self._read_multiscale_group(grp)
 
-        if effective_data_type == "label":
+            group_metadata = dict(group_metadata)
+            group_metadata["is_label"] = True
+            group_metadata["name"] = group_name
+
             dataset = ZarrDataset(
                 data=arrays,
                 zarr_data=zarr_arrays,
@@ -521,10 +529,19 @@ class ZarrManager(MicroscopeManager):
                 name=group_name,
                 path=f"labels/{group_name}",
             )
+
             if not hasattr(self, "labels"):
                 self.labels = AttrDict()
+
             self.labels[group_name] = dataset
+
         else:
+            arrays, zarr_arrays, group_metadata = self._read_multiscale_group(grp)
+
+            group_metadata = dict(group_metadata)
+            group_metadata["is_label"] = False
+            group_metadata["name"] = group_name
+
             dataset = ZarrDataset(
                 data=arrays,
                 zarr_data=zarr_arrays,
@@ -532,9 +549,13 @@ class ZarrManager(MicroscopeManager):
                 name=group_name,
                 path=group_name,
             )
+
             if not hasattr(self, "groups"):
                 self.groups = AttrDict()
+
             self.groups[group_name] = dataset
+
+            # Optional convenience: d.proc.data
             if group_name.isidentifier():
                 setattr(self, group_name, dataset)
 
@@ -722,30 +743,62 @@ class ZarrManager(MicroscopeManager):
         new_order: List[int],
         include_groups: bool = True,
     ):
-        """Reorder channels in raw and non-label image groups.
+        """
+        Reorder channels in raw and non-label image groups.
 
         Labels are skipped because they usually do not have a channel axis.
         """
-        from .utils.metadata import reorder_channel_axis
-
         for name, dataset in self._iter_datasets(
             include_raw=True,
             include_groups=include_groups,
             include_labels=False,
         ):
-            if not dataset.data or "c" not in dataset.metadata.get("axes", "").lower():
+            if not dataset.data:
                 continue
 
-            dataset.data, dataset.metadata = reorder_channel_axis(
-                dataset.data,
-                dataset.metadata,
-                new_order,
-                dataset_name=name,
-            )
+            axes = dataset.metadata.get("axes", "").lower()
+
+            if "c" not in axes:
+                continue
+
+            c_axis = axes.index("c")
+            n_channels = dataset.data[0].shape[c_axis]
+
+            if sorted(new_order) != list(range(n_channels)):
+                raise ValueError(
+                    f"new_order must be a permutation of 0..{n_channels - 1} "
+                    f"for dataset {name!r}."
+                )
+
+            reordered_levels = []
+
+            for level in dataset.data:
+                slicer = [slice(None)] * level.ndim
+                slicer[c_axis] = new_order
+                reordered_levels.append(level[tuple(slicer)])
+
+            dataset.data = reordered_levels
+
+            if "channel_names" in dataset.metadata:
+                dataset.metadata["channel_names"] = [
+                    dataset.metadata["channel_names"][i]
+                    for i in new_order
+                ]
+
+            if "channel_colors" in dataset.metadata:
+                dataset.metadata["channel_colors"] = [
+                    dataset.metadata["channel_colors"][i]
+                    for i in new_order
+                ]
+
+            dataset.metadata["size"] = [tuple(arr.shape) for arr in dataset.data]
+            dataset.metadata["chunksize"] = [arr.chunksize for arr in dataset.data]
+
             self._invalidate_zarr_data(dataset)
 
         self._sync_raw_aliases()
-        print(f"Channels reordered to {list(new_order)}.")
+
+        print(f"Channels reordered to {new_order}.")     
 
     def update_metadata(
         self,
@@ -753,11 +806,42 @@ class ZarrManager(MicroscopeManager):
         include_groups: bool = True,
         include_labels: bool = True,
     ):
-        """Update metadata for raw, groups, and labels.
+        """
+        Update metadata for raw, groups, and labels.
 
         Channel-specific metadata is skipped for datasets without a channel axis.
         """
-        from .utils.metadata import apply_metadata_updates
+        import re
+        import warnings
+        from matplotlib.colors import cnames
+
+        valid_keys = {
+            "channel_names",
+            "channel_colors",
+            "scales",
+            "time_increment",
+            "time_increment_unit",
+            "units",
+            "data_type",
+        }
+
+        hex_pattern = re.compile(r"^#?[0-9a-fA-F]{6}$")
+
+        def parse_color(value: str) -> str:
+            if not isinstance(value, str):
+                raise TypeError("Channel colors must be strings.")
+
+            if hex_pattern.match(value):
+                return value.replace("#", "").upper()
+
+            lower = value.lower()
+            if lower in cnames:
+                return cnames[lower].replace("#", "").upper()
+
+            raise TypeError(
+                f"Invalid color {value!r}. Use a 6-digit hex code or a valid "
+                "matplotlib color name."
+            )
 
         for name, dataset in self._iter_datasets(
             include_raw=True,
@@ -766,14 +850,78 @@ class ZarrManager(MicroscopeManager):
         ):
             if not dataset.metadata:
                 continue
-            apply_metadata_updates(
-                dataset.data,
-                dataset.metadata,
-                updates,
-                dataset_name=name,
-            )
+
+            axes = dataset.metadata.get("axes", "").lower()
+
+            for key, value in updates.items():
+                if key not in valid_keys:
+                    warnings.warn(
+                        f"Unsupported or unknown metadata key {key!r}.",
+                        stacklevel=2,
+                    )
+                    continue
+
+                if key in {"channel_names", "channel_colors"}:
+                    if "c" not in axes:
+                        continue
+
+                    c_axis = axes.index("c")
+                    expected_channels = dataset.data[0].shape[c_axis]
+
+                    if len(value) != expected_channels:
+                        warnings.warn(
+                            f"Skipping {key!r} for dataset {name!r}: expected "
+                            f"{expected_channels} values, got {len(value)}.",
+                            stacklevel=2,
+                        )
+                        continue
+
+                    if key == "channel_colors":
+                        value = [parse_color(v) for v in value]
+
+                elif key == "scales":
+                    if not isinstance(value, list):
+                        raise TypeError("'scales' must be a list.")
+
+                    if len(value) != len(dataset.data):
+                        raise ValueError(
+                            f"'scales' must contain one entry per pyramid level "
+                            f"for dataset {name!r}. Expected {len(dataset.data)}, "
+                            f"got {len(value)}."
+                        )
+
+                    for scale in value:
+                        if not isinstance(scale, (tuple, list)):
+                            raise TypeError(
+                                "Each scale entry must be a tuple or list."
+                            )
+
+                elif key == "time_increment":
+                    if value is not None and (
+                        not isinstance(value, (int, float)) or value <= 0
+                    ):
+                        raise ValueError(
+                            "'time_increment' must be a positive number or None."
+                        )
+
+                elif key == "time_increment_unit":
+                    if value is not None and not isinstance(value, str):
+                        raise TypeError(
+                            "'time_increment_unit' must be a string or None."
+                        )
+
+                elif key == "units":
+                    if not isinstance(value, (tuple, list)):
+                        raise TypeError("'units' must be a tuple or list.")
+
+                elif key == "data_type":
+                    value = normalize_data_type(value)
+                    dataset.metadata["is_label"] = value == "label"
+
+                dataset.metadata[key] = value
 
         self._sync_raw_aliases()
+
         print("Zarr metadata updated.")
 
     def to_zarr(
@@ -811,6 +959,7 @@ class ZarrManager(MicroscopeManager):
             metadata=self.raw.metadata,
             config=cfg,
             name=self.raw.name or "raw",
+            is_label=False,
         )
 
         # ------------------------------------------------------------
@@ -826,6 +975,7 @@ class ZarrManager(MicroscopeManager):
                     metadata=dataset.metadata,
                     config=cfg,
                     name=dataset.name or group_name,
+                    is_label=False,
                 )
 
         # ------------------------------------------------------------
@@ -847,7 +997,7 @@ class ZarrManager(MicroscopeManager):
                     metadata=dataset.metadata,
                     config=cfg,
                     name=dataset.name or label_name,
-                    image_label_source="../../",
+                    is_label=True,
                 )
 
             # Root-level label discovery metadata for the active NGFF layout.

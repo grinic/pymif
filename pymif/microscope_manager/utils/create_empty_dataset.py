@@ -8,16 +8,16 @@ import zarr
 from .axes import normalize_axes, normalize_data_type
 from .ngff import (
     ZarrWriteConfig,
-    _build_multiscales,
-    _ngff_payload_parts,
-    _normalize_metadata_for_write,
+    _build_axes,
+    _build_coordinate_transformations,
+    _build_omero_metadata,
+    _build_v2_compressor,
+    _build_v3_compressors,
     _resolve_format,
-    _set_dimension_names,
     _set_group_ngff_metadata,
+    _set_dimension_names,
     _validate_metadata,
-    _write_empty_pyramid_arrays,
 )
-
 
 def create_empty_dataset(
     root: zarr.Group,
@@ -51,38 +51,58 @@ def create_empty_dataset(
     dtype = metadata.get("dtype", "uint16")
     axes = normalize_axes(metadata.get("axes"), ndim=len(sizes[0]))
 
-    effective_metadata = _normalize_metadata_for_write(
-        metadata,
-        axes,
-        data_type=cfg.data_type,
-    )
+    effective_metadata = dict(metadata)
+    effective_metadata["axes"] = "".join(axes)
+    effective_metadata["data_type"] = normalize_data_type(cfg.data_type or metadata.get("data_type"))
+
     dummy_levels = [da.empty(shape=s, dtype=dtype, chunks=c) for s, c in zip(sizes, chunks)]
     _validate_metadata(dummy_levels, effective_metadata, axes)
 
-    _write_empty_pyramid_arrays(
-        root,
-        sizes=sizes,
-        chunks=chunks,
-        dtype=dtype,
-        zarr_format=zarr_format,
-        compressor=compressor,
-        compressor_level=compressor_level,
-    )
+    for i, (shape, chunk) in enumerate(zip(sizes, chunks)):
+        kwargs = {
+            "name": str(i),
+            "shape": shape,
+            "chunks": chunk,
+            "dtype": dtype,
+        }
+        if zarr_format == 2:
+            kwargs["compressor"] = _build_v2_compressor(compressor, compressor_level)
+            kwargs["chunk_key_encoding"] = {"name": "v2", "separator": "/"}
+        else:
+            compressors = _build_v3_compressors(compressor, compressor_level)
+            if compressors is not None:
+                kwargs["compressors"] = compressors
+
+        root.create_array(**kwargs)
 
     data_type = normalize_data_type(effective_metadata.get("data_type"))
-    multiscales = _build_multiscales(
-        effective_metadata,
-        axes,
-        name=effective_metadata.get("name") or "OME-Zarr image",
-        n_levels=len(dummy_levels),
-    )
+    multiscales = {
+        "name": metadata.get("name", "OME-Zarr image"),
+        "axes": _build_axes(axes, metadata),
+        "datasets": [
+            {
+                "path": str(i),
+                "coordinateTransformations": ct,
+            }
+            for i, ct in enumerate(
+                _build_coordinate_transformations(
+                    axes=axes,
+                    scales=metadata["scales"],
+                    time_increment=metadata.get("time_increment"),
+                )
+            )
+        ],
+        "type": "label" if data_type == "label" else "image",
+    }
+
     _set_dimension_names(root, multiscales["datasets"], axes, zarr_format=zarr_format)
-    omero, extra = _ngff_payload_parts(
-        dummy_levels[0],
-        effective_metadata,
-        axes,
-        image_label_source="../",
-    )
+
+    omero = None
+    extra = None
+    if data_type == "intensity":
+        omero = _build_omero_metadata(dummy_levels[0], axes, effective_metadata)
+    else:
+        extra = {"image-label": {"source": {"image": "../"}}}
 
     _set_group_ngff_metadata(
         root,
