@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Optional,Sequence
-import dask.array as da
-import warnings
-
-from typing import TYPE_CHECKING, Optional
+from typing import Any, Dict, List, Tuple, Optional, TYPE_CHECKING
 from collections.abc import Sequence
+
+import dask.array as da
 
 if TYPE_CHECKING:
     import napari
@@ -125,50 +123,32 @@ class MicroscopeManager(ABC):
                 print(f"Warning: failed to close file: {e}")
         self._open_files = []
         
-    def reorder_channels(self, 
-                         new_order: List[int]
-                         ) -> None:
-        """
-        Reorder the channel axis and update channel-related metadata.
+    def reorder_channels(
+        self, 
+        new_order: List[int],
+    ) -> None:
+        """Reorder the channel axis and update channel-related metadata.
 
         Parameters
         ----------
             new_order : List[int]
                 A permutation of the channel indices.
         """
-        if not self.data:
-            raise ValueError("No data loaded.")
+        from .utils.metadata import reorder_channel_axis
 
-        axes = self.metadata.get("axes", "").lower()
-        if "c" not in axes:
-            raise ValueError("Dataset has no channel axis to reorder.")
-
-        c_dim = axes.index("c")
-        original_c = self.data[0].shape[c_dim]
-        if sorted(new_order) != list(range(original_c)):
-            raise ValueError(f"new_order must be a permutation of 0..{original_c - 1}")
-
-        reordered = []
-        for level in self.data:
-            slicer = [slice(None)] * level.ndim
-            slicer[c_dim] = new_order
-            reordered.append(level[tuple(slicer)])
-        self.data = reordered
-
-        if "channel_names" in self.metadata:
-            self.metadata["channel_names"] = [self.metadata["channel_names"][i] for i in new_order]
-        if "channel_colors" in self.metadata:
-            self.metadata["channel_colors"] = [self.metadata["channel_colors"][i] for i in new_order]
-
-        self.metadata["size"] = [tuple(level.shape) for level in self.data]
-        self.metadata["chunksize"] = [tuple(level.chunksize) for level in self.data]
-        print(f"Channels reordered to {new_order}")
+        self.data, self.metadata = reorder_channel_axis(
+            self.data,
+            self.metadata,
+            new_order,
+            dataset_name="raw",
+        )
+        print(f"Channels reordered to {list(new_order)}")
         
-    def update_metadata(self, 
-                        updates: Dict[str, Any]
-                        ) -> None:
-        """
-        Safely update entries in the metadata dictionary with validation.
+    def update_metadata(
+        self, 
+        updates: Dict[str, Any]
+    ) -> None:
+        """Safely update entries in the metadata dictionary with validation.
 
         Parameters
         ----------
@@ -186,98 +166,16 @@ class MicroscopeManager(ABC):
         ----------
             Issues warnings or raises exceptions if updates are incompatible.
         """
-        
-        valid_keys = {
-            "channel_names",
-            "channel_colors",
-            "scales",
-            "time_increment",
-            "time_increment_unit",
-            "units",
-            "data_type",
-        }
+        from .utils.metadata import apply_metadata_updates
 
-        from matplotlib.colors import cnames
-        import re
-
-        HEX_PATTERN = re.compile(r'^#?[0-9a-fA-F]{6}$')
-
-        def parse_color(v: str) -> str:
-            """Parse a CLI color input:
-            - Accept 6-digit hex codes (# optional)
-            - Accept color names from matplotlib.colors.cnames
-            - Raise a meaningful error if invalid
-            """
-
-            # --- 1) Hex code (with or without #) ---
-            if HEX_PATTERN.match(v):
-                return v.replace("#", "").upper()
-
-            # --- 2) Matplotlib named color ---
-            lower = v.lower()
-            if lower in cnames:
-                # cnames returns a hex string with '#', e.g. "#ff00ff"
-                return cnames[lower].replace("#", "").upper()
-
-            # --- 3) Fail: report detailed reason ---
-            raise TypeError(
-                f"Invalid color '{v}'. "
-                f"Must be:\n"
-                f"  • A 6-digit hex code (e.g. FF00FF or #ff00ff), OR\n"
-                f"  • A valid color name from matplotlib ({', '.join(list(cnames.keys())[:10])}, ...)"
-            )
-        
-        for key, value in updates.items():
-            if key not in valid_keys:
-                warnings.warn(f"⚠️ Unsupported or unknown metadata key: '{key}'")
-                continue
-
-            if key in {"channel_names", "channel_colors"}:
-                axes = self.metadata.get("axes", "").lower()
-                if "c" not in axes:
-                    warnings.warn(f"Dataset has no channel axis. Skipping '{key}'.")
-                    continue
-                c_dim = axes.index("c")
-                expected_len = self.data[0].shape[c_dim]
-                if len(value) != expected_len:
-                    warnings.warn(
-                        f"Length of '{key}' ({len(value)}) does not match number of channels ({expected_len}). Skipping."
-                    )
-                    continue
-
-            if key == "scales":
-                if not isinstance(value, list) or len(value) != len(self.data):
-                    raise ValueError("❌ 'scales' must be a list with one entry per pyramid level.")
-                spatial_axes = [ax for ax in self.metadata.get("axes", "").lower() if ax in "zyx"]
-                for s in value:
-                    if not isinstance(s, (list, tuple)) or len(s) != len(spatial_axes):
-                        raise ValueError("Each scale entry must match the dataset spatial axes.")
-
-            if key == "time_increment":
-                if not isinstance(value, (float, int)) or value <= 0:
-                    raise ValueError("❌ 'time_increment' must be a positive float.")
-
-            if key == "time_increment_unit":
-                if value is not None and not isinstance(value, str):
-                    raise ValueError("❌ 'time_increment_unit' must be a string or None.")
-
-            if key == "units":
-                if not isinstance(value, (tuple, list)):
-                    raise TypeError("'units' must be a tuple or list.")
-                spatial_axes = [ax for ax in self.metadata.get("axes", "").lower() if ax in "zyx"]
-                if len(value) != len(spatial_axes):
-                    raise ValueError("'units' must match the dataset spatial axes.")
-
-            if key == "data_type":
-                from .utils.axes import normalize_data_type
-                value = normalize_data_type(value)
-                self.metadata["is_label"] = value == "label"
-                
-            if key == "channel_colors":
-                value = [parse_color(v) for v in value]
-
-            self.metadata[key] = value
-            print(f"✅ Updated metadata entry '{key}'")
+        updated = apply_metadata_updates(
+            self.data,
+            self.metadata,
+            updates,
+            dataset_name="raw",
+        )
+        for key in updated:
+            print(f"Updated metadata entry {key!r}")
             
     def subset_dataset(self,
                     T: Optional[Sequence[int]] = None,

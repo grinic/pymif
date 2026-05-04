@@ -290,6 +290,97 @@ def _build_v3_compressors(compressor: str | None, level: int):
     raise ValueError(f"Unsupported compressor for zarr v3: {compressor}")
 
 
+
+def _normalize_metadata_for_write(
+    metadata: dict[str, Any],
+    axes: tuple[str, ...],
+    *,
+    data_type: str | None = None,
+) -> dict[str, Any]:
+    """Return metadata normalized for NGFF writing.
+
+    ``metadata['data_type']`` is the only image-vs-label switch. Optional
+    ``data_type`` is an explicit override for callers that expose it as a
+    convenience argument.
+    """
+    out = dict(metadata)
+    out["axes"] = "".join(normalize_axes(axes))
+    out["data_type"] = normalize_data_type(data_type if data_type is not None else out.get("data_type"))
+    return out
+
+
+def _build_multiscales(
+    metadata: dict[str, Any],
+    axes: tuple[str, ...],
+    *,
+    name: str | None,
+    n_levels: int,
+) -> dict[str, Any]:
+    """Build a complete NGFF multiscales block for image or label data."""
+    data_type = normalize_data_type(metadata.get("data_type"))
+    return {
+        "name": name or metadata.get("name") or "dataset",
+        "axes": _build_axes(axes, metadata),
+        "datasets": [
+            {
+                "path": str(i),
+                "coordinateTransformations": ct,
+            }
+            for i, ct in enumerate(
+                _build_coordinate_transformations(
+                    axes=axes,
+                    scales=metadata["scales"],
+                    time_increment=metadata.get("time_increment"),
+                )
+            )
+        ][:n_levels],
+        "type": "label" if data_type == "label" else "image",
+    }
+
+
+def _write_empty_pyramid_arrays(
+    group: zarr.Group,
+    *,
+    sizes: Sequence[Sequence[int]],
+    chunks: Sequence[Sequence[int]],
+    dtype: Any,
+    zarr_format: int,
+    compressor: str | None,
+    compressor_level: int,
+) -> None:
+    """Create empty pyramid arrays with the same storage rules as data writes."""
+    for i, (shape, chunk) in enumerate(zip(sizes, chunks)):
+        kwargs = {
+            "name": str(i),
+            "shape": tuple(shape),
+            "chunks": tuple(chunk),
+            "dtype": dtype,
+        }
+
+        if zarr_format == 2:
+            kwargs["compressor"] = _build_v2_compressor(compressor, compressor_level)
+            kwargs["chunk_key_encoding"] = {"name": "v2", "separator": "/"}
+        else:
+            compressors = _build_v3_compressors(compressor, compressor_level)
+            if compressors is not None:
+                kwargs["compressors"] = compressors
+
+        group.create_array(**kwargs)
+
+
+def _ngff_payload_parts(
+    data_level0: da.Array,
+    metadata: dict[str, Any],
+    axes: tuple[str, ...],
+    *,
+    image_label_source: str | None = None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Return the OMERO and extra metadata blocks for a normalized dataset."""
+    data_type = normalize_data_type(metadata.get("data_type"))
+    if data_type == "intensity":
+        return _build_omero_metadata(data_level0, axes, metadata), None
+    return None, {"image-label": {"source": {"image": image_label_source or "../"}}}
+
 def _validate_metadata(
     data_levels: Sequence[da.Array],
     metadata: dict[str, Any],

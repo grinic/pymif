@@ -85,9 +85,13 @@ def spatial_axis_indices(axes: str | Sequence[str]) -> tuple[int, ...]:
 
 
 def normalize_data_type(data_type: str | None = None, *, is_label: bool | None = None) -> str:
-    """Normalize PyMIF's image-vs-label flag to ``intensity`` or ``label``."""
+    """Normalize the dataset semantic type to ``intensity`` or ``label``.
+
+    ``metadata['data_type']`` is the single source of truth for image-vs-label
+    behavior. Missing values default to ``"intensity"``.
+    """
     if data_type is None:
-        return "label" if is_label else "intensity"
+        return "intensity"
 
     value = str(data_type).strip().lower().replace("-", "_")
     aliases = {
@@ -104,15 +108,7 @@ def normalize_data_type(data_type: str | None = None, *, is_label: bool | None =
 
     if value not in aliases:
         raise ValueError("data_type must be either 'intensity' or 'label'.")
-
-    normalized = aliases[value]
-    if is_label is not None:
-        expected = "label" if is_label else "intensity"
-        if normalized != expected:
-            raise ValueError(
-                f"data_type={normalized!r} conflicts with is_label={is_label!r}."
-            )
-    return normalized
+    return aliases[value]
 
 
 def spatial_values_for_axes(
