@@ -1,8 +1,10 @@
-from typing import List, Dict, Any, Optional
-from pymif.cli.__arguments import _parse_arguments, parse_color
-import pymif.microscope_manager as mm
-import pandas as pd
+from typing import List, Optional
+
 import numpy as np
+import pandas as pd
+
+import pymif.microscope_manager as mm
+from pymif.cli.__arguments import _parse_arguments, parse_color, parse_downscale_factor
 
 
 def _axes(metadata):
@@ -56,15 +58,49 @@ def _estimate_levels(metadata):
         print(f"Layer {n}, shape {shape}")
     return n
 
+
+def _normalize_downscale_factor(value):
+    if value is None:
+        return 2
+    if isinstance(value, (list, tuple)):
+        if len(value) == 1:
+            return int(value[0])
+        return tuple(int(v) for v in value)
+    return int(value)
+
+
+def _resolve_zarr_manager(microscope):
+    microscope = microscope.lower()
+    if microscope == 'luxendo':
+        return mm.LuxendoManager
+    if microscope == 'opera':
+        return mm.OperaManager
+    if microscope == 'viventis':
+        return mm.ViventisManager
+    if microscope == 'zeiss':
+        return mm.ZeissManager
+    if microscope == 'zarrv04':
+        return mm.ZarrV04Manager
+    if microscope == 'zarr':
+        return mm.ZarrManager
+    if microscope == 'scape':
+        return mm.ScapeManager
+    raise TypeError(
+        f'Microscope {microscope} not recognized. Should be one of "luxendo", "opera", "viventis", "zeiss", "zarrv04", "zarr", "scape".'
+    )
+
+
 def zarr_convert(
-        input_path, 
-        zarr_path, 
-        microscope, 
-        max_size : Optional[int] = 100, 
-        scene_index : Optional[int] = -1,
-        channel_names : Optional[List[str]] = None,
-        channel_colors : Optional[List[str]] = None,
-        ):
+    input_path, 
+    zarr_path, 
+    microscope, 
+    max_size : Optional[int] = 100, 
+    scene_index : Optional[int] = -1,
+    channel_names : Optional[List[str]] = None,
+    channel_colors : Optional[List[str]] = None,
+    zarr_format: Optional[int] = 3,
+    downscale_factor=2,
+):
     """Helper function for CLI to convert a dataset to zarr given some parameters.
 
     Parameters
@@ -90,25 +126,19 @@ def zarr_convert(
             Colors of channels (hex or matplotlib color name)\n
             Example: \"-cc 0000FF cyan 00ff00\")\n
             Default: None
+        zarr_format : Optional[int]
+            Output zarr format. Zarr v2 maps to NGFF 0.4 and Zarr v3 maps to NGFF 0.5.\n
+            Default: 3
+        downscale_factor : Optional[int]
+            Pyramid downsampling factor.\n
+            Default: 2
+            Example: \"-df 1 2 2\")\n
+            Default: None
 
     """
 
-    if microscope.lower()=="luxendo":
-        manager = mm.LuxendoManager
-    elif microscope.lower()=="opera":
-        manager = mm.OperaManager
-    elif microscope.lower()=="viventis":
-        manager = mm.ViventisManager
-    elif microscope.lower()=="zeiss":
-        manager = mm.ZeissManager
-    elif microscope.lower()=="zarrv04":
-        manager = mm.ZarrV04Manager
-    elif microscope.lower()=="zarr":
-        manager = mm.ZarrManager
-    elif microscope.lower()=='scape':
-        manager = mm.ScapeManager
-    else:
-        TypeError(f"Microscope {microscope} not recognized. Should be one of \"luxendo\", \"opera\", \"viventis\", \"zeiss\", \"zarrv04\", \"zarr\", \"scape\".")
+    manager = _resolve_zarr_manager(microscope)
+    downscale_factor = _normalize_downscale_factor(downscale_factor)
 
     # --- Figure out chunks dimensions ---
     if microscope.lower() == "zeiss":
@@ -121,7 +151,7 @@ def zarr_convert(
     for i in dataset.metadata:
         print(f"{i.upper()}: {dataset.metadata[i]}")
     print("CHUNK SIZE:", dataset.chunks)
-    print("DATASET SIZE (MB):", 2*dataset.metadata["size"][0][0]*dataset.metadata["size"][0][1]*dataset.metadata["size"][0][2]*dataset.metadata["size"][0][3]*dataset.metadata["size"][0][4]/1024/1024)
+    print("DATASET SIZE (MB):", _dataset_size_mb(dataset.metadata))
 
     # --- Select chunk size ---
     print(f"\n--->Select chunks, should not exceed {max_size} MB")
@@ -141,9 +171,9 @@ def zarr_convert(
     n = _estimate_levels(dataset.metadata)
 
     dataset.build_pyramid(
-                        num_levels=n, 
-                        downscale_factor=2
-                        )
+        num_levels=n, 
+        downscale_factor=downscale_factor
+    )
 
     # --- Modify metadata according to optional parameters ---
     
@@ -184,7 +214,8 @@ def zarr_convert(
 
     # --- Write to OME-Zarr format ---
     print("\n--->Writing to zarr")
-    dataset.to_zarr(zarr_path)
+    ngff_version = '0.4' if int(zarr_format) == 2 else '0.5'
+    dataset.to_zarr(zarr_path, zarr_format=int(zarr_format), ngff_version=ngff_version)
 
     # --- Show metadata summary for updated dataset ---
     dataset = mm.ZarrManager(path=zarr_path)
@@ -216,21 +247,31 @@ def convert_batch(args):
         output = v["output"]
         print(f"\toutput_path: {output}")
 
-        max_size = float(v["max_size(MB)"])
+        max_size = float(v.get("max_size(MB)", -1))
         if max_size==-1:
             max_size = 100
             print(f"\tmax_chunk_size(MB): -1, defaulted to: {max_size}")
         else:
             print(f"\tmax_chunk_size(MB): {max_size}")
 
-        scene_index = int(v["scene_index"])
+        scene_index = int(v.get("scene_index", -1))
         if scene_index==-1:
             scene_index = 0
             print(f"\tscene_index: -1, defaulted to: {scene_index}")
         else:
             print(f"\tscene_index: {scene_index}")
 
-        channel_names = v["channel_names"]
+        zarr_format = int(v.get('zarr_format', -1))
+        if zarr_format == -1:
+            zarr_format = 3
+            print(f'\tzarr_format: -1, defaulted to: {zarr_format}')
+        else:
+            print(f'\tzarr_format: {zarr_format}')
+
+        downscale_factor = parse_downscale_factor(v.get('downscale_factor', '-1'))
+        print(f'\tdownscale_factor: {downscale_factor}')
+
+        channel_names = v.get("channel_names", "-1")
         if channel_names=="-1":
             channel_names = None
             print(f"\tchannel_names: -1, defaulted to: {channel_names}")
@@ -238,7 +279,7 @@ def convert_batch(args):
             channel_names = [c.strip() for c in channel_names.split(",")]
             print(f"\tchannel_names: {channel_names}")
             
-        channel_colors = v["channel_colors"]
+        channel_colors = v.get('channel_colors', '-1')
         if channel_colors=="-1":
             channel_colors = None
             print(f"\tchannel_colors: -1, defaulted to: {channel_colors}")
@@ -254,7 +295,9 @@ def convert_batch(args):
             max_size,
             scene_index,
             channel_names,
-            channel_colors
+            channel_colors,
+            zarr_format=zarr_format,
+            downscale_factor=downscale_factor,
         )
 
 def convert_single(args):
@@ -263,7 +306,13 @@ def convert_single(args):
     Args:
         args (args): parsed arguments
     """
-    cli = f'pymif 2zarr --input {args.input_path} --zarr_path {args.zarr_path} --microscope {args.microscope} --max_size {args.max_size} --scene_index {args.scene_index} --channel_names {args.channel_names} --channel_colors {args.channel_colors}'
+    cli = (
+        f'pymif 2zarr --input {args.input_path} --zarr_path {args.zarr_path} '
+        f'--microscope {args.microscope} --max_size {args.max_size} '
+        f'--scene_index {args.scene_index} --channel_names {args.channel_names} '
+        f'--channel_colors {args.channel_colors} --zarr_format {args.zarr_format} '
+        f'--downscale_factor {args.downscale_factor}'
+    )
     print(f'Converting single file.\nRunning through: {cli}')
     # Convert 2 zarr
     zarr_convert(
@@ -273,7 +322,9 @@ def convert_single(args):
         args.max_size,
         args.scene_index,
         args.channel_names,
-        args.channel_colors
+        args.channel_colors,
+        zarr_format=args.zarr_format,
+        downscale_factor=args.downscale_factor,
     )
 
 def main():

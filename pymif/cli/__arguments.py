@@ -1,9 +1,11 @@
 __all__ = ['_parse_arguments']
+
 import argparse
 import os
-import textwrap
 import re
+import textwrap
 from matplotlib.colors import cnames
+
 
 class MultilineDefaultsHelpFormatter(
     argparse.RawDescriptionHelpFormatter,
@@ -12,7 +14,9 @@ class MultilineDefaultsHelpFormatter(
     """Formatter that preserves line breaks while still displaying defaults."""
     pass
 
+
 HEX_PATTERN = re.compile(r'^#?[0-9a-fA-F]{6}$')
+
 
 # Valid type of's
 def valid_input_path(x):
@@ -20,23 +24,18 @@ def valid_input_path(x):
     if x is not None:
         if os.path.isdir(x) or os.path.isfile(x):
             return os.path.abspath(x)
-        else:
-            raise argparse.ArgumentTypeError(f'Input path {x} is not a valid directory')
-    else: 
-        return None
+        raise argparse.ArgumentTypeError(f'Input path {x} is not a valid directory')
+    return None
+
 
 def valid_output_path(x):
     """Validate that an output path does not already point to an existing file or directory."""
-    print(x)
-    print((not os.path.isdir(x)) and (not os.path.isfile(x)))
     if x is not None:
-        print((not os.path.isdir(x)) and (not os.path.isfile(x)))
         if (not os.path.isdir(x)) and (not os.path.isfile(x)):
             return os.path.abspath(x)
-        else:
-            raise argparse.ArgumentTypeError(f'Output path {x} is not a valid directory')
-    else: 
-        return None
+        raise argparse.ArgumentTypeError(f'Output path {x} is not a valid directory')
+    return None
+
 
 def parse_color(value: str) -> str:
     """Parse a CLI color input:
@@ -68,25 +67,59 @@ def parse_color(value: str) -> str:
         f"  • A valid color name from matplotlib ({', '.join(list(cnames.keys())[:10])}, ...)"
     )
 
+def parse_downscale_factor(value: str):
+    """Parse a scalar or anisotropic downscale factor from a CSV cell.
+
+    Examples
+    --------
+    ``2`` -> 2
+    ``1 2 2`` -> (1, 2, 2)
+    ``1,2,2`` -> (1, 2, 2)
+    """
+    if value is None:
+        return 2
+
+    text = str(value).strip()
+    if text in {'', '-1', 'none', 'null', 'nan'}:
+        return 2
+
+    parts = [p for p in re.split(r'[\s,;]+', text) if p]
+    if not parts:
+        return 2
+
+    try:
+        factors = [int(p) for p in parts]
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"Invalid downscale factor '{value}'. Use a scalar like '2' or a sequence like '1 2 2'."
+        ) from exc
+
+    if any(f <= 0 for f in factors):
+        raise argparse.ArgumentTypeError(
+            f"Invalid downscale factor '{value}'. All values must be positive integers."
+        )
+
+    return factors[0] if len(factors) == 1 else tuple(factors)
+
 def _parse_arguments():
     """Build and parse the PyMIF command line interface arguments."""
 
     parser = argparse.ArgumentParser(
-        description= """\
+        description="""\
             Welcome fellow MIF users!
         """,
-        formatter_class= argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     # Sub-parsers
     subparsers = parser.add_subparsers(
-        title= 'Runmodes',
+        title='Runmodes',
         description= """\
             PyMIF has TWO main runmodes, each with different and specific arguments.
             Please consult each runmode's help manual before running any of them.
             Enjoy PyMIF!
         """,
-        required= True,
+        required=True,
     )
 
     #####################################################################################
@@ -103,7 +136,7 @@ def _parse_arguments():
         type= int
     )
 
-        # Optional args
+    # Optional args
     single_convert_parser.add_argument(
         '-ms', '--max_size',
         required= False,
@@ -133,8 +166,25 @@ def _parse_arguments():
         nargs= '+',
         help= 'Color(s) of channel(s). It needs to be hex or matplotlib color name. Example: -cc 0000FF cyan 00ff00'
     )
+    single_convert_parser.add_argument(
+        '-zf', '--zarr_format',
+        required=False,
+        default=3,
+        choices=[2, 3],
+        type=int,
+        help='Output zarr format. Zarr v2 maps to NGFF 0.4 and Zarr v3 maps to NGFF 0.5.',
+    )
+    single_convert_parser.add_argument(
+        '-df', '--downscale_factor',
+        required=False,
+        default=2,
+        nargs='+',
+        type=int,
+        metavar='FACTOR',
+        help='Pyramid downsampling factor. Use one value for isotropic downsampling or three values for anisotropic Z Y X factors, e.g. -df 1 2 2.',
+    )
 
-        # Required args
+    # Required args
     requiredNamed = single_convert_parser.add_argument_group('Required Named arguments.')
     requiredNamed.add_argument(
         '-i', '--input_path',
@@ -161,11 +211,11 @@ def _parse_arguments():
     long_block = """\
         Convert to zarr format a batch of images.
         The INPUT_FILE is a .csv file of the form:
-        input              | microscope  | output           | max_size(MB) | scene_index | channel_colors | channel_names
-        /path/to/input_1   | opera       | /path/to/zarr_1  | 100          | 0           | lime white     | gfp bf
-        /path/to/input_2   | viventis    | /path/to/zarr_2  | 100          |             | 000FF FF00FF   |
+        input              | microscope  | output           | max_size(MB) | scene_index | zarr_format | downscale_factor | channel_colors | channel_names
+        /path/to/input_1   | opera       | /path/to/zarr_1  | 100          | 0           | 3           | 1 2 2            | lime white     | gfp bf
+        /path/to/input_2   | viventis    | /path/to/zarr_2  | 100          |             | 2           | 2                | 000FF FF00FF   |
         ...
-        /path/to/input_n   | viventis    | /path/to/zarr_n  | 100          | 0           |                |
+        /path/to/input_n   | viventis    | /path/to/zarr_n  | 100          | 0           | 3           | 2                |                |
         All column headers are mandatory, but values can be empty
         channel_colors can be hex code or valid matplotlib colors.
         An example .csv file can be found in /pymif/examples folder.
@@ -182,7 +232,8 @@ def _parse_arguments():
         default= 1,
         type= int
     )
-        # Required args
+    
+    # Required args
     requiredNamed = batch_convert_parser.add_argument_group('Required Named arguments.')
     requiredNamed.add_argument(
         '-i', '--input_file',
