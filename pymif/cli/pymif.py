@@ -367,9 +367,7 @@ def convert_single(args):
         conv_kwargs.pop("max_size", None)
 
     # Convert 2 zarr
-    zarr_convert(
-        **conv_kwargs
-    )
+    zarr_convert(**conv_kwargs)
 
 def main():
     """Main fxn

@@ -220,11 +220,11 @@ def _parse_arguments():
     long_block = """\
         Convert to zarr format a batch of images.
         The INPUT_FILE is a .csv file of the form:
-        input              | microscope  | output           | max_size(MB) | scene_index | zarr_format | downscale_factor | channel_colors | channel_names
-        /path/to/input_1   | opera       | /path/to/zarr_1  | 100          | 0           | 3           | 1 2 2            | lime white     | gfp bf
-        /path/to/input_2   | viventis    | /path/to/zarr_2  | 100          |             | 2           | 2                | 000FF FF00FF   |
+        input              | microscope  | output           | chunk_size    | max_size(MB) | scene_index | zarr_format | downscale_factor | channel_colors | channel_names | num_levels
+        /path/to/input_1   | opera       | /path/to/zarr_1  | 1 1 2 512 512 | 100          | 0           | 3           | 1 2 2            | lime white     | gfp bf        | 3
+        /path/to/input_2   | viventis    | /path/to/zarr_2  |               | 100          |             | 2           | 2                | 000FF FF00FF   |               | 
         ...
-        /path/to/input_n   | viventis    | /path/to/zarr_n  | 100          | 0           | 3           | 2                |                |
+        /path/to/input_n   | viventis    | /path/to/zarr_n  | 1 1 2 512 512 |              | 0           | 3           | 2                |                |               | 2
         channel_colors can be hex code or valid matplotlib colors.
     """
     batch_convert_parser = subparsers.add_parser(
