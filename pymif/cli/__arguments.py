@@ -138,30 +138,41 @@ def _parse_arguments():
 
     # Optional args
     single_convert_parser.add_argument(
+        '-m', '--microscope',
+        required=False,
+        default=None,
+        help='Microscope used for imaging. Leave empty to auto-detect from the input path.',
+        choices=['luxendo', 'opera', 'viventis', 'opera', 'zeiss', 'zarrv04', 'zarr', 'scape'],
+        type=str,
+    )
+    single_convert_parser.add_argument(
+        '-cs', '--chunk_size',
+        required= False,
+        nargs= '+',
+        help= 'Chunk size in TCZYX format, or whatever axes are present in the dataset.',
+        type= int
+    )
+    single_convert_parser.add_argument(
         '-ms', '--max_size',
         required= False,
-        default= 100,
-        help= 'Max chunk size in MB.',
-        type= float
+        help= 'Max chunk size in MB. Ignored if --chunk_size is provided.',
+        type= int
     )
     single_convert_parser.add_argument(
         '-si', '--scene_index',
         required= False,
-        default= 0,
         help= 'Scene index for .czi files.',
         type= int
     )
     single_convert_parser.add_argument(
         '-cn', '--channel_names',
         required= False,
-        default= None,
         nargs= '+',
         help= 'Name of channels. Example: -cn bf gfp rfp'
     )
     single_convert_parser.add_argument(
         '-cc', '--channel_colors',
         required= False,
-        default= None,
         type= parse_color,
         nargs= '+',
         help= 'Color(s) of channel(s). It needs to be hex or matplotlib color name. Example: -cc 0000FF cyan 00ff00'
@@ -169,7 +180,6 @@ def _parse_arguments():
     single_convert_parser.add_argument(
         '-zf', '--zarr_format',
         required=False,
-        default=3,
         choices=[2, 3],
         type=int,
         help='Output zarr format. Zarr v2 maps to NGFF 0.4 and Zarr v3 maps to NGFF 0.5.',
@@ -177,11 +187,17 @@ def _parse_arguments():
     single_convert_parser.add_argument(
         '-df', '--downscale_factor',
         required=False,
-        default=2,
         nargs='+',
         type=int,
         metavar='FACTOR',
         help='Pyramid downsampling factor. Use one value for isotropic downsampling or three values for anisotropic Z Y X factors, e.g. -df 1 2 2.',
+    )
+    single_convert_parser.add_argument(
+        '-nl', '--num_levels',
+        required=False,
+        type=int,
+        metavar='FACTOR',
+        help='Number of pyramidal levels.',
     )
 
     # Required args
@@ -198,13 +214,6 @@ def _parse_arguments():
         help= 'Path to output zarr.',
         type= valid_output_path
     )
-    requiredNamed.add_argument(
-        '-m', '--microscope',
-        required= True,
-        help= 'Microscope used in previous analysis.',
-        choices= ['luxendo', 'opera', 'viventis', 'opera', 'zeiss', 'zarrv04', 'zarr', 'scape'],
-        type= str
-    )
 
     #####################################################################################
     # Batch convert 2 zarr parser
@@ -216,9 +225,7 @@ def _parse_arguments():
         /path/to/input_2   | viventis    | /path/to/zarr_2  | 100          |             | 2           | 2                | 000FF FF00FF   |
         ...
         /path/to/input_n   | viventis    | /path/to/zarr_n  | 100          | 0           | 3           | 2                |                |
-        All column headers are mandatory, but values can be empty
         channel_colors can be hex code or valid matplotlib colors.
-        An example .csv file can be found in /pymif/examples folder.
     """
     batch_convert_parser = subparsers.add_parser(
         'batch2zarr',
