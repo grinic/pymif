@@ -1,0 +1,232 @@
+pymif.microscope_manager.utils.ngff
+===================================
+
+.. py:module:: pymif.microscope_manager.utils.ngff
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.ngff.DEFAULT_COLORS
+   pymif.microscope_manager.utils.ngff.SPATIAL_AXES
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.ngff.ZarrWriteConfig
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.ngff._infer_ngff_version
+   pymif.microscope_manager.utils.ngff._label_entry
+   pymif.microscope_manager.utils.ngff._labels_contains
+   pymif.microscope_manager.utils.ngff._register_label_on_root
+   pymif.microscope_manager.utils.ngff._get_group_ome_attrs
+   pymif.microscope_manager.utils.ngff._get_multiscales
+   pymif.microscope_manager.utils.ngff._get_group_multiscales
+   pymif.microscope_manager.utils.ngff._infer_data_type_from_group
+   pymif.microscope_manager.utils.ngff._set_group_ngff_metadata
+   pymif.microscope_manager.utils.ngff._set_dimension_names
+   pymif.microscope_manager.utils.ngff._resolve_format
+   pymif.microscope_manager.utils.ngff._write_pyramid_v2
+   pymif.microscope_manager.utils.ngff._write_pyramid_v3
+   pymif.microscope_manager.utils.ngff._get_chunks
+   pymif.microscope_manager.utils.ngff._build_v2_compressor
+   pymif.microscope_manager.utils.ngff._build_v3_compressors
+   pymif.microscope_manager.utils.ngff._validate_metadata
+   pymif.microscope_manager.utils.ngff._build_axes
+   pymif.microscope_manager.utils.ngff._build_coordinate_transformations
+   pymif.microscope_manager.utils.ngff._build_omero_metadata
+   pymif.microscope_manager.utils.ngff._default_window
+   pymif.microscope_manager.utils.ngff._normalize_color
+   pymif.microscope_manager.utils.ngff._normalize_unit
+
+
+Module Contents
+---------------
+
+.. py:data:: DEFAULT_COLORS
+   :value: ('FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', 'FFFFFF', '808080')
+
+
+.. py:data:: SPATIAL_AXES
+
+.. py:class:: ZarrWriteConfig
+
+   Configuration container for NGFF/OME-Zarr writing operations.
+
+   Parameters
+   ----------
+   ngff_version, zarr_format
+       ``0.4``/Zarr v2 and ``0.5``/Zarr v3 are the supported pairs.
+   data_type
+       Optional dataset semantic type.  Use ``"intensity"`` for regular image
+       intensities or ``"label"`` for integer segmentation/annotation data.
+
+
+   .. py:attribute:: ngff_version
+      :type:  Literal['0.4', '0.5'] | None
+      :value: None
+
+
+
+   .. py:attribute:: zarr_format
+      :type:  Literal[2, 3] | None
+      :value: None
+
+
+
+   .. py:attribute:: overwrite
+      :type:  bool
+      :value: True
+
+
+
+   .. py:attribute:: compute
+      :type:  bool
+      :value: True
+
+
+
+   .. py:attribute:: storage_options
+      :type:  dict[str, Any] | None
+      :value: None
+
+
+
+   .. py:attribute:: compressor
+      :type:  Literal['blosc', 'gzip'] | None
+      :value: None
+
+
+
+   .. py:attribute:: compressor_level
+      :type:  int
+      :value: 3
+
+
+
+   .. py:attribute:: data_type
+      :type:  Literal['intensity', 'label'] | None
+      :value: None
+
+
+
+.. py:function:: _infer_ngff_version(group: zarr.Group) -> str
+
+   Infer the NGFF metadata layout used by an existing group.
+
+
+.. py:function:: _label_entry(label_name: str) -> dict[str, Any]
+
+.. py:function:: _labels_contains(labels: Sequence[Any], label_name: str) -> bool
+
+.. py:function:: _register_label_on_root(root: zarr.Group, label_name: str, ngff_version: str) -> None
+
+   Register a label group in the root label list for the active NGFF version.
+
+
+.. py:function:: _get_group_ome_attrs(group: zarr.Group) -> dict[str, Any]
+
+   Return the effective OME-NGFF metadata mapping for a group.
+
+
+.. py:function:: _get_multiscales(group: zarr.Group) -> list[dict[str, Any]]
+
+   Return the raw ``multiscales`` list from a group across NGFF versions.
+
+
+.. py:function:: _get_group_multiscales(group: zarr.Group)
+
+   Compatibility helper returning the stored multiscales block for a group.
+
+
+.. py:function:: _infer_data_type_from_group(group: zarr.Group) -> str
+
+   Infer ``intensity`` or ``label`` from explicit and legacy metadata.
+
+
+.. py:function:: _set_group_ngff_metadata(group: zarr.Group, *, ngff_version: str, multiscales: dict[str, Any], omero: dict[str, Any] | None = None, data_type: str | None = None, extra: dict[str, Any] | None = None) -> None
+
+   Write NGFF metadata to ``group`` using either the v0.4 or v0.5 layout.
+
+
+.. py:function:: _set_dimension_names(group: zarr.Group, datasets: Sequence[dict[str, Any]], axes: Sequence[str], *, zarr_format: int) -> None
+
+   Write Zarr v3 array-level dimension names required by NGFF v0.5.
+
+
+.. py:function:: _resolve_format(cfg: ZarrWriteConfig) -> tuple[str, int]
+
+   Resolve and validate the NGFF version / zarr format pair to use.
+
+
+.. py:function:: _write_pyramid_v2(*, root: zarr.Group, data_levels: Sequence[dask.array.Array], cfg: ZarrWriteConfig)
+
+   Create and populate zarr v2 arrays for each pyramid level.
+
+
+.. py:function:: _write_pyramid_v3(*, root: zarr.Group, data_levels: Sequence[dask.array.Array], cfg: ZarrWriteConfig)
+
+   Create and populate zarr v3 arrays for each pyramid level.
+
+
+.. py:function:: _get_chunks(arr: dask.array.Array) -> tuple[int, Ellipsis]
+
+   Return one normalized chunk tuple for a dask array.
+
+
+.. py:function:: _build_v2_compressor(compressor: str | None, level: int)
+
+   Construct a zarr v2-compatible compressor configuration.
+
+
+.. py:function:: _build_v3_compressors(compressor: str | None, level: int)
+
+   Construct a zarr v3-compatible compressor chain.
+
+
+.. py:function:: _validate_metadata(data_levels: Sequence[dask.array.Array], metadata: dict[str, Any], axes: tuple[str, Ellipsis]) -> None
+
+   Validate the minimal metadata contract required for NGFF writing.
+
+
+.. py:function:: _build_axes(axes: tuple[str, Ellipsis], metadata: dict[str, Any]) -> list[dict[str, Any]]
+
+   Build the NGFF ``axes`` description from the normalized PyMIF metadata.
+
+
+.. py:function:: _build_coordinate_transformations(*, axes: tuple[str, Ellipsis] | str, scales: Sequence[Sequence[float]], time_increment: float | None) -> list[list[dict[str, Any]]]
+
+   Generate one NGFF scale transformation entry per pyramid level.
+
+
+.. py:function:: _build_omero_metadata(arr: dask.array.Array, axes: tuple[str, Ellipsis] | str, metadata: dict[str, Any]) -> dict[str, Any]
+
+   Create OMERO channel display metadata for an intensity array.
+
+
+.. py:function:: _default_window(dtype: numpy.dtype | str) -> tuple[float, float]
+
+   Return a default display range for the provided dtype.
+
+
+.. py:function:: _normalize_color(color: Any) -> str
+
+   Normalize different color inputs to a six-digit uppercase hex string.
+
+
+.. py:function:: _normalize_unit(unit: str | None) -> str | None
+
+   Map common unit aliases to names expected in NGFF metadata.
+
+

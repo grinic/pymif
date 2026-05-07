@@ -1,0 +1,76 @@
+pymif.microscope_manager.utils.pyramid
+======================================
+
+.. py:module:: pymif.microscope_manager.utils.pyramid
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.pyramid.SpatialFactor
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.pyramid.normalize_spatial_factor
+   pymif.microscope_manager.utils.pyramid.normalize_spatial_factor_for_axes
+   pymif.microscope_manager.utils.pyramid.get_spatial_axes
+   pymif.microscope_manager.utils.pyramid.factor_power
+   pymif.microscope_manager.utils.pyramid.multiply_scales
+   pymif.microscope_manager.utils.pyramid.pad_to_divisible
+   pymif.microscope_manager.utils.pyramid.downsample_nn
+   pymif.microscope_manager.utils.pyramid.build_pyramid
+
+
+Module Contents
+---------------
+
+.. py:data:: SpatialFactor
+
+.. py:function:: normalize_spatial_factor(factor: SpatialFactor, name: str = 'downscale_factor') -> Tuple[int, int, int]
+
+   Normalize scalar or legacy ZYX downsampling factor to a 3-tuple.
+
+
+.. py:function:: normalize_spatial_factor_for_axes(factor: SpatialFactor, axes: str | Sequence[str], name: str = 'downscale_factor') -> tuple[int, Ellipsis]
+
+   Normalize scalar/sequence to the spatial axes present in ``axes``.
+
+
+.. py:function:: get_spatial_axes(metadata: Dict[str, Any]) -> tuple[int, Ellipsis]
+
+   Return axis indices for all spatial axes present in metadata['axes'].
+
+
+.. py:function:: factor_power(factors: Sequence[int], exponent: int) -> tuple[int, Ellipsis]
+
+.. py:function:: multiply_scales(scales: Sequence[float], factors: Sequence[int]) -> tuple[float, Ellipsis]
+
+.. py:function:: pad_to_divisible(array: dask.array.Array, factors: Sequence[int], spatial_axes: Sequence[int]) -> dask.array.Array
+
+   Pad spatial axes so they are divisible by the requested factors.
+
+
+.. py:function:: downsample_nn(array: dask.array.Array, factors: Sequence[int], spatial_axes: Sequence[int]) -> dask.array.Array
+
+   Nearest-neighbor downsampling via striding on spatial axes.
+
+
+.. py:function:: build_pyramid(data_levels: List[dask.array.Array], metadata: Dict[str, Any], num_levels: int = 3, downscale_factor: SpatialFactor = 2, start_level: int = 0) -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+   Generate a multiscale pyramid and updated metadata for NGFF-compatible
+   OME-Zarr writing.
+
+   This function is axis-aware and uses metadata["axes"] to find Z, Y, X.
+
+   downscale_factor can be either:
+
+   - 2, meaning downsample Z, Y and X by 2
+   - (1, 2, 2), meaning keep Z unchanged and downsample only YX
+
+

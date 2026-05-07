@@ -1,0 +1,623 @@
+pymif.microscope_manager
+========================
+
+.. py:module:: pymif.microscope_manager
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/pymif/microscope_manager/array_manager/index
+   /autoapi/pymif/microscope_manager/luxendo_manager/index
+   /autoapi/pymif/microscope_manager/microscope_manager/index
+   /autoapi/pymif/microscope_manager/opera_manager/index
+   /autoapi/pymif/microscope_manager/scape_manager/index
+   /autoapi/pymif/microscope_manager/utils/index
+   /autoapi/pymif/microscope_manager/viventis_manager/index
+   /autoapi/pymif/microscope_manager/zarr_manager/index
+   /autoapi/pymif/microscope_manager/zarr_v04_manager/index
+   /autoapi/pymif/microscope_manager/zeiss_manager/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.LuxendoManager
+   pymif.microscope_manager.ViventisManager
+   pymif.microscope_manager.ZarrManager
+   pymif.microscope_manager.ZarrV04Manager
+   pymif.microscope_manager.ArrayManager
+   pymif.microscope_manager.OperaManager
+   pymif.microscope_manager.ZeissManager
+   pymif.microscope_manager.ScapeManager
+
+
+Package Contents
+----------------
+
+.. py:class:: LuxendoManager(path: str, chunks: Tuple[int, Ellipsis] = (1, 1, 8, 4096, 4096))
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   Reader for Luxendo microscope data saved as multi-resolution HDF5 (.lux.h5) and XML metadata.
+
+   This class parses Luxendo's XML configuration and builds a lazy Dask array pyramid for downstream processing.
+
+
+   .. py:attribute:: path
+
+
+   .. py:attribute:: chunks
+      :value: (1, 1, 8, 4096, 4096)
+
+
+
+   .. py:attribute:: _open_files
+      :value: []
+
+
+
+   .. py:method:: _parse_metadata() -> Dict[str, Any]
+
+      Parse XML metadata from the Luxendo dataset.
+
+      Returns
+      -------
+      Dict[str, Any]
+          A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.
+
+
+
+   .. py:method:: _read_h5_stack(h5_path: pathlib.Path, dataset_name: str) -> numpy.ndarray
+
+      Load a single resolution dataset lazily as a Dask array.
+
+      Parameters
+      ----------
+      h5_path : Path
+          Path to the .lux.h5 file.
+      dataset_name : str
+          Internal dataset name (e.g., "Data", "Data444", etc.)
+
+      Returns
+      -------
+      np.ndarray
+          A Dask array loaded from the HDF5 file.
+
+
+
+   .. py:method:: _read_h5_shape(h5_path: pathlib.Path, dataset_name: str)
+
+      Read the shape and dtype of a dataset in an HDF5 file.
+
+      Parameters
+      ----------
+      h5_path : Path
+          Path to the .lux.h5 file.
+      dataset_name : str
+          Internal dataset name.
+
+      Returns
+      -------
+      Tuple[Tuple[int, ...], np.dtype]
+          A tuple containing the dataset shape and dtype.
+
+
+
+   .. py:method:: get_available_datasets(h5_file) -> List
+
+      Extract all dataset names from a .lux.h5 file.
+
+      Parameters
+      ----------
+      h5_file : Path
+          Path to a Luxendo HDF5 file.
+
+      Returns
+      -------
+      List[str]
+          Sorted list of dataset names.
+
+
+
+   .. py:method:: _build_dask_array() -> List[dask.array.Array]
+
+      Construct a multiscale image pyramid as Dask arrays.
+
+      Returns
+      -------
+      List[da.Array]
+          A list of Dask arrays representing each resolution level (from highest to lowest).
+
+
+
+   .. py:method:: read() -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+      Read Luxendo image data and metadata.
+
+      Returns
+      -------
+      Tuple[List[da.Array], Dict[str, Any]]
+          A list of Dask arrays (pyramidal levels) and a metadata dictionary.
+
+
+
+.. py:class:: ViventisManager(path: str, chunks: Tuple[int, Ellipsis] = (1, 1, 8, 4096, 4096))
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   Reader for Viventis microscope datasets with OME-TIFF and companion .ome XML files.
+
+   This class lazily loads data into a dask array and parses associated OME-XML metadata.
+
+
+   .. py:attribute:: path
+
+
+   .. py:attribute:: chunks
+      :value: (1, 1, 8, 4096, 4096)
+
+
+
+   .. py:method:: _parse_companion_file() -> Dict[str, Any]
+
+      Parse the companion `.ome` XML metadata file.
+
+      Returns
+      -------
+      Dict[str, Any]
+          Dictionary containing extracted metadata such as size, scales, units, channel info,
+          time increment, and TIFF file mapping.
+
+
+
+   .. py:method:: _build_dask_array() -> List[dask.array.Array]
+
+      Lazily construct a dask array for the image data using tifffile and delayed loading.
+
+      Returns
+      -------
+      List[da.Array]
+          A list containing a single Dask array representing the full dataset (level 0).
+
+
+
+   .. py:method:: read() -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+      Read the Viventis dataset and populate self.data and self.metadata.
+
+      Returns
+      -------
+      Tuple[List[da.Array], Dict[str, Any]]
+          A tuple containing:
+          - A list with one dask array representing the image data.
+          - A metadata dictionary with pixel sizes, units, axes, etc.
+
+
+
+.. py:class:: ZarrManager(path, chunks: Tuple[int, Ellipsis] = None, mode: str = 'r', metadata: dict[str, Any] = None, ngff_version: str | None = None, zarr_format: int | None = None)
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   A manager class for reading and handling OME-Zarr datasets.
+
+   Supports both:
+   - NGFF / OME-Zarr v0.4  -> metadata in root/group attrs directly
+   - NGFF / OME-Zarr v0.5  -> metadata in attrs["ome"]
+
+
+   .. py:attribute:: path
+
+
+   .. py:attribute:: chunks
+      :value: None
+
+
+
+   .. py:attribute:: mode
+      :value: 'r'
+
+
+
+   .. py:attribute:: metadata
+      :value: None
+
+
+
+   .. py:attribute:: ngff_version
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: ngff_version_override
+      :value: None
+
+
+
+   .. py:attribute:: zarr_format_override
+      :value: None
+
+
+
+   .. py:method:: _get_image_meta(group: zarr.Group) -> dict[str, Any]
+
+      Return the image metadata dictionary for either NGFF v0.4 or v0.5.
+
+      v0.5 -> group.attrs["ome"]
+      v0.4 -> group.attrs
+
+
+
+   .. py:method:: _get_multiscales(group: zarr.Group) -> list[dict[str, Any]]
+
+      Return the NGFF ``multiscales`` block for ``group`` regardless of version.
+
+
+
+   .. py:method:: _get_omero(group: zarr.Group) -> dict[str, Any]
+
+      Return the OMERO-style channel metadata stored on ``group``.
+
+
+
+   .. py:method:: _extract_metadata(data_levels: List[dask.array.Array], datasets: list[dict[str, Any]], multiscales: dict[str, Any], omero: dict[str, Any], data_type: str = 'intensity') -> Dict[str, Any]
+
+      Translate NGFF metadata blocks into the normalized PyMIF schema.
+
+      The normalized schema is axis-aware: ``axes`` may be any unique
+      combination of ``t``, ``c``, ``z``, ``y`` and ``x``. Spatial ``scales``
+      and ``units`` are stored in the same order as the spatial axes appear in
+      ``axes``.
+
+
+
+   .. py:method:: _read_multiscale_group(group: zarr.Group) -> tuple[List[dask.array.Array], List[Any], Dict[str, Any]]
+
+      Load one multiscale image group as dask arrays plus normalized metadata.
+
+
+
+   .. py:method:: read() -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+      Read the root image plus discover additional image groups and labels.
+
+      The root image is exposed through ``self.data`` and ``self.metadata``.
+      Additional multiscale subgroups are indexed in ``self.groups`` and label
+      pyramids in ``self.labels``.
+
+
+
+   .. py:method:: _sync_raw_aliases() -> None
+
+      Keep the old single-dataset API synchronized with the raw dataset.
+
+      This preserves:
+          d.data
+          d.metadata
+          d.zarr_data
+
+      as aliases to:
+          d.raw.data
+          d.raw.metadata
+          d.raw.zarr_data
+
+
+
+   .. py:method:: _iter_datasets(include_raw: bool = True, include_groups: bool = True, include_labels: bool = True)
+
+      Iterate over all datasets managed by ZarrManager.
+
+      This is ZarrManager-specific because only ZarrManager knows about
+      raw/groups/labels.
+
+
+
+   .. py:method:: _invalidate_zarr_data(dataset: ZarrDataset) -> None
+
+      After lazy in-memory transformations, dataset.data no longer necessarily
+      corresponds one-to-one to the original on-disk Zarr arrays.
+
+
+
+   .. py:method:: _load_group(name)
+
+
+   .. py:method:: _load_labels()
+
+
+   .. py:method:: visualize_zarr(viewer: napari.Viewer | None  = None) -> napari.Viewer | None
+
+      Open the root image and all multiscale subgroups in napari.
+
+
+
+   .. py:method:: create_empty_group(group_name: str, metadata: Dict[str, Any], is_label: bool = False, data_type: str | None = None)
+
+      Create an empty image subgroup or label subgroup and update this manager.
+
+      ``metadata['axes']`` may be any unique subset of ``tczyx``. Use
+      ``data_type='label'`` or ``is_label=True`` for label data.
+
+
+
+   .. py:method:: write_image_region(data, t: int | slice = slice(None), c: int | slice = slice(None), z: int | slice = slice(None), y: int | slice = slice(None), x: int | slice = slice(None), level: int = 0, group: Optional[str] = None, downscale_factor: int | collections.abc.Sequence[int] | None = None)
+
+      Write an image patch into a root or subgroup pyramid and refresh lower levels.
+
+
+
+   .. py:method:: write_label_region(data, t: int | slice = slice(None), z: int | slice = slice(None), y: int | slice = slice(None), x: int | slice = slice(None), level: int = 0, group: str = None, downscale_factor: int | collections.abc.Sequence[int] | None = None)
+
+      Write a label patch into a label pyramid and regenerate coarser levels.
+
+
+
+   .. py:method:: subset_dataset(T=None, C=None, Z=None, Y=None, X=None, include_groups: bool = True, include_labels: bool = True)
+
+      Subset raw, groups, and labels.
+
+      Channel subsetting is skipped automatically for datasets without a
+      channel axis, such as most label datasets.
+
+
+
+   .. py:method:: build_pyramid(num_levels: Optional[int] = 3, downscale_factor: int | collections.abc.Sequence[int] | None = 2, start_level: int = 0, include_groups: bool = True, include_labels: bool = True)
+
+      Build/rebuild pyramids for raw, groups, and labels.
+
+
+
+   .. py:method:: reorder_channels(new_order: List[int], include_groups: bool = True)
+
+      Reorder channels in raw and non-label image groups.
+
+      Labels are skipped because they usually do not have a channel axis.
+
+
+
+   .. py:method:: update_metadata(updates: Dict[str, Any], include_groups: bool = True, include_labels: bool = True)
+
+      Update metadata for raw, groups, and labels.
+
+      Channel-specific metadata is skipped for datasets without a channel axis.
+
+
+
+   .. py:method:: to_zarr(path: str | pathlib.Path, include_groups: bool = True, include_labels: bool = True, reread: bool = True, **kwargs)
+
+      Write raw data, groups, and labels to a complete OME-Zarr store.
+
+      Raw data is written directly to the root group.
+      Image groups are written as root-level subgroups.
+      Labels are written under /labels.
+
+
+
+.. py:class:: ZarrV04Manager(path, chunks: Tuple[int, Ellipsis] | None = None, metadata: dict[str, Any] | None = None)
+
+   Bases: :py:obj:`pymif.microscope_manager.zarr_manager.ZarrManager`
+
+
+   Backward-compatible reader for legacy NGFF/OME-Zarr v0.4 stores.
+
+   The original implementation assumed five-dimensional ``TCZYX`` data.  This
+   compatibility wrapper now delegates to :class:`ZarrManager`, which supports
+   both v0.4 and v0.5 metadata layouts and any unique subset of the image axes
+   ``t``, ``c``, ``z``, ``y`` and ``x``.
+
+
+.. py:class:: ArrayManager(array: Union[numpy.ndarray, dask.array.Array, List[Union[numpy.ndarray, dask.array.Array]]], metadata: Dict[str, Any], chunks: Tuple[int, Ellipsis] = (1, 1, 8, 4096, 4096))
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   Create a MicroscopeManager instance from in-memory NumPy or Dask array(s)
+   with user-defined metadata. Supports single resolution or multiscale pyramid.
+
+   The default remains legacy TCZYX for 5D arrays, but ``metadata['axes']`` may
+   be any unique combination of ``t``, ``c``, ``z``, ``y`` and ``x`` whose length
+   matches the input arrays.
+
+
+   .. py:attribute:: data
+
+
+   .. py:attribute:: metadata
+
+
+   .. py:attribute:: chunks
+      :value: (1, 1, 8, 4096, 4096)
+
+
+
+   .. py:method:: _normalize_chunks(chunks, shape: tuple[int, Ellipsis])
+      :staticmethod:
+
+
+
+   .. py:method:: read() -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+      Return the pyramid and metadata.
+
+      Returns
+      ----------
+      Tuple[List[da.Array], Dict[str, Any]]
+          A tuple containing a list of
+          Dask arrays representing image data and a dictionary of metadata.
+
+
+
+.. py:class:: OperaManager(path: str, chunks: Tuple[int, Ellipsis] = (1, 1, 8, 4096, 4096))
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   Manager for reading Opera (PerkinElmer Opera Phenix) pyramidal OME-TIFF datasets.
+
+   This class reads and parses OME-XML metadata embedded in the TIFF file.
+
+
+   .. py:attribute:: path
+
+
+   .. py:attribute:: chunks
+      :value: (1, 1, 8, 4096, 4096)
+
+
+
+   .. py:method:: _parse_metadata() -> dict
+
+      Parse OME-XML metadata embedded in the pyramidal OME-TIFF file.
+
+      Returns
+      -------
+      dict
+          Metadata dictionary containing size, scales, units, channel info, dtype, and axes.
+
+
+
+   .. py:method:: _build_dask_array() -> List[dask.array.Array]
+
+      Load pyramid levels from the pyramidal OME-TIFF and convert them to Dask arrays.
+
+      Returns
+      -------
+      list of dask.array.Array
+          List of Dask arrays, each corresponding to a pyramid level, normalized to TCZYX axes order.
+
+
+
+   .. py:method:: read() -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+      Read the Opera pyramidal OME-TIFF file and extract image data and metadata.
+
+      Returns
+      -------
+      Tuple[List[da.Array], Dict[str, Any]]
+          A tuple containing:
+          - List of Dask arrays, one per resolution level.
+          - Metadata dictionary.
+
+
+
+.. py:class:: ZeissManager(path, scene_index: int = 0, scene_name: Optional[str] = '', chunks: Tuple[int, Ellipsis] = None)
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   A manager class for reading and handling .czi datasets.
+
+   This class lazily loads data into a dask array and parses associated .czi metadata.
+
+
+
+   .. py:attribute:: path
+
+
+   .. py:attribute:: scenes
+
+
+   .. py:attribute:: chunks
+      :value: None
+
+
+
+   .. py:method:: read(scene_index: int = 0)
+
+      Read the Zeiss dataset and populate self.data and self.metadata.
+
+      Returns
+      -------
+      Tuple[List[da.Array], Dict[str, Any]]
+          A tuple containing:
+          - A list with one dask array representing the image data.
+          - A metadata dictionary with pixel sizes, units, axes, etc.
+
+
+
+   .. py:method:: _parse_metadata() -> Dict[str, Any]
+
+      Parse metadata from the .czi dataset.
+
+      Returns
+      -------
+      Dict[str, Any]
+          A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.
+
+
+
+.. py:class:: ScapeManager(ome_tiff_path: str, chunks: Tuple[int, Ellipsis] = (1, 1, 8, 1024, 1024))
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   MicroscopeManager for SCAPE microscope datasets where metadata is stored in an external
+   .xlif file located in a 'Metadata' folder next to the OME-TIFF.
+
+
+   .. py:attribute:: ome_tiff_path
+
+
+   .. py:attribute:: chunks
+      :value: (1, 1, 8, 1024, 1024)
+
+
+
+   .. py:method:: _strip_ome_tiff_suffix(filename: str) -> str
+      :staticmethod:
+
+
+      Convert typical Leica names like:
+        'p1 (2).ome.tif'  -> 'p1 (2)'
+        'p1 (2).ome.tiff' -> 'p1 (2)'
+        'p1 (2).tif'      -> 'p1 (2)'
+
+
+
+   .. py:method:: _find_xlif_for_ome_tiff() -> pathlib.Path
+
+      Given an OME-TIFF path, look for:
+        <ome_dir>/Metadata/<base_name>.xlif
+
+      If not found, fall back to searching for any .xlif inside <ome_dir>/Metadata.
+
+
+
+   .. py:method:: _convert_spatial_units_to_micrometers()
+
+      Convert spatial scales (Z, Y, X) from meters to micrometers (µm)
+      if they are currently stored in meters.
+
+      Updates:
+          self.metadata["scales"]
+          self.metadata["units"]
+
+
+
+   .. py:method:: _parse_xlif_metadata() -> Dict[str, Any]
+
+      Parse dimensional, physical, and channel metadata from the matched .xlif file.
+
+
+
+   .. py:method:: _build_dask_array() -> List[dask.array.Array]
+
+      Build a TCZYX dask array from the provided OME-TIFF file.
+
+
+
+   .. py:method:: read()
+
+      Main entry point: parse metadata and build data array.
+
+
+
