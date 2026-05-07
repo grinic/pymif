@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pymif"
-version = "2026.04.22"
+version = "2026.5.1"
 description = "A collection of functions in Python for MIF users."
 readme = "README.md"
 license = { file = "LICENSE" }
