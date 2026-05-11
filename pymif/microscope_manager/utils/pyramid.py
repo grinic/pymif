@@ -4,37 +4,10 @@ from typing import Any, Dict, List, Sequence, Tuple, Union
 
 import dask.array as da
 
-from .axes import normalize_axes, spatial_axis_indices, spatial_axes_in_order, spatial_values_for_axes
+from .axes import normalize_axes, spatial_axis_indices, spatial_axes_in_order
+from .downsampling import normalize_spatial_factor_for_axes
 
 SpatialFactor = Union[int, Sequence[int]]
-
-
-def normalize_spatial_factor(
-    factor: SpatialFactor,
-    name: str = "downscale_factor",
-) -> Tuple[int, int, int]:
-    """Normalize scalar or legacy ZYX downsampling factor to a 3-tuple."""
-    if isinstance(factor, int):
-        factors = (factor, factor, factor)
-    else:
-        factors = tuple(factor)
-
-    if len(factors) != 3:
-        raise ValueError(f"{name} must be an int or a ZYX sequence of length 3, got {factor!r}")
-    if any(not isinstance(f, int) for f in factors):
-        raise TypeError(f"{name} values must be integers, got {factor!r}")
-    if any(f <= 0 for f in factors):
-        raise ValueError(f"{name} values must be > 0, got {factor!r}")
-    return factors
-
-
-def normalize_spatial_factor_for_axes(
-    factor: SpatialFactor,
-    axes: str | Sequence[str],
-    name: str = "downscale_factor",
-) -> tuple[int, ...]:
-    """Normalize scalar/sequence to the spatial axes present in ``axes``."""
-    return spatial_values_for_axes(factor, axes, name=name, allow_float=False)
 
 
 def get_spatial_axes(metadata: Dict[str, Any]) -> tuple[int, ...]:

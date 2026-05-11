@@ -1,5 +1,14 @@
 # PyMIF — microscopy I/O, OME-Zarr conversion, and NGFF utilities
 
+![Python](https://img.shields.io/badge/python-3.12-green)
+[![License](https://img.shields.io/github/license/grinic/pymif.svg)](LICENSE)
+[![Tests](https://github.com/grinic/pymif/actions/workflows/tests.yml/badge.svg)](https://github.com/grinic/pymif/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/grinic/pymif/graph/badge.svg)](https://codecov.io/gh/grinic/pymif)
+[![Documentation](https://github.com/grinic/pymif/actions/workflows/documentation.yml/badge.svg)](https://github.com/grinic/pymif/actions/workflows/documentation.yml)
+[![Docker](https://github.com/grinic/pymif/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/grinic/pymif/actions/workflows/docker-publish.yml)
+[![GitHub release](https://img.shields.io/github/v/release/grinic/pymif.svg)](https://github.com/grinic/pymif/releases)
+[![GitHub stars](https://img.shields.io/github/stars/grinic/pymif.svg?style=social)](https://github.com/grinic/pymif/stargazers)
+
 **PyMIF** is a Python package for reading microscopy datasets from multiple acquisition systems, building multiscale pyramids, writing **OME-NGFF / OME-Zarr**, and interacting with those datasets from Python, the command line, and napari.
 
 It is developed for users of the [Mesoscopic Imaging Facility (MIF)](https://www.embl.org/groups/mesoscopic-imaging-facility/), but the repository now covers a broader scope than simple vendor import: it includes a reusable manager API, NGFF-aware zarr creation utilities, region writing for images and labels, batch conversion helpers, and napari widgets for conversion and overview generation.
