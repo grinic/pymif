@@ -169,6 +169,7 @@ def _run_conversion(
     x_range,
     channels,
     n_levels,
+    downscale_factor,
     output_path,
     file_format,
     zarr_format,
@@ -223,7 +224,7 @@ def _run_conversion(
     print("Requested input chunks:", chunks)
     print("Chunks before pyramid:", [arr.chunksize for arr in dataset.data])
 
-    dataset.build_pyramid(num_levels=n_levels)
+    dataset.build_pyramid(num_levels=n_levels, downscale_factor=downscale_factor)
 
     dataset.data = [
         arr.rechunk(chunks) if arr.ndim == len(chunks) else arr
@@ -553,6 +554,9 @@ def convert_widget():
         chunk_z={"label": "Chunk Z", "min": 1, "max": 2**16, "step": 1, "value": 16},
         
         n_levels={"label": "Resolution levels", "min": 1, "max": 10, "value": 5},
+        downscale_z={"label": "Downscale Z", "min": 1, "max": 64, "step": 1, "value": 2},
+        downscale_y={"label": "Downscale Y", "min": 1, "max": 64, "step": 1, "value": 2},
+        downscale_x={"label": "Downscale X", "min": 1, "max": 64, "step": 1, "value": 2},
         zarr_format={"label": "Zarr format", "choices": [2, 3], "value": 3},
         
         t_range={"label": "T range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
@@ -583,6 +587,9 @@ def convert_widget():
         chunk_y=512,
         chunk_z=16,
         n_levels=5,
+        downscale_z=2,
+        downscale_y=2,
+        downscale_x=2,
         zarr_format=3,
         output_path: FileEdit = None,
     ):
@@ -593,6 +600,7 @@ def convert_widget():
         file_format = make_visualize_widget.file_format.value
 
         chunks = (1, 1, chunk_z, chunk_y, chunk_x)
+        downscale_factor = (downscale_z, downscale_y, downscale_x)
         t_start, t_end = t_range
         z_start, z_end = z_range
         y_start, y_end = y_range
@@ -616,6 +624,7 @@ def convert_widget():
                 x_range=x_range,
                 channels=channels,
                 n_levels=n_levels,
+                downscale_factor=downscale_factor,
                 output_path=output_path,
                 file_format=file_format,
                 zarr_format=zarr_format,
@@ -703,6 +712,9 @@ def convert_widget():
         make_convert_widget.chunk_z.enabled = "z" in axes
 
         make_convert_widget.n_levels.value = num_levels
+        make_convert_widget.downscale_z.enabled = "z" in axes
+        make_convert_widget.downscale_y.enabled = "y" in axes
+        make_convert_widget.downscale_x.enabled = "x" in axes
 
         _set_range_widget(make_convert_widget.t_range, _axis_size(dataset, "t"), enabled="t" in axes)
         _set_range_widget(make_convert_widget.z_range, _axis_size(dataset, "z"), enabled="z" in axes)
@@ -804,6 +816,9 @@ def convert_widget():
         make_convert_widget.chunk_y.native.parent(),
         make_convert_widget.chunk_z.native.parent(),
         make_convert_widget.n_levels.native.parent(),
+        make_convert_widget.downscale_z.native.parent(),
+        make_convert_widget.downscale_y.native.parent(),
+        make_convert_widget.downscale_x.native.parent(),
         make_convert_widget.zarr_format.native.parent(),
     ]
 
