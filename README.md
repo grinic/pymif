@@ -3,6 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.12-green)
 [![License](https://img.shields.io/github/license/grinic/pymif.svg)](LICENSE)
 [![Tests](https://github.com/grinic/pymif/actions/workflows/tests.yml/badge.svg)](https://github.com/grinic/pymif/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/grinic/pymif/graph/badge.svg)](https://codecov.io/gh/grinic/pymif)
 [![Documentation](https://github.com/grinic/pymif/actions/workflows/documentation.yml/badge.svg)](https://github.com/grinic/pymif/actions/workflows/documentation.yml)
 [![Docker](https://github.com/grinic/pymif/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/grinic/pymif/actions/workflows/docker-publish.yml)
 [![GitHub release](https://img.shields.io/github/v/release/grinic/pymif.svg)](https://github.com/grinic/pymif/releases)
