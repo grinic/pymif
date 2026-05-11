@@ -624,6 +624,7 @@ class ZarrManager(MicroscopeManager):
         X=None,
         include_groups: bool = True,
         include_labels: bool = True,
+        rebuild_pyramid=False
     ):
         """
         Subset raw, groups, and labels.
@@ -690,12 +691,13 @@ class ZarrManager(MicroscopeManager):
                 **subset_kwargs,
             )
 
-            # Rebuild pyramid to preserve the number of levels.
-            dataset.data, dataset.metadata = _build_pyramid(
-                dataset.data,
-                dataset.metadata,
-                num_levels=num_levels,
-            )
+            if rebuild_pyramid:
+                # Rebuild pyramid to preserve the number of levels.
+                dataset.data, dataset.metadata = _build_pyramid(
+                    dataset.data,
+                    dataset.metadata,
+                    num_levels=num_levels,
+                )
 
             self._invalidate_zarr_data(dataset)
 

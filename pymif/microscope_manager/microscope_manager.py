@@ -284,7 +284,8 @@ class MicroscopeManager(ABC):
                     C: Optional[Sequence[int]] = None,
                     Z: Optional[Sequence[int]] = None,
                     Y: Optional[Sequence[int]] = None,
-                    X: Optional[Sequence[int]] = None
+                    X: Optional[Sequence[int]] = None,
+                    rebuild_pyramid: bool = True
                     ) -> None:
         """
         Subset the dataset by timepoints, channels, or spatial coordinates.
@@ -333,6 +334,10 @@ class MicroscopeManager(ABC):
         }
         self.data = [subset_dask_array(self.data[0], axes=axis_order, **subset_kwargs)]
         self.metadata = subset_metadata(self.metadata, **subset_kwargs)
-        self.build_pyramid(num_levels=num_levels, downscale_factor=downscale_factor)
+        self.metadata["chunksize"] = [tuple(arr.chunksize) for arr in self.data]
+
+        if rebuild_pyramid:
+            self.build_pyramid(num_levels=num_levels, downscale_factor=downscale_factor)
+
 
         print("Dataset subset complete.")

@@ -1,19 +1,15 @@
-import os
-import napari
 from napari import current_viewer
 from datetime import datetime
 from napari.qt.threading import thread_worker
 import numpy as np
 from magicgui import magicgui
-import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap, Normalize
 import pymif.microscope_manager as mm
-from magicgui.widgets import CheckBox, FileEdit, CheckBox
+from magicgui.widgets import FileEdit
 import sys
 from qtpy.QtWidgets import QTextEdit
 from qtpy.QtCore import QObject, Qt, Signal
 from qtpy.QtGui import QTextCursor
-from qtpy.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
 from matplotlib import rc
 rc('font', size=12)
 rc('font', family='Arial')
@@ -162,9 +158,7 @@ def _run_conversion(
     scene_index,
     chunks,
     t_range,
-    single_t,
     z_range,
-    single_z,
     y_range,
     x_range,
     channels,
@@ -212,7 +206,7 @@ def _run_conversion(
         subset_kwargs["X"] = list(range(xr[0], xr[1] + 1))
 
     if subset_kwargs:
-        dataset.subset_dataset(**subset_kwargs)
+        dataset.subset_dataset(**subset_kwargs, rebuild_pyramid=False)
 
     chunks = _chunk_shape_for_dataset(
         dataset,
@@ -601,15 +595,6 @@ def convert_widget():
 
         chunks = (1, 1, chunk_z, chunk_y, chunk_x)
         downscale_factor = (downscale_z, downscale_y, downscale_x)
-        t_start, t_end = t_range
-        z_start, z_end = z_range
-        y_start, y_end = y_range
-        x_start, x_end = x_range
-
-        if make_visualize_widget.file_format.value == "zeiss":
-            dataset = reader(path, scene_index = scene_index, chunks = chunks)
-        else:
-            dataset = reader(path, chunks = chunks)  
 
         worker = convert_worker(
                 reader=reader,
@@ -617,9 +602,7 @@ def convert_widget():
                 scene_index=scene_index,
                 chunks=chunks,
                 t_range=t_range,
-                single_t=single_t,
                 z_range=z_range,
-                single_z=single_z,
                 y_range=y_range,
                 x_range=x_range,
                 channels=channels,
