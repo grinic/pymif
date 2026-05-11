@@ -1,7 +1,6 @@
 # PyMIF — microscopy I/O, OME-Zarr conversion, and NGFF utilities
 
-[![PyPI version](https://img.shields.io/pypi/v/pymif.svg)](https://pypi.org/project/pymif/)
-[![Python versions](https://img.shields.io/pypi/pyversions/pymif.svg)](https://pypi.org/project/pymif/)
+[![Python](https://img.shields.io/badge/python-3.12-green)]
 [![License](https://img.shields.io/github/license/grinic/pymif.svg)](LICENSE)
 [![Tests](https://github.com/grinic/pymif/actions/workflows/tests.yml/badge.svg)](https://github.com/grinic/pymif/actions/workflows/tests.yml)
 [![Documentation](https://github.com/grinic/pymif/actions/workflows/documentation.yml/badge.svg)](https://github.com/grinic/pymif/actions/workflows/documentation.yml)
