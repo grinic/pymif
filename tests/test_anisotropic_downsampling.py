@@ -33,6 +33,34 @@ def test_anisotropic_build_pyramid_shapes_and_scales():
     ]
 
 
+def test_build_pyramid_keeps_chunk_size_level_independent():
+    data = da.ones((1, 1, 3, 32, 32), chunks=(1, 1, 3, 8, 8))
+    metadata = {"scales": [(1.0, 1.0, 1.0)]}
+
+    pyramid, metadata = build_pyramid(
+        [data],
+        metadata,
+        num_levels=3,
+        downscale_factor=(1, 2, 2),
+    )
+
+    assert [p.shape for p in pyramid] == [
+        (1, 1, 3, 32, 32),
+        (1, 1, 3, 16, 16),
+        (1, 1, 3, 8, 8),
+    ]
+    assert [p.chunksize for p in pyramid] == [
+        (1, 1, 3, 8, 8),
+        (1, 1, 3, 8, 8),
+        (1, 1, 3, 8, 8),
+    ]
+    assert metadata["chunksize"] == [
+        (1, 1, 3, 8, 8),
+        (1, 1, 3, 8, 8),
+        (1, 1, 3, 8, 8),
+    ]
+
+
 def test_scale_image_index_anisotropic():
     index = (
         0,

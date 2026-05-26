@@ -224,6 +224,7 @@ def _run_conversion(
         arr.rechunk(chunks) if arr.ndim == len(chunks) else arr
         for arr in dataset.data
     ]
+    dataset.metadata["chunksize"] = [tuple(arr.chunksize) for arr in dataset.data]
 
     print("Chunks after pyramid:", [arr.chunksize for arr in dataset.data])
 
