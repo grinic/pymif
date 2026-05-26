@@ -4,37 +4,49 @@ from typing import Any, Dict, List, Sequence, Tuple, Union
 
 import dask.array as da
 
-from .axes import normalize_axes, spatial_axis_indices, spatial_axes_in_order, spatial_values_for_axes
+from .axes import normalize_axes, spatial_axis_indices, spatial_axes_in_order
+from .downsampling import normalize_spatial_factor_for_axes
 
 SpatialFactor = Union[int, Sequence[int]]
 
 
-def normalize_spatial_factor(
-    factor: SpatialFactor,
-    name: str = "downscale_factor",
-) -> Tuple[int, int, int]:
-    """Normalize scalar or legacy ZYX downsampling factor to a 3-tuple."""
-    if isinstance(factor, int):
-        factors = (factor, factor, factor)
-    else:
-        factors = tuple(factor)
-
-    if len(factors) != 3:
-        raise ValueError(f"{name} must be an int or a ZYX sequence of length 3, got {factor!r}")
-    if any(not isinstance(f, int) for f in factors):
-        raise TypeError(f"{name} values must be integers, got {factor!r}")
-    if any(f <= 0 for f in factors):
-        raise ValueError(f"{name} values must be > 0, got {factor!r}")
-    return factors
+def _chunk_tuple(value: Any, ndim: int) -> tuple[int, ...] | None:
+    """Return a positive chunk tuple from metadata-like values."""
+    if value is None or isinstance(value, (str, bytes)):
+        return None
+    try:
+        candidate = tuple(int(c) for c in value)
+    except TypeError:
+        return None
+    if len(candidate) != ndim or any(c <= 0 for c in candidate):
+        return None
+    return candidate
 
 
-def normalize_spatial_factor_for_axes(
-    factor: SpatialFactor,
-    axes: str | Sequence[str],
-    name: str = "downscale_factor",
-) -> tuple[int, ...]:
-    """Normalize scalar/sequence to the spatial axes present in ``axes``."""
-    return spatial_values_for_axes(factor, axes, name=name, allow_float=False)
+def _target_chunks(data_level: da.Array, metadata: Dict[str, Any]) -> tuple[int, ...]:
+    """Choose the level-independent chunk shape for a pyramid build."""
+    ndim = data_level.ndim
+    metadata_chunks = metadata.get("chunksize")
+    if metadata_chunks:
+        target = _chunk_tuple(metadata_chunks, ndim)
+        if target is not None:
+            return target
+        try:
+            target = _chunk_tuple(metadata_chunks[0], ndim)
+        except (TypeError, IndexError):
+            target = None
+        if target is not None:
+            return target
+    return tuple(int(c) for c in data_level.chunksize)
+
+
+def _rechunk_to_target(array: da.Array, chunks: Sequence[int]) -> da.Array:
+    """Rechunk an array to the requested shape, clipped to the array bounds."""
+    normalized = tuple(
+        max(1, min(int(chunk), int(size)))
+        for chunk, size in zip(chunks, array.shape)
+    )
+    return array.rechunk(normalized)
 
 
 def get_spatial_axes(metadata: Dict[str, Any]) -> tuple[int, ...]:
@@ -135,15 +147,16 @@ def build_pyramid(
         )
 
     factors = normalize_spatial_factor_for_axes(downscale_factor, axes)
+    target_chunks = _target_chunks(data_levels[0], metadata)
 
     if start_level < len(data_levels):
-        pyramid = [data_levels[start_level]]
+        pyramid = [_rechunk_to_target(data_levels[start_level], target_chunks)]
         new_scales = [tuple(metadata["scales"][start_level])]
     else:
         base_downscale = factor_power(factors, start_level)
         current = pad_to_divisible(data_levels[0], base_downscale, spatial_axes=spatial_axes)
         down = downsample_nn(current, base_downscale, spatial_axes=spatial_axes)
-        pyramid = [down]
+        pyramid = [_rechunk_to_target(down, target_chunks)]
         new_scales = [multiply_scales(metadata["scales"][0], base_downscale)]
 
     for _ in range(1, num_levels):
@@ -152,7 +165,7 @@ def build_pyramid(
             down = downsample_nn(current, factors, spatial_axes=spatial_axes)
         else:
             down = pyramid[-1]
-        pyramid.append(down)
+        pyramid.append(_rechunk_to_target(down, target_chunks))
 
     for level in range(1, num_levels):
         scale_factor = factor_power(factors, level)

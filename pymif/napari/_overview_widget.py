@@ -1,5 +1,4 @@
 import os
-import napari
 from napari import current_viewer
 import numpy as np
 from magicgui import magicgui
@@ -7,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 import pymif.microscope_manager as mm
 from magicgui.widgets import FileEdit
-from qtpy.QtWidgets import QFileDialog, QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
+from qtpy.QtWidgets import QWidget, QVBoxLayout
 from matplotlib import rc
 rc('font', size=12)
 rc('font', family='Arial')
