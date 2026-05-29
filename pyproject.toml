@@ -71,7 +71,7 @@ napari = [
     "napari-animation",
     "napari-console",
     "napari-metadata",
-    "napari-ome-zarr",
+    "napari-ome-zarr>=0.8.2",
     "npe2==0.8.1",
     "psygnal==0.15.1",
     "pyconify==0.2.1",
