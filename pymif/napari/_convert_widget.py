@@ -615,9 +615,9 @@ def convert_widget():
     @magicgui(
         call_button="Convert to zarr",
 
-        chunk_x={"label": "Chunk X", "min": 8, "max": 2**16, "step": 1, "value": 512},
-        chunk_y={"label": "Chunk Y", "min": 8, "max": 2**16, "step": 1, "value": 512},
         chunk_z={"label": "Chunk Z", "min": 1, "max": 2**16, "step": 1, "value": 16},
+        chunk_y={"label": "Chunk Y", "min": 8, "max": 2**16, "step": 1, "value": 512},
+        chunk_x={"label": "Chunk X", "min": 8, "max": 2**16, "step": 1, "value": 512},
         
         n_levels={"label": "Resolution levels", "min": 1, "max": 10, "value": 5},
         downscale_z={"label": "Downscale Z", "min": 1, "max": 64, "step": 1, "value": 2},
