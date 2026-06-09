@@ -6,16 +6,51 @@ from magicgui import magicgui
 import pymif.microscope_manager as mm
 from magicgui.widgets import FileEdit
 import sys
-from qtpy.QtWidgets import QTextEdit
-from qtpy.QtCore import QObject, Qt, Signal
+from qtpy.QtWidgets import QTextEdit, QLineEdit
+from qtpy.QtCore import QObject, Qt, Signal, QUrl
 from qtpy.QtGui import QTextCursor
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
+from pathlib import Path
 from matplotlib import rc
 rc('font', size=12)
 rc('font', family='Arial')
 # rc('font', serif='Times')
 rc('pdf', fonttype=42)
 # rc('text', usetex=True)
+
+import numpy as np
+from napari.layers.utils import layer_utils
+
+_original_compute_multiscale_level = layer_utils.compute_multiscale_level
+
+
+def conservative_compute_multiscale_level(
+    requested_shape,
+    shape_threshold,
+    downsample_factors,
+):
+    """
+    Make napari switch to higher-resolution pyramid levels earlier.
+
+    threshold_factor > 1:
+        more conservative with coarse levels;
+        higher-resolution levels are selected sooner when zooming in.
+
+    threshold_factor < 1:
+        coarser levels are kept longer.
+    """
+    threshold_factor = 1
+
+    shape_threshold = np.asarray(shape_threshold) * threshold_factor
+
+    return _original_compute_multiscale_level(
+        requested_shape=requested_shape,
+        shape_threshold=shape_threshold,
+        downsample_factors=downsample_factors,
+    )
+
+
+layer_utils.compute_multiscale_level = conservative_compute_multiscale_level
 
 # -------------------------
 # MagicGUI controls
@@ -495,6 +530,43 @@ def convert_widget():
     _state = {"dataset": None}
     _syncing = {"roi": False, "z": False}
 
+    def enable_drag_and_drop(file_edit: FileEdit):
+        """Allow dropping a file or folder onto a magicgui FileEdit."""
+
+        # FileEdit is a container; find the actual QLineEdit inside it
+        qline = file_edit.native.findChild(QLineEdit)
+
+        if qline is None:
+            raise RuntimeError("Could not find QLineEdit inside FileEdit")
+
+        qline.setAcceptDrops(True)
+
+        def dragEnterEvent(event):
+            if event.mimeData().hasUrls():
+                event.acceptProposedAction()
+            else:
+                event.ignore()
+
+        def dropEvent(event):
+            urls = event.mimeData().urls()
+            if not urls:
+                event.ignore()
+                return
+
+            path = Path(urls[0].toLocalFile()).resolve()
+
+            print("Dropped path:", path)
+            print("Exists:", path.exists())
+            print("Is dir:", path.is_dir())
+            print("Is file:", path.is_file())
+
+            file_edit.value = str(path)
+
+            event.acceptProposedAction()
+
+        qline.dragEnterEvent = dragEnterEvent
+        qline.dropEvent = dropEvent
+
     @magicgui(
         call_button="Visualize in napari",
         input_path={"widget_type": "FileEdit", "mode": "d"},
@@ -515,10 +587,8 @@ def convert_widget():
         if make_visualize_widget.file_format.value in ["zarr"]:
             viewer.open(make_visualize_widget.input_path.value, plugin='napari-ome-zarr')
         else:
-            dataset = _state["dataset"]
-            dataset.visualize(
-                viewer=viewer
-            )
+            dataset.visualize(viewer=viewer)
+
 
         # initialize ROI to full image when spatial axes are available
         ensure_crop_layers(dataset)
@@ -539,6 +609,7 @@ def convert_widget():
             viewer.layers["Zrange"].events.data.connect(zpoints_to_widget)
             make_convert_widget.z_range.changed.connect(widget_to_zpoints)
 
+    enable_drag_and_drop(make_visualize_widget.input_path)
     # ---
 
     @magicgui(
