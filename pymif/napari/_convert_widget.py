@@ -23,32 +23,69 @@ from napari.layers.utils import layer_utils
 
 _original_compute_multiscale_level = layer_utils.compute_multiscale_level
 
-
 def conservative_compute_multiscale_level(
     requested_shape,
     shape_threshold,
     downsample_factors,
 ):
+    """Computed desired level of the multiscale given requested field of view.
+
+    The level of the multiscale should be the lowest resolution such that
+    the requested shape is above the shape threshold. By passing a shape
+    threshold corresponding to the shape of the canvas on the screen this
+    ensures that we have at least one data pixel per screen pixel, but no
+    more than we need.
+
+    Parameters
+    ----------
+    requested_shape : tuple
+        Requested shape of field of view in data coordinates
+    shape_threshold : tuple
+        Maximum size of a displayed tile in pixels.
+    downsample_factors : list of tuple
+        Downsampling factors for each level of the multiscale. Must be increasing
+        for each level of the multiscale.
+
+    Returns
+    -------
+    level : int
+        Level of the multiscale to be viewing.
     """
-    Make napari switch to higher-resolution pyramid levels earlier.
+    # Scale shape by downsample factors
+    threshold_factor = 0.1  # Adjust this factor to control the conservativeness
+    scaled_shape = requested_shape / downsample_factors
+    print('---')
+    print('requested_shape:', requested_shape)
+    print('shape_threshold:', (np.asarray(shape_threshold) * threshold_factor))
+    print('downsample_factors:', downsample_factors)
+    print('scaled_shape:', scaled_shape)
 
-    threshold_factor > 1:
-        more conservative with coarse levels;
-        higher-resolution levels are selected sooner when zooming in.
+    # Find the highest level (lowest resolution) allowed
+    locations = np.argwhere(np.any(scaled_shape > (np.asarray(shape_threshold) * threshold_factor), axis=1))
+    print('locations:', locations)
+    level = locations[-1][0] if len(locations) > 0 else 0
+    print('level:', level)
+    return level
 
-    threshold_factor < 1:
-        coarser levels are kept longer.
-    """
-    threshold_factor = 1
+    # """
+    # Make napari switch to higher-resolution pyramid levels earlier.
 
-    shape_threshold = np.asarray(shape_threshold) * threshold_factor
+    # threshold_factor > 1:
+    #     more conservative with coarse levels;
+    #     higher-resolution levels are selected sooner when zooming in.
 
-    return _original_compute_multiscale_level(
-        requested_shape=requested_shape,
-        shape_threshold=shape_threshold,
-        downsample_factors=downsample_factors,
-    )
+    # threshold_factor < 1:
+    #     coarser levels are kept longer.
+    # """
+    # threshold_factor = 0.05
 
+    # shape_threshold = np.asarray(shape_threshold) * threshold_factor
+
+    # return _original_compute_multiscale_level(
+    #     requested_shape=requested_shape,
+    #     shape_threshold=shape_threshold,
+    #     downsample_factors=downsample_factors,
+    # )
 
 layer_utils.compute_multiscale_level = conservative_compute_multiscale_level
 
