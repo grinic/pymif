@@ -21,8 +21,6 @@ rc('pdf', fonttype=42)
 import numpy as np
 from napari.layers.utils import layer_utils
 
-_original_compute_multiscale_level = layer_utils.compute_multiscale_level
-
 def conservative_compute_multiscale_level(
     requested_shape,
     shape_threshold,
@@ -54,38 +52,13 @@ def conservative_compute_multiscale_level(
     # Scale shape by downsample factors
     threshold_factor = 0.1  # Adjust this factor to control the conservativeness
     scaled_shape = requested_shape / downsample_factors
-    print('---')
-    print('requested_shape:', requested_shape)
-    print('shape_threshold:', (np.asarray(shape_threshold) * threshold_factor))
-    print('downsample_factors:', downsample_factors)
-    print('scaled_shape:', scaled_shape)
 
     # Find the highest level (lowest resolution) allowed
     locations = np.argwhere(np.any(scaled_shape > (np.asarray(shape_threshold) * threshold_factor), axis=1))
-    print('locations:', locations)
     level = locations[-1][0] if len(locations) > 0 else 0
-    print('level:', level)
+    print('Level in viewer:', level)
     return level
 
-    # """
-    # Make napari switch to higher-resolution pyramid levels earlier.
-
-    # threshold_factor > 1:
-    #     more conservative with coarse levels;
-    #     higher-resolution levels are selected sooner when zooming in.
-
-    # threshold_factor < 1:
-    #     coarser levels are kept longer.
-    # """
-    # threshold_factor = 0.05
-
-    # shape_threshold = np.asarray(shape_threshold) * threshold_factor
-
-    # return _original_compute_multiscale_level(
-    #     requested_shape=requested_shape,
-    #     shape_threshold=shape_threshold,
-    #     downsample_factors=downsample_factors,
-    # )
 
 layer_utils.compute_multiscale_level = conservative_compute_multiscale_level
 
