@@ -52,9 +52,8 @@ def _infer_ngff_version(group: zarr.Group) -> str:
         return attrs["ome"].get("version", "0.5")
     return "0.4"
 
-def _label_entry(label_name: str) -> dict[str, Any]:
-    label_path = f"labels/{label_name}"
-    return label_path
+def _label_entry(label_name: str) -> str:
+    return label_name
 
 
 def _labels_contains(labels: Sequence[Any], label_name: str) -> bool:
@@ -68,9 +67,10 @@ def _labels_contains(labels: Sequence[Any], label_name: str) -> bool:
             return True
     return False
 
-def _register_label_on_root(root: zarr.Group, label_name: str, ngff_version: str) -> None:
-    """Register a label group in the root label list for the active NGFF version."""
-    attrs = root.attrs.asdict()
+def _register_label_on_labels_group(root: zarr.Group, label_name: str, ngff_version: str) -> None:
+    """Register a label image on the ``labels`` container group."""
+    labels_group = root.require_group("labels")
+    attrs = labels_group.attrs.asdict()
     entry = _label_entry(label_name)
 
     if ngff_version == "0.5":
@@ -80,12 +80,22 @@ def _register_label_on_root(root: zarr.Group, label_name: str, ngff_version: str
         if not _labels_contains(labels, label_name):
             labels.append(entry)
         ome["labels"] = labels
-        root.attrs["ome"] = ome
+        labels_group.attrs["ome"] = ome
+
+        root_attrs = root.attrs.asdict()
+        root_ome = root_attrs.get("ome")
+        if isinstance(root_ome, dict) and "labels" in root_ome:
+            root_ome = dict(root_ome)
+            root_ome.pop("labels", None)
+            root.attrs["ome"] = root_ome
     else:
         labels = list(attrs.get("labels", []))
         if not _labels_contains(labels, label_name):
             labels.append(entry)
-        root.attrs["labels"] = labels
+        labels_group.attrs["labels"] = labels
+
+        if "labels" in root.attrs.asdict():
+            del root.attrs["labels"]
 
 
 def _get_group_ome_attrs(group: zarr.Group) -> dict[str, Any]:
