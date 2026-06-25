@@ -14,7 +14,7 @@ from .ngff import (
     _build_v2_compressor,
     _build_v3_compressors,
     _infer_ngff_version,
-    _register_label_on_root,
+    _register_label_on_labels_group,
     _resolve_format,
     _set_group_ngff_metadata,
     _set_dimension_names,
@@ -166,7 +166,7 @@ def create_empty_group(
             data_type=data_type,
             extra={"image-label": {"source": {"image": "../../"}}},
         )
-        _register_label_on_root(root, group_name, ngff_version)
+        _register_label_on_labels_group(root, group_name, ngff_version)
     else:
         omero = _build_omero_metadata(dummy_levels[0], axes, effective_metadata)
         _set_group_ngff_metadata(

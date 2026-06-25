@@ -104,6 +104,10 @@ def test_legacy_label_group_creation_drops_c_axis(tmp_path, image_pyramid, metad
     root = zarr.open_group(str(path), mode="r")
     label_group = root["labels"]["nuclei"]
     assert tuple(label_group["0"].shape) == (2, 4, 16, 16)
+    root_ome = root.attrs.asdict()["ome"]
+    assert "labels" not in root_ome
+    labels_ome = root["labels"].attrs.asdict()["ome"]
+    assert labels_ome["labels"] == ["nuclei"]
     axes = label_group.attrs.asdict()["ome"]["multiscales"][0]["axes"]
     assert [axis["name"] for axis in axes] == ["t", "z", "y", "x"]
 
@@ -118,6 +122,10 @@ def test_explicit_channelled_label_group_keeps_c_axis(tmp_path, image_pyramid, m
 
     root = zarr.open_group(str(path), mode="r")
     label_group = root["labels"]["classes"]
+    root_ome = root.attrs.asdict()["ome"]
+    assert "labels" not in root_ome
+    labels_ome = root["labels"].attrs.asdict()["ome"]
+    assert labels_ome["labels"] == ["classes"]
     assert tuple(label_group["0"].shape) == metadata["size"][0]
     ome = label_group.attrs.asdict()["ome"]
     assert ome["data_type"] == "label"

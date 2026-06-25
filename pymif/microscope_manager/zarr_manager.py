@@ -9,7 +9,7 @@ import zarr
 
 from .microscope_manager import MicroscopeManager
 from .utils.axes import normalize_axes, normalize_data_type
-from .utils.ngff import _infer_data_type_from_group, _register_label_on_root
+from .utils.ngff import _infer_data_type_from_group, _register_label_on_labels_group
 from collections.abc import Iterator, Sequence
 
 if TYPE_CHECKING:
@@ -1002,9 +1002,9 @@ class ZarrManager(MicroscopeManager):
                     is_label=True,
                 )
 
-            # Root-level label discovery metadata for the active NGFF layout.
+            # Label discovery metadata for the active NGFF layout.
             for name in label_names:
-                _register_label_on_root(root, name, ngff_version)
+                _register_label_on_labels_group(root, name, ngff_version)
 
         self.path = str(path)
         self.root = root
