@@ -1,0 +1,63 @@
+pymif.microscope_manager.zeiss_manager
+======================================
+
+.. py:module:: pymif.microscope_manager.zeiss_manager
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.zeiss_manager.ZeissManager
+
+
+Module Contents
+---------------
+
+.. py:class:: ZeissManager(path, scene_index: int = 0, scene_name: Optional[str] = '', chunks: Tuple[int, Ellipsis] = None)
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   A manager class for reading and handling .czi datasets.
+
+   This class lazily loads data into a dask array and parses associated .czi metadata.
+
+
+
+   .. py:attribute:: path
+
+
+   .. py:attribute:: scenes
+
+
+   .. py:attribute:: chunks
+      :value: None
+
+
+
+   .. py:method:: read(scene_index: int = 0)
+
+      Read the Zeiss dataset and populate self.data and self.metadata.
+
+      Returns
+      -------
+      Tuple[List[da.Array], Dict[str, Any]]
+          A tuple containing:
+          - A list with one dask array representing the image data.
+          - A metadata dictionary with pixel sizes, units, axes, etc.
+
+
+
+   .. py:method:: _parse_metadata() -> Dict[str, Any]
+
+      Parse metadata from the .czi dataset.
+
+      Returns
+      -------
+      Dict[str, Any]
+          A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.
+
+
+
