@@ -83,7 +83,7 @@ def export_contrast_settings(viewer, output_path="contrast_settings.txt"):
 
 
 # Define the main function that will be called when the user clicks the "Export Current View" button in the Napari widget. This function will handle exporting the current view of the Napari viewer, including individual channel views, a merged view, and a composite TIFF file.
-def basic_widget():
+def export_widget():
     """Simple Napari widget to export the current view.
 
     Returns a QWidget containing an input text box and a button. When you click "Export Current View" it will save the current view.
