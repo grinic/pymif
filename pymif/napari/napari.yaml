@@ -8,14 +8,20 @@ contributions:
     - id: pymif.convert
       python_name: pymif.napari._convert_widget:convert_widget
       title: Converter Plugin
+    - id: pymif.export_widget
+      python_name: pymif.napari._export_widget:export_widget
+      title: Export Widget
   widgets:
     - command: pymif.overview
       display_name: Overview Generator
     - command: pymif.convert
       display_name: Converter Plugin
+    - command: pymif.export_widget
+      display_name: Export Viewer     
   menus:
     "napari/menu/plugins":
       - submenu: PyMIF
         items:
           - command: pymif.overview
           - command: pymif.convert
+          - command: pymif.export_widget
