@@ -252,8 +252,7 @@ def _write_pyramid_v3(
         }
 
         compressors = _build_v3_compressors(cfg.compressor, cfg.compressor_level)
-        if compressors is not None:
-            create_kwargs["compressors"] = compressors
+        create_kwargs["compressors"] = compressors
 
         if cfg.storage_options is not None:
             create_kwargs.update(cfg.storage_options)
