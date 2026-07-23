@@ -64,10 +64,10 @@ def _estimate_levels(metadata, downscale_factor):
 
 def _normalize_downscale_factor(value):
     if value is None:
-        return 2
+        return tuple([2] * 3)
     if isinstance(value, (list, tuple)):
         if len(value) == 1:
-            return int(value[0])
+            return tuple([int(value[0])] * 3)
         return tuple(int(v) for v in value)
     return int(value)
 
