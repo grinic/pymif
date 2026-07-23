@@ -69,7 +69,7 @@ def _normalize_downscale_factor(value):
         if len(value) == 1:
             return tuple([int(value[0])] * 3)
         return tuple(int(v) for v in value)
-    return int(value)
+    return tuple([int(value)] * 3)
 
 
 def _present(value):
