@@ -2,6 +2,7 @@ from napari import current_viewer
 from datetime import datetime
 from napari.qt.threading import thread_worker
 import numpy as np
+import pandas as pd
 from magicgui import magicgui
 import pymif.microscope_manager as mm
 from magicgui.widgets import FileEdit
@@ -196,6 +197,87 @@ def get_n_levels(dataset_size, axes="tczyx"):
 
     return max(3, n)
 
+
+
+BATCH_CSV_COLUMNS = [
+    "input",
+    "microscope",
+    "output",
+    "chunk_size",
+    "max_size(MB)",
+    "scene_index",
+    "zarr_format",
+    "downscale_factor",
+    "subset",
+    "channel_colors",
+    "channel_names",
+    "num_levels",
+]
+
+
+def _indices_to_expr(indices):
+    indices = [int(i) for i in indices]
+    if not indices:
+        return ""
+    if len(indices) == 1:
+        return str(indices[0])
+    step = indices[1] - indices[0]
+    if step > 0 and all((b - a) == step for a, b in zip(indices[:-1], indices[1:])):
+        return f"{indices[0]}:{indices[-1]}:{step}"
+    return ",".join(str(i) for i in indices)
+
+
+def _range_to_indices(range_value):
+    start, end = (int(range_value[0]), int(range_value[1]))
+    if end < start:
+        start, end = end, start
+    return list(range(start, end + 1))
+
+
+def _subset_string_from_widget(dataset, t_range, z_range, y_range, x_range, channels):
+    axes = _dataset_axes(dataset)
+    parts = []
+    if "t" in axes:
+        parts.append(f"t={_indices_to_expr(_range_to_indices(t_range))}")
+    if "c" in axes and channels:
+        channel_names = list(dataset.metadata.get("channel_names", []))
+        indices = [channel_names.index(name) for name in channels if name in channel_names]
+        if indices:
+            parts.append(f"c={_indices_to_expr(indices)}")
+    if "z" in axes:
+        parts.append(f"z={_indices_to_expr(_range_to_indices(z_range))}")
+    if "y" in axes:
+        parts.append(f"y={_indices_to_expr(_range_to_indices(y_range))}")
+    if "x" in axes:
+        parts.append(f"x={_indices_to_expr(_range_to_indices(x_range))}")
+    return ";".join(parts)
+
+
+def _channel_colors_from_metadata(dataset, selected_channel_names):
+    channel_names = list(dataset.metadata.get("channel_names", []))
+    colors = list(dataset.metadata.get("channel_colors", []))
+    if not channel_names or not colors or len(channel_names) != len(colors):
+        return []
+    lookup = dict(zip(channel_names, colors))
+    return [str(lookup[name]) for name in selected_channel_names if name in lookup]
+
+
+def _append_batch_csv(csv_path, row):
+    csv_path = Path(csv_path)
+    if csv_path.suffix.lower() != ".csv":
+        csv_path = csv_path.with_suffix(".csv")
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    new_row = pd.DataFrame([row])
+    if csv_path.exists() and csv_path.stat().st_size > 0:
+        try:
+            existing = pd.read_csv(csv_path, dtype=str).fillna("")
+            combined = pd.concat([existing, new_row], ignore_index=True)
+        except Exception:
+            combined = new_row
+    else:
+        combined = new_row
+    combined = combined.reindex(columns=BATCH_CSV_COLUMNS, fill_value="")
+    combined.to_csv(csv_path, index=False)
 
 def _run_conversion(
     reader,
@@ -696,6 +778,7 @@ def convert_widget():
             )
         
         make_convert_widget.enabled = False
+        make_batch_csv_widget.enabled = False
         make_visualize_widget.enabled = False
 
         @worker.returned.connect
@@ -711,6 +794,51 @@ def convert_widget():
             make_visualize_widget.enabled = True
 
         worker.start()
+
+    @magicgui(
+        call_button="Append to batch CSV",
+        batch_csv_path={"widget_type": "FileEdit", "mode": "w"},
+    )
+    def make_batch_csv_widget(batch_csv_path: FileEdit = None):
+        dataset = _state["dataset"]
+        if dataset is None:
+            return
+
+        csv_path = Path(batch_csv_path) if batch_csv_path else None
+        if csv_path is None:
+            csv_path = Path(make_visualize_widget.input_path.value).parent / "batch.csv"
+
+        selected_channel_names = list(make_convert_widget.channels.value) if "c" in _dataset_axes(dataset) else []
+        subset = _subset_string_from_widget(
+            dataset,
+            make_convert_widget.t_range.value,
+            make_convert_widget.z_range.value,
+            make_convert_widget.y_range.value,
+            make_convert_widget.x_range.value,
+            selected_channel_names,
+        )
+
+        selected_colors = _channel_colors_from_metadata(dataset, selected_channel_names)
+        row = {
+            "input": str(Path(make_visualize_widget.input_path.value).resolve()),
+            "microscope": str(make_visualize_widget.file_format.value),
+            "output": str(Path(make_convert_widget.output_path.value)),
+            "chunk_size": " ".join(str(v) for v in (1, 1, make_convert_widget.chunk_z.value, make_convert_widget.chunk_y.value, make_convert_widget.chunk_x.value)),
+            "max_size(MB)": "",
+            "scene_index": str(make_visualize_widget.scene_index.value),
+            "zarr_format": str(make_convert_widget.zarr_format.value),
+            "downscale_factor": " ".join(str(v) for v in (make_convert_widget.downscale_z.value, make_convert_widget.downscale_y.value, make_convert_widget.downscale_x.value)),
+            "subset": subset,
+            "channel_colors": " ".join(selected_colors),
+            "channel_names": " ".join(selected_channel_names),
+            "num_levels": str(make_convert_widget.n_levels.value),
+        }
+        _append_batch_csv(csv_path, row)
+        print(f"Appended batch row to {csv_path.resolve()}")
+
+    make_batch_csv_widget.batch_csv_path.value = str((Path(make_visualize_widget.input_path.value).parent if make_visualize_widget.input_path.value else Path.cwd()) / "batch.csv")
+    make_batch_csv_widget.enabled = False
+
 
     # -------------------------
     # Input path callback
@@ -756,6 +884,9 @@ def convert_widget():
 
         default_output = path.parent / f"{name}{suffix}.zarr"
         make_convert_widget.output_path.value = default_output
+        make_batch_csv_widget.batch_csv_path.value = str(default_output.parent / "batch.csv")
+        make_batch_csv_widget.enabled = True
+
 
         make_convert_widget.enabled = True
 
@@ -907,6 +1038,17 @@ def convert_widget():
     make_convert_widget.native.layout().insertWidget(7, advanced_btn)
 
     layout.addWidget(make_convert_widget.native)
+
+    title_csv_label = QLabel("Batch CSV export:")
+    title_csv_label.setStyleSheet("""
+        QLabel {
+            font-weight: bold;
+            font-size: 15px;
+            padding: 2px 0px;
+        }
+    """)
+    layout.addWidget(title_csv_label)
+    layout.addWidget(make_batch_csv_widget.native)
     # layout.addWidget(reset_roi_widget.native)
 
     # make_visualize_widget.input_path.tooltip = (
