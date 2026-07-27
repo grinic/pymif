@@ -291,7 +291,7 @@ def _parse_arguments():
         help='Number of pyramidal levels.',
     )
     single_convert_parser.add_argument(
-        '--subset',
+        '-s', '--subset',
         required=False,
         type=str,
         help='Subset the input before pyramid generation. Format: axis=selection pairs separated by semicolons, e.g. "y=10:100:2;x=20:80". Use integers, comma-separated indices, or slices like 0:10:2.',
