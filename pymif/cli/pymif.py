@@ -354,11 +354,11 @@ def convert_batch(args):
             conv_kwargs["scene_index"] = int(v["scene_index"])
 
         if "channel_names" in database.columns and _present(v.get("channel_names")):
-            conv_kwargs["channel_names"] = [c.strip() for c in str(v["channel_names"]).split(",")]
+            conv_kwargs["channel_names"] = [c.strip() for c in str(v["channel_names"]).split(" ")]
 
         if "channel_colors" in database.columns and _present(v.get("channel_colors")):
             conv_kwargs["channel_colors"] = [
-                parse_color(c.strip()) for c in str(v["channel_colors"]).split(",")
+                parse_color(c.strip()) for c in str(v["channel_colors"]).split(" ")
             ]
 
         if "zarr_format" in database.columns and _present(v.get("zarr_format")):
