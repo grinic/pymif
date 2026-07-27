@@ -1,0 +1,2 @@
+﻿input,microscope,output,zarr_format,chunk_size,num_levels,scene_index,downscale_factor,subset,channel_colors,channel_names
+prueba.zarr,,test_batch.ome.zarr,3,1 1 2 512 512,3,,1 2 2,z=0:-1:2;x=0:-1:1,"cyan,magenta","nuclei,membrane"
