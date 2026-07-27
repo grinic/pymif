@@ -101,6 +101,97 @@ def parse_downscale_factor(value: str):
 
     return factors[0] if len(factors) == 1 else tuple(factors)
 
+
+def _parse_subset_selection(selection: str, axis: str):
+    """Parse a per-axis selection from a CLI subset specification."""
+    text = selection.strip()
+    if text.startswith("[") and text.endswith("]"):
+        text = text[1:-1].strip()
+
+    if text == "" or text.lower() in {"all", "none", "null", "nan", "*"}:
+        return slice(None)
+
+    if ":" in text:
+        parts = [part.strip() for part in text.split(":")]
+        if len(parts) > 3:
+            raise argparse.ArgumentTypeError(
+                f"Invalid subset selection '{selection}' for axis '{axis}'. "
+                "Use 'start:stop[:step]', a comma-separated index list, or a single integer."
+            )
+
+        def _maybe_int(value: str):
+            return None if value == "" else int(value)
+
+        try:
+            start = _maybe_int(parts[0])
+            stop = _maybe_int(parts[1]) if len(parts) > 1 else None
+            step = _maybe_int(parts[2]) if len(parts) > 2 else None
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                f"Invalid subset selection '{selection}' for axis '{axis}'. "
+                "Slice bounds must be integers."
+            ) from exc
+
+        if step == 0:
+            raise argparse.ArgumentTypeError(
+                f"Invalid subset selection '{selection}' for axis '{axis}'. Step cannot be 0."
+            )
+        return slice(start, stop, step)
+
+    if "," in text:
+        try:
+            return [int(part.strip()) for part in text.split(",") if part.strip()]
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                f"Invalid subset selection '{selection}' for axis '{axis}'. "
+                "Use integers separated by commas."
+            ) from exc
+
+    try:
+        return int(text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"Invalid subset selection '{selection}' for axis '{axis}'. "
+            "Use a single integer, a comma-separated list, or a slice like '0:10:2'."
+        ) from exc
+
+
+def parse_subset_spec(value: str):
+    """Parse a compact axis subset string into kwargs for subset_dataset().
+
+    Examples
+    --------
+    ``y=10:100:2;x=20:80`` -> ``{"Y": slice(10, 100, 2), "X": slice(20, 80, None)}``
+    ``z=0:10;c=0,2`` -> ``{"Z": slice(0, 10, None), "C": [0, 2]}``
+    """
+    if value is None:
+        return None
+
+    text = str(value).strip()
+    if text == "" or text.lower() in {"none", "null", "nan", "-1"}:
+        return None
+
+    subset = {}
+    for raw_spec in re.split(r"[;\n]+", text):
+        spec = raw_spec.strip()
+        if not spec:
+            continue
+        if "=" not in spec:
+            raise argparse.ArgumentTypeError(
+                f"Invalid subset specification '{value}'. "
+                "Use axis=selection pairs separated by semicolons, e.g. 'y=10:100:2;x=20:80'."
+            )
+        axis, selection = spec.split("=", 1)
+        axis = axis.strip().lower()
+        if axis not in {"t", "c", "z", "y", "x"}:
+            raise argparse.ArgumentTypeError(
+                f"Invalid axis '{axis}' in subset specification '{value}'. "
+                "Supported axes are t, c, z, y, and x."
+            )
+        subset[axis.upper()] = _parse_subset_selection(selection, axis)
+
+    return subset
+
 def _parse_arguments():
     """Build and parse the PyMIF command line interface arguments."""
 
@@ -199,6 +290,12 @@ def _parse_arguments():
         metavar='FACTOR',
         help='Number of pyramidal levels.',
     )
+    single_convert_parser.add_argument(
+        '--subset',
+        required=False,
+        type=str,
+        help='Subset the input before pyramid generation. Format: axis=selection pairs separated by semicolons, e.g. "y=10:100:2;x=20:80". Use integers, comma-separated indices, or slices like 0:10:2.',
+    )
 
     # Required args
     requiredNamed = single_convert_parser.add_argument_group('Required Named arguments.')
@@ -220,11 +317,11 @@ def _parse_arguments():
     long_block = """\
         Convert to zarr format a batch of images.
         The INPUT_FILE is a .csv file of the form:
-        input              | microscope  | output           | chunk_size    | max_size(MB) | scene_index | zarr_format | downscale_factor | channel_colors | channel_names | num_levels
-        /path/to/input_1   | opera       | /path/to/zarr_1  | 1 1 2 512 512 | 100          | 0           | 3           | 1 2 2            | lime white     | gfp bf        | 3
-        /path/to/input_2   | viventis    | /path/to/zarr_2  |               | 100          |             | 2           | 2                | 000FF FF00FF   |               | 
+        input              | microscope  | output           | chunk_size    | max_size(MB) | scene_index | zarr_format | downscale_factor | subset                         | channel_colors | channel_names | num_levels
+        /path/to/input_1   | opera       | /path/to/zarr_1  | 1 1 2 512 512 | 100          | 0           | 3           | 1 2 2            | y=10:100:2;x=20:80             | lime white     | gfp bf        | 3
+        /path/to/input_2   | viventis    | /path/to/zarr_2  |               | 100          |             | 2           | 2                | z=0:10;c=0,2                   | 000FF FF00FF   |               | 
         ...
-        /path/to/input_n   | viventis    | /path/to/zarr_n  | 1 1 2 512 512 |              | 0           | 3           | 2                |                |               | 2
+        /path/to/input_n   | viventis    | /path/to/zarr_n  | 1 1 2 512 512 |              | 0           | 3           | 2                |                                |                |               | 2
         channel_colors can be hex code or valid matplotlib colors.
     """
     batch_convert_parser = subparsers.add_parser(
