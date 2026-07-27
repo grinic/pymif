@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 import pymif.microscope_manager as mm
-from pymif.cli.__arguments import _parse_arguments, parse_color, parse_downscale_factor
+from pymif.cli.__arguments import _parse_arguments, parse_color, parse_downscale_factor, parse_subset_spec
 
 
 def _axes(metadata):
@@ -79,6 +79,20 @@ def _present(value):
         or value == "-1"
     )
 
+
+def _normalize_subset(value):
+    """Normalize a subset specification from the CLI or a batch CSV."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return {str(k).upper(): v for k, v in value.items()}
+    if isinstance(value, str):
+        parsed = parse_subset_spec(value)
+        return None if parsed is None else parsed
+    raise TypeError(
+        "subset must be either a dict of axis selections or a compact subset string"
+    )
+
 def _manager_name_map() -> Dict[str, Any]:
     return {
         'luxendo': mm.LuxendoManager,
@@ -146,6 +160,7 @@ def zarr_convert(
     zarr_format : Optional[int] = 3,
     downscale_factor: Optional[int] = 2,
     num_levels: Optional[int] = None,
+    subset: Optional[dict] = None,
 ):
     """Helper function for CLI to convert a dataset to zarr given some parameters.
 
@@ -186,6 +201,10 @@ def zarr_convert(
             Number of pyramid levels.\n
             Example: \"-nl 3\")\n
             Default: None
+        subset : Optional[dict]
+            Axis subset to apply before chunk selection and pyramid generation.\n
+            Example: "--subset y=10:100:2;x=20:80"\n
+            Default: None
     """
 
     manager, resolved_microscope = _resolve_zarr_manager(input_path, microscope)
@@ -206,6 +225,15 @@ def zarr_convert(
     print("CHUNK SIZE:", dataset.chunks)
     print("DATASET SIZE (MB):", _dataset_size_mb(dataset.metadata))
 
+    subset_kwargs = _normalize_subset(subset)
+    if subset_kwargs:
+        print(f"\n--->Applying subset: {subset_kwargs}")
+        dataset.subset_dataset(**subset_kwargs, rebuild_pyramid=False)
+        print("\n--->Dataset after subsetting")
+        for i in dataset.metadata:
+            print(f"{i.upper()}: {dataset.metadata[i]}")
+        print("DATASET SIZE (MB):", _dataset_size_mb(dataset.metadata))
+        
     # --- Select chunk size ---
     print(f"\n--->Select chunks.")
     if chunk_size is not None:
@@ -219,11 +247,13 @@ def zarr_convert(
     print(f"Chunk size: {chunk_size}, {size_mb} MB.")
     print(f"N chunks: {n_chunks}.")
 
-    # --- Initialize manager ---
-    if resolved_microscope.lower() == "zeiss":
-        dataset = manager(path=input_path, scene_index=scene_index, chunks=chunk_size)
-    else:
-        dataset = manager(path=input_path, chunks=chunk_size)
+    dataset.data = [
+        arr.rechunk(chunk_size) if arr.ndim == len(chunk_size) else arr
+        for arr in dataset.data
+    ]
+    dataset.metadata["chunksize"] = [tuple(arr.chunksize) for arr in dataset.data]
+    if hasattr(dataset, "chunks"):
+        dataset.chunks = chunk_size
 
     # --- Build pyramid ---
     print(f"\n--->Selected pyramidal layers, lower layer should have dims<2048")
@@ -324,11 +354,11 @@ def convert_batch(args):
             conv_kwargs["scene_index"] = int(v["scene_index"])
 
         if "channel_names" in database.columns and _present(v.get("channel_names")):
-            conv_kwargs["channel_names"] = [c.strip() for c in str(v["channel_names"]).split(",")]
+            conv_kwargs["channel_names"] = [c.strip() for c in str(v["channel_names"]).split(" ")]
 
         if "channel_colors" in database.columns and _present(v.get("channel_colors")):
             conv_kwargs["channel_colors"] = [
-                parse_color(c.strip()) for c in str(v["channel_colors"]).split(",")
+                parse_color(c.strip()) for c in str(v["channel_colors"]).split(" ")
             ]
 
         if "zarr_format" in database.columns and _present(v.get("zarr_format")):
@@ -339,6 +369,9 @@ def convert_batch(args):
 
         if "num_levels" in database.columns and _present(v.get("num_levels")):
             conv_kwargs["num_levels"] = int(v["num_levels"])
+
+        if "subset" in database.columns and _present(v.get("subset")):
+            conv_kwargs["subset"] = v["subset"]
 
         zarr_convert(**conv_kwargs)
 
@@ -354,7 +387,7 @@ def convert_single(args):
         f'--scene_index {args.scene_index} --channel_names {args.channel_names} '
         f'--channel_colors {args.channel_colors} --zarr_format {args.zarr_format} '
         f'--num_levels {args.num_levels} --downscale_factor {args.downscale_factor} '
-        f'--chunk_size {args.chunk_size}'
+        f'--chunk_size {args.chunk_size} --subset {args.subset}'
     )
     print(f'Converting single file.\nRunning through: {cli}')
     exclude = {"runmode"}
