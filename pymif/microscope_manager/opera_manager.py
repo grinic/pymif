@@ -75,9 +75,9 @@ class OperaManager(MicroscopeManager):
             channel_names.append(channel.attrib.get("Name", ""))
             color = channel.attrib.get("Color")
             if color:
-                channel_colors.append(hex(int(color)))
+                channel_colors.append(f"#{int(color):06X}")
             else:
-                channel_colors.append(0xFFFFFF)  # default white
+                channel_colors.append("#FFFFFF")  # default white
 
         # Build scale list for NGFF: one level for now
         scales = [(px_z, px_y, px_x)]  # t, z, y, x

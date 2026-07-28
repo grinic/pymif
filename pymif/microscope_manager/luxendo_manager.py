@@ -95,7 +95,7 @@ class LuxendoManager(MicroscopeManager):
                 scales[0][2] * downscale_factors[2],
             ]))
             
-        palette = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF]  # red, green, blue, yellow, magenta, cyan
+        palette = ['white', 'red', 'green', 'blue', 'yellow', 'magenta', 'cyan']
         channel_colors = list(itertools.islice(itertools.cycle(palette), len(channel_names)))
 
         return {

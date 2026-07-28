@@ -68,10 +68,26 @@ def subset_metadata(
 
     new_size = list(shape)
     spacing_by_axis = {}
+
     for i, ax in enumerate(axes):
         selection = axis_map[ax]
         if selection is None:
             continue
+
+        if ax == "c":
+            if isinstance(selection, slice):
+                indices = list(range(*selection.indices(shape[i])))
+            elif isinstance(selection, int):
+                indices = [selection]
+            else:
+                indices = list(selection)
+
+            if len(set(indices)) != len(indices):
+                raise ValueError(f"Duplicate indices are not allowed for axis {ax!r}: {indices!r}")
+
+            new_size[i] = len(indices)
+            continue
+
         selected_len, spacing = selection_length_and_spacing(selection, shape[i], ax)
         new_size[i] = selected_len
         spacing_by_axis[ax] = spacing
