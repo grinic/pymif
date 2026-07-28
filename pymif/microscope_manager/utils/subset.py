@@ -74,11 +74,17 @@ def subset_metadata(
         if selection is None:
             continue
 
-        # Channels are categorical: allow arbitrary reordering without spacing checks.
         if ax == "c":
-            indices = list(selection)
+            if isinstance(selection, slice):
+                indices = list(range(*selection.indices(shape[i])))
+            elif isinstance(selection, int):
+                indices = [selection]
+            else:
+                indices = list(selection)
+
             if len(set(indices)) != len(indices):
                 raise ValueError(f"Duplicate indices are not allowed for axis {ax!r}: {indices!r}")
+
             new_size[i] = len(indices)
             continue
 

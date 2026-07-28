@@ -223,7 +223,9 @@ def _indices_to_expr(indices):
         return str(indices[0])
     step = indices[1] - indices[0]
     if step > 0 and all((b - a) == step for a, b in zip(indices[:-1], indices[1:])):
-        return f"{indices[0]}:{indices[-1]}:{step}"
+        start = indices[0]
+        stop = indices[-1]+1
+        return f"{start}:{stop}:{step}"
     return ",".join(str(i) for i in indices)
 
 
@@ -809,6 +811,7 @@ def convert_widget():
             csv_path = Path(make_visualize_widget.input_path.value).parent / "batch.csv"
 
         selected_channel_names = list(make_convert_widget.channels.value) if "c" in _dataset_axes(dataset) else []
+        normalized_channel_names = [c.replace(" ", "_") for c in selected_channel_names]
         subset = _subset_string_from_widget(
             dataset,
             make_convert_widget.t_range.value,
@@ -830,7 +833,7 @@ def convert_widget():
             "downscale_factor": " ".join(str(v) for v in (make_convert_widget.downscale_z.value, make_convert_widget.downscale_y.value, make_convert_widget.downscale_x.value)),
             "subset": subset,
             "channel_colors": " ".join(selected_colors),
-            "channel_names": " ".join(selected_channel_names),
+            "channel_names": " ".join(normalized_channel_names),
             "num_levels": str(make_convert_widget.n_levels.value),
         }
         _append_batch_csv(csv_path, row)
