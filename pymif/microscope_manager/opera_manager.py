@@ -73,11 +73,13 @@ class OperaManager(MicroscopeManager):
         # Channel names and colors
         channel_names = []
         channel_colors = []
-        for channel in pixels.findall("ome:Channel", ns):
-            channel_names.append(channel.attrib.get("Name", ""))
-            color = channel.attrib.get("Color")
+        default_colors = ["#FFFFFF", "#FF0000", "#0000FF", "#00FF00"]
+        for i, channel in enumerate(pixels.findall("ome:Channel", ns)):
+            channel_names.append(channel.attrib.get("Name", f"Ch{i}"))
+            color = channel.attrib.get("Color", default_colors[i%len(default_colors)])
             if color:
-                channel_colors.append(f"#{int(color):06X}")
+                s = str(color).lstrip('#')
+                channel_colors.append(f"#{int(s, 16 if any(c in s for c in 'ABCDEFabcdef') else 10):06X}")
             else:
                 channel_colors.append("#FFFFFF")  # default white
 
