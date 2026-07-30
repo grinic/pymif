@@ -1,0 +1,125 @@
+pymif.microscope_manager.luxendo_manager
+========================================
+
+.. py:module:: pymif.microscope_manager.luxendo_manager
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.luxendo_manager.LuxendoManager
+
+
+Module Contents
+---------------
+
+.. py:class:: LuxendoManager(path: str, chunks: Tuple[int, Ellipsis] = (1, 1, 8, 4096, 4096))
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   Reader for Luxendo microscope data saved as multi-resolution HDF5 (.lux.h5) and XML metadata.
+
+   This class parses Luxendo's XML configuration and builds a lazy Dask array pyramid for downstream processing.
+
+
+   .. py:attribute:: path
+
+
+   .. py:attribute:: chunks
+      :value: (1, 1, 8, 4096, 4096)
+
+
+
+   .. py:attribute:: _open_files
+      :value: []
+
+
+
+   .. py:method:: _parse_metadata() -> Dict[str, Any]
+
+      Parse XML metadata from the Luxendo dataset.
+
+      Returns
+      -------
+      Dict[str, Any]
+          A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.
+
+
+
+   .. py:method:: _read_h5_stack(h5_path: pathlib.Path, dataset_name: str) -> numpy.ndarray
+
+      Load a single resolution dataset lazily as a Dask array.
+
+      Parameters
+      ----------
+      h5_path : Path
+          Path to the .lux.h5 file.
+      dataset_name : str
+          Internal dataset name (e.g., "Data", "Data444", etc.)
+
+      Returns
+      -------
+      np.ndarray
+          A Dask array loaded from the HDF5 file.
+
+
+
+   .. py:method:: _read_h5_shape(h5_path: pathlib.Path, dataset_name: str)
+
+      Read the shape and dtype of a dataset in an HDF5 file.
+
+      Parameters
+      ----------
+      h5_path : Path
+          Path to the .lux.h5 file.
+      dataset_name : str
+          Internal dataset name.
+
+      Returns
+      -------
+      Tuple[Tuple[int, ...], np.dtype]
+          A tuple containing the dataset shape and dtype.
+
+
+
+   .. py:method:: get_available_datasets(h5_file) -> List
+
+      Extract all dataset names from a .lux.h5 file.
+
+      Parameters
+      ----------
+      h5_file : Path
+          Path to a Luxendo HDF5 file.
+
+      Returns
+      -------
+      List[str]
+          Sorted list of dataset names.
+
+
+
+   .. py:method:: _build_dask_array() -> List[dask.array.Array]
+
+      Construct a multiscale image pyramid as Dask arrays.
+
+      Returns
+      -------
+      List[da.Array]
+          A list of Dask arrays representing each resolution level (from highest to lowest).
+
+
+
+   .. py:method:: read() -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+      Read Luxendo image data and metadata.
+
+      Returns
+      -------
+      Tuple[List[da.Array], Dict[str, Any]]
+          A list of Dask arrays (pyramidal levels) and a metadata dictionary.
+
+
+

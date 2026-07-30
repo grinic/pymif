@@ -1,0 +1,70 @@
+pymif.microscope_manager.opera_manager
+======================================
+
+.. py:module:: pymif.microscope_manager.opera_manager
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.opera_manager.OperaManager
+
+
+Module Contents
+---------------
+
+.. py:class:: OperaManager(path: str, chunks: Tuple[int, Ellipsis] = (1, 1, 8, 4096, 4096))
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   Manager for reading Opera (PerkinElmer Opera Phenix) pyramidal OME-TIFF datasets.
+
+   This class reads and parses OME-XML metadata embedded in the TIFF file.
+
+
+   .. py:attribute:: path
+
+
+   .. py:attribute:: chunks
+      :value: (1, 1, 8, 4096, 4096)
+
+
+
+   .. py:method:: _parse_metadata() -> dict
+
+      Parse OME-XML metadata embedded in the pyramidal OME-TIFF file.
+
+      Returns
+      -------
+      dict
+          Metadata dictionary containing size, scales, units, channel info, dtype, and axes.
+
+
+
+   .. py:method:: _build_dask_array() -> List[dask.array.Array]
+
+      Load pyramid levels from the pyramidal OME-TIFF and convert them to Dask arrays.
+
+      Returns
+      -------
+      list of dask.array.Array
+          List of Dask arrays, each corresponding to a pyramid level, normalized to TCZYX axes order.
+
+
+
+   .. py:method:: read() -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+      Read the Opera pyramidal OME-TIFF file and extract image data and metadata.
+
+      Returns
+      -------
+      Tuple[List[da.Array], Dict[str, Any]]
+          A tuple containing:
+          - List of Dask arrays, one per resolution level.
+          - Metadata dictionary.
+
+
+

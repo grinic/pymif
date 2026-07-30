@@ -1,0 +1,58 @@
+pymif.microscope_manager.array_manager
+======================================
+
+.. py:module:: pymif.microscope_manager.array_manager
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.array_manager.ArrayManager
+
+
+Module Contents
+---------------
+
+.. py:class:: ArrayManager(array: Union[numpy.ndarray, dask.array.Array, List[Union[numpy.ndarray, dask.array.Array]]], metadata: Dict[str, Any], chunks: Tuple[int, Ellipsis] = (1, 1, 8, 4096, 4096))
+
+   Bases: :py:obj:`pymif.microscope_manager.microscope_manager.MicroscopeManager`
+
+
+   Create a MicroscopeManager instance from in-memory NumPy or Dask array(s)
+   with user-defined metadata. Supports single resolution or multiscale pyramid.
+
+   The default remains legacy TCZYX for 5D arrays, but ``metadata['axes']`` may
+   be any unique combination of ``t``, ``c``, ``z``, ``y`` and ``x`` whose length
+   matches the input arrays.
+
+
+   .. py:attribute:: data
+
+
+   .. py:attribute:: metadata
+
+
+   .. py:attribute:: chunks
+      :value: (1, 1, 8, 4096, 4096)
+
+
+
+   .. py:method:: _normalize_chunks(chunks, shape: tuple[int, Ellipsis])
+      :staticmethod:
+
+
+
+   .. py:method:: read() -> Tuple[List[dask.array.Array], Dict[str, Any]]
+
+      Return the pyramid and metadata.
+
+      Returns
+      ----------
+      Tuple[List[da.Array], Dict[str, Any]]
+          A tuple containing a list of
+          Dask arrays representing image data and a dictionary of metadata.
+
+
+

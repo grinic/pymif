@@ -1,0 +1,58 @@
+pymif.napari._overview_widget
+=============================
+
+.. py:module:: pymif.napari._overview_widget
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.napari._overview_widget._dataset_axes
+   pymif.napari._overview_widget._axis_index
+   pymif.napari._overview_widget._axis_size
+   pymif.napari._overview_widget._scale_for_axes
+   pymif.napari._overview_widget.draw_3d_polygon
+   pymif.napari._overview_widget.add_roi_layer
+   pymif.napari._overview_widget.add_zrange_layer
+   pymif.napari._overview_widget.make_overview
+   pymif.napari._overview_widget.overview_widget
+
+
+Module Contents
+---------------
+
+.. py:function:: _dataset_axes(dataset)
+
+.. py:function:: _axis_index(dataset, axis)
+
+.. py:function:: _axis_size(dataset, axis, default=1)
+
+.. py:function:: _scale_for_axes(dataset, requested_axes)
+
+.. py:function:: draw_3d_polygon(viewer, dataset)
+
+   Update the 3D crop box layer from the current 2D ROI and z-range markers.
+
+
+.. py:function:: add_roi_layer(viewer, dataset)
+
+   Add the editable 2D ROI rectangle layer used by the overview widget.
+
+
+.. py:function:: add_zrange_layer(viewer, dataset)
+
+   Add the point layer used to mark the z-range for overview generation.
+
+
+.. py:function:: make_overview(dataset, viewer, output_path, overview_filename='overview', overview_format='pdf')
+
+   Render per-channel and merged maximum projections for the selected ROI.
+
+
+.. py:function:: overview_widget()
+
+   Create the napari widget for selecting an ROI and exporting overview figures.
+
+
