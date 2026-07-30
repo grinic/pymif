@@ -1,3 +1,5 @@
+from logging import root
+
 import dask.array as da
 import zarr
 import xml.etree.ElementTree as ET
@@ -139,7 +141,13 @@ class OperaManager(MicroscopeManager):
         with tifffile.TiffFile(self.path) as tif:
             store = tif.aszarr()
             zgroup = zarr.open(store, mode="r")
-            pyramid = [
+            
+            if isinstance(zgroup, zarr.Array):
+                    pyramid = [
+                        (da.from_zarr(zgroup), tif.series[0].axes.lower())
+                    ]            
+            else:
+                pyramid = [
                     ( 
                         da.from_zarr(zgroup[str(i)]), # image data
                         tif.series[0].levels[i].axes.lower(), # axes order
