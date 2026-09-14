@@ -34,6 +34,28 @@ class ZarrWriteConfig:
     data_type
         Optional dataset semantic type.  Use ``"intensity"`` for regular image
         intensities or ``"label"`` for integer segmentation/annotation data.
+    shards
+        Zarr v3 sharding configuration, applied per pyramid level. One of:
+
+        - ``None`` (default): no sharding, one file per chunk (unchanged
+          behaviour).
+        - ``"auto"``: pick a shard shape per level automatically so each
+          shard is close to ``shard_target_mb`` in (uncompressed) size,
+          grouping whole chunks along the axes with the most chunks first.
+          Levels that are already small (few chunks, or a chunk already at
+          or above the target size) are left unsharded.
+        - A single shape tuple matching the array's ndim: used as the
+          requested shard shape for every level, snapped to the nearest
+          multiple of that level's chunk shape and clipped so it never
+          exceeds the level's extent.
+        - A sequence of shape tuples, one per pyramid level, each resolved
+          the same way.
+
+        Only valid when writing zarr v3 (``ngff_version="0.5"``); sharding
+        has no zarr v2 equivalent.
+    shard_target_mb
+        Target *uncompressed* shard size in megabytes used by
+        ``shards="auto"``.
     """
 
     ngff_version: Literal["0.4", "0.5"] | None = None
@@ -44,6 +66,8 @@ class ZarrWriteConfig:
     compressor: Literal["blosc", "gzip"] | None = None
     compressor_level: int = 3
     data_type: Literal["intensity", "label"] | None = None
+    shards: Literal["auto"] | Sequence[int] | Sequence[Sequence[int]] | None = None
+    shard_target_mb: float = 64.0
 
 def _infer_ngff_version(group: zarr.Group) -> str:
     """Infer the NGFF metadata layout used by an existing group."""
@@ -206,6 +230,12 @@ def _write_pyramid_v2(
     cfg: ZarrWriteConfig,
 ):
     """Create and populate zarr v2 arrays for each pyramid level."""
+    if cfg.shards is not None:
+        raise ValueError(
+            "Sharding is only supported for zarr_format=3 (NGFF v0.5) datasets; "
+            "got zarr_format=2."
+        )
+
     delayed = []
 
     for i, arr in enumerate(data_levels):
@@ -241,8 +271,18 @@ def _write_pyramid_v3(
     """Create and populate zarr v3 arrays for each pyramid level."""
     delayed = []
 
+    chunks_per_level = [_get_chunks(arr) for arr in data_levels]
+    shard_shapes = _resolve_shards_for_levels(
+        [tuple(arr.shape) for arr in data_levels],
+        chunks_per_level,
+        data_levels[0].dtype,
+        cfg.shards,
+        zarr_format=3,
+        target_bytes=int(cfg.shard_target_mb * 1024 * 1024),
+    )
+
     for i, arr in enumerate(data_levels):
-        chunks = _get_chunks(arr)
+        chunks = chunks_per_level[i]
 
         create_kwargs = {
             "name": str(i),
@@ -250,6 +290,9 @@ def _write_pyramid_v3(
             "dtype": arr.dtype,
             "chunks": chunks,
         }
+
+        if shard_shapes[i] is not None:
+            create_kwargs["shards"] = shard_shapes[i]
 
         compressors = _build_v3_compressors(cfg.compressor, cfg.compressor_level)
         create_kwargs["compressors"] = compressors
@@ -259,11 +302,159 @@ def _write_pyramid_v3(
 
         z = root.create_array(**create_kwargs)
 
-        task = da.store(arr, z, lock=False, compute=cfg.compute)
+        # When a level is sharded, multiple dask chunks land in the same
+        # on-disk shard file, so concurrent unlocked writes can race (zarr
+        # partial-encodes the shard on every chunk write). Serialize writes
+        # for sharded levels; unsharded levels keep the fast unlocked path.
+        task = da.store(arr, z, lock=(shard_shapes[i] is not None), compute=cfg.compute)
         if not cfg.compute:
             delayed.append(task)
 
     return delayed
+
+
+def _shape_tuple(value: Any, ndim: int) -> tuple[int, ...] | None:
+    """Return a positive shape tuple of length ``ndim`` from ``value``, or ``None``."""
+    if value is None or isinstance(value, (str, bytes)):
+        return None
+    try:
+        candidate = tuple(int(v) for v in value)
+    except TypeError:
+        return None
+    if len(candidate) != ndim or any(v <= 0 for v in candidate):
+        return None
+    return candidate
+
+
+def _auto_shard_for_level(
+    shape: Sequence[int],
+    chunk: Sequence[int],
+    itemsize: int,
+    target_bytes: int,
+) -> tuple[int, ...] | None:
+    """Pick a shard shape for one pyramid level targeting ``target_bytes`` per shard.
+
+    Whole chunks are grouped into a shard, growing the axes with the most
+    available chunks first (typically the spatial ``y``/``x`` axes). Levels
+    with only a single chunk, or whose chunk is already at or above the
+    target size, are left unsharded (``None``).
+    """
+    ndim = len(chunk)
+    chunks_per_axis = [max(1, -(-int(s) // int(c))) for s, c in zip(shape, chunk)]
+    if all(n <= 1 for n in chunks_per_axis):
+        return None
+
+    chunk_bytes = itemsize
+    for c in chunk:
+        chunk_bytes *= int(c)
+    if chunk_bytes <= 0 or chunk_bytes >= target_bytes:
+        return None
+
+    want_chunks = max(2, round(target_bytes / chunk_bytes))
+
+    multiplier = [1] * ndim
+    order = sorted(range(ndim), key=lambda a: chunks_per_axis[a], reverse=True)
+
+    def _total() -> int:
+        total = 1
+        for m in multiplier:
+            total *= m
+        return total
+
+    progressed = True
+    while _total() < want_chunks and progressed:
+        progressed = False
+        for axis in order:
+            if multiplier[axis] < chunks_per_axis[axis]:
+                multiplier[axis] += 1
+                progressed = True
+                if _total() >= want_chunks:
+                    break
+
+    return tuple(int(c) * int(m) for c, m in zip(chunk, multiplier))
+
+
+def _snap_shard_shape(
+    spec: Any,
+    shape: Sequence[int],
+    chunk: Sequence[int],
+) -> tuple[int, ...] | None:
+    """Round a requested shard shape to a valid multiple of ``chunk``.
+
+    The request is rounded to the nearest whole number of chunks per axis
+    (minimum one) and clipped so the shard never spans more chunks than the
+    level actually has. Returns ``None`` when the result collapses back to
+    the plain chunk shape (i.e. sharding would add no value at this level).
+    """
+    ndim = len(chunk)
+    parsed = _shape_tuple(spec, ndim)
+    if parsed is None:
+        raise ValueError(
+            f"Invalid shard shape {spec!r}; expected a length-{ndim} sequence "
+            "of positive ints."
+        )
+
+    out = []
+    for value, c, s in zip(parsed, chunk, shape):
+        c = int(c)
+        s = int(s)
+        chunks_per_axis = max(1, -(-s // c))
+        mult = min(max(1, round(value / c)), chunks_per_axis)
+        out.append(c * mult)
+
+    result = tuple(out)
+    if result == tuple(int(c) for c in chunk):
+        return None
+    return result
+
+
+def _resolve_shards_for_levels(
+    shapes: Sequence[Sequence[int]],
+    chunks: Sequence[Sequence[int]],
+    dtype: Any,
+    shards: Literal["auto"] | Sequence[int] | Sequence[Sequence[int]] | None,
+    *,
+    zarr_format: int,
+    target_bytes: int,
+) -> list[tuple[int, ...] | None]:
+    """Resolve a per-pyramid-level shard shape (or ``None``) for zarr v3 writes."""
+    n_levels = len(shapes)
+    if shards is None:
+        return [None] * n_levels
+
+    if zarr_format != 3:
+        raise ValueError(
+            "Sharding is only supported for zarr_format=3 (NGFF v0.5) datasets; "
+            f"got zarr_format={zarr_format}."
+        )
+
+    ndim = len(chunks[0])
+    itemsize = np.dtype(dtype).itemsize
+
+    if isinstance(shards, str):
+        if shards != "auto":
+            raise ValueError(
+                f"Unsupported shards value {shards!r}; use 'auto', an explicit "
+                "shard shape, or one shard shape per pyramid level."
+            )
+        return [
+            _auto_shard_for_level(shape, chunk, itemsize, target_bytes)
+            for shape, chunk in zip(shapes, chunks)
+        ]
+
+    flat = _shape_tuple(shards, ndim)
+    if flat is not None:
+        return [_snap_shard_shape(flat, shape, chunk) for shape, chunk in zip(shapes, chunks)]
+
+    if len(shards) != n_levels:
+        raise ValueError(
+            "shards must be 'auto', a single shard shape, or contain one "
+            f"entry per pyramid level ({n_levels}), got {len(shards)}."
+        )
+    return [
+        _snap_shard_shape(spec, shape, chunk)
+        for spec, shape, chunk in zip(shards, shapes, chunks)
+    ]
 
 
 def _get_chunks(arr: da.Array) -> tuple[int, ...]:
