@@ -56,8 +56,8 @@ class MicroscopeManager(ABC):
         **kwargs
             Keyword arguments forwarded to :class:`~pymif.microscope_manager.utils.ngff.ZarrWriteConfig`,
             such as ``ngff_version``, ``zarr_format``, ``compressor``,
-            ``compressor_level``, ``overwrite``, ``shards`` or
-            ``shard_target_mb``.
+            ``compressor_level``, ``overwrite``, ``chunks``, ``shards``,
+            ``shard_target_mb`` or ``shard_exclude_axes``.
         """
         from .utils.to_zarr import to_zarr as _to_zarr
         from .utils.ngff import ZarrWriteConfig

@@ -22,6 +22,12 @@ DEFAULT_COLORS = (
 )
 SPATIAL_AXES = SPATIAL_AXIS_SET
 
+# Axes that `shards="auto"` never merges chunks along by default. Timepoints
+# and channels are typically read/processed independently, so keeping each
+# one in its own shard (or unsharded chunk) preserves that access pattern;
+# the spatial axes (z/y/x) get consolidated automatically.
+DEFAULT_SHARD_EXCLUDE_AXES: tuple[str, ...] = ("t", "c")
+
 
 @dataclass(slots=True)
 class ZarrWriteConfig:
@@ -34,6 +40,20 @@ class ZarrWriteConfig:
     data_type
         Optional dataset semantic type.  Use ``"intensity"`` for regular image
         intensities or ``"label"`` for integer segmentation/annotation data.
+    chunks
+        Requested on-disk chunk shape, overriding whatever chunking the input
+        dask arrays already have. One of:
+
+        - ``None`` (default): write each level with its existing dask
+          chunking, unchanged.
+        - A single chunk shape matching the array's ndim: used for every
+          level, clipped so no chunk axis exceeds that level's extent.
+        - A sequence of chunk shapes, one per pyramid level.
+
+        Applies to both zarr v2 and v3. This only changes the write-time
+        chunk shape; it does not touch ``metadata['chunksize']``, which is
+        only used when a pyramid is built via
+        :func:`~pymif.microscope_manager.utils.pyramid.build_pyramid`.
     shards
         Zarr v3 sharding configuration, applied per pyramid level. One of:
 
@@ -52,10 +72,17 @@ class ZarrWriteConfig:
           the same way.
 
         Only valid when writing zarr v3 (``ngff_version="0.5"``); sharding
-        has no zarr v2 equivalent.
+        has no zarr v2 equivalent. ``shard_exclude_axes`` only constrains
+        ``"auto"``; an explicit shard shape always applies exactly as given.
     shard_target_mb
         Target *uncompressed* shard size in megabytes used by
         ``shards="auto"``.
+    shard_exclude_axes
+        Axis names that ``shards="auto"`` never merges chunks along, even if
+        doing so would help reach ``shard_target_mb``. Defaults to
+        ``("t", "c")`` so each timepoint and channel stays independently
+        addressable; the spatial axes (``z``/``y``/``x``) are consolidated
+        automatically. Pass ``()`` to allow every axis to grow.
     """
 
     ngff_version: Literal["0.4", "0.5"] | None = None
@@ -66,8 +93,10 @@ class ZarrWriteConfig:
     compressor: Literal["blosc", "gzip"] | None = None
     compressor_level: int = 3
     data_type: Literal["intensity", "label"] | None = None
+    chunks: Sequence[int] | Sequence[Sequence[int]] | None = None
     shards: Literal["auto"] | Sequence[int] | Sequence[Sequence[int]] | None = None
     shard_target_mb: float = 64.0
+    shard_exclude_axes: Sequence[str] = DEFAULT_SHARD_EXCLUDE_AXES
 
 def _infer_ngff_version(group: zarr.Group) -> str:
     """Infer the NGFF metadata layout used by an existing group."""
@@ -223,6 +252,45 @@ def _resolve_format(cfg: ZarrWriteConfig) -> tuple[str, int]:
     return ngff_version, zarr_format
 
 
+def _rechunk_to_shape(arr: da.Array, chunks: Sequence[int]) -> da.Array:
+    """Rechunk ``arr`` to ``chunks``, clipped so no axis exceeds the array's extent."""
+    normalized = tuple(
+        max(1, min(int(c), int(s))) for c, s in zip(chunks, arr.shape)
+    )
+    if normalized == tuple(int(c) for c in _get_chunks(arr)):
+        return arr
+    return arr.rechunk(normalized)
+
+
+def _resolve_write_chunks(
+    data_levels: Sequence[da.Array],
+    chunks: Sequence[int] | Sequence[Sequence[int]] | None,
+) -> list[da.Array]:
+    """Rechunk each pyramid level to the requested write-time ``chunks``.
+
+    ``chunks`` is either ``None`` (levels are written with whatever chunking
+    they already have), a single chunk shape applied to every level, or one
+    chunk shape per level. Mirrors how ``shards`` accepts a single shape or a
+    per-level list.
+    """
+    if chunks is None:
+        return list(data_levels)
+
+    n_levels = len(data_levels)
+    ndim = data_levels[0].ndim
+
+    flat = _shape_tuple(chunks, ndim)
+    if flat is not None:
+        return [_rechunk_to_shape(arr, flat) for arr in data_levels]
+
+    if len(chunks) != n_levels:
+        raise ValueError(
+            "chunks must be a single chunk shape or contain one entry per "
+            f"pyramid level ({n_levels}), got {len(chunks)}."
+        )
+    return [_rechunk_to_shape(arr, c) for arr, c in zip(data_levels, chunks)]
+
+
 def _write_pyramid_v2(
     *,
     root: zarr.Group,
@@ -236,6 +304,7 @@ def _write_pyramid_v2(
             "got zarr_format=2."
         )
 
+    data_levels = _resolve_write_chunks(data_levels, cfg.chunks)
     delayed = []
 
     for i, arr in enumerate(data_levels):
@@ -267,8 +336,10 @@ def _write_pyramid_v3(
     root: zarr.Group,
     data_levels: Sequence[da.Array],
     cfg: ZarrWriteConfig,
+    axes: Sequence[str] | None = None,
 ):
     """Create and populate zarr v3 arrays for each pyramid level."""
+    data_levels = _resolve_write_chunks(data_levels, cfg.chunks)
     delayed = []
 
     chunks_per_level = [_get_chunks(arr) for arr in data_levels]
@@ -279,6 +350,8 @@ def _write_pyramid_v3(
         cfg.shards,
         zarr_format=3,
         target_bytes=int(cfg.shard_target_mb * 1024 * 1024),
+        axes=axes,
+        exclude_axes=cfg.shard_exclude_axes,
     )
 
     for i, arr in enumerate(data_levels):
@@ -331,17 +404,29 @@ def _auto_shard_for_level(
     chunk: Sequence[int],
     itemsize: int,
     target_bytes: int,
+    *,
+    axes: Sequence[str] | None = None,
+    exclude_axes: Sequence[str] = (),
 ) -> tuple[int, ...] | None:
     """Pick a shard shape for one pyramid level targeting ``target_bytes`` per shard.
 
     Whole chunks are grouped into a shard, growing the axes with the most
-    available chunks first (typically the spatial ``y``/``x`` axes). Levels
-    with only a single chunk, or whose chunk is already at or above the
-    target size, are left unsharded (``None``).
+    available chunks first (typically the spatial ``z``/``y``/``x`` axes).
+    Axes whose name is in ``exclude_axes`` (requires ``axes`` to be given)
+    are never grown, so e.g. timepoints or channels can be kept one-per-shard
+    even while z/y/x is merged. Levels with no growable axis holding more
+    than one chunk, or whose chunk is already at or above the target size,
+    are left unsharded (``None``).
     """
     ndim = len(chunk)
     chunks_per_axis = [max(1, -(-int(s) // int(c))) for s, c in zip(shape, chunk)]
-    if all(n <= 1 for n in chunks_per_axis):
+
+    if axes is not None and exclude_axes:
+        growable = [i for i in range(ndim) if axes[i] not in exclude_axes]
+    else:
+        growable = list(range(ndim))
+
+    if not growable or all(chunks_per_axis[i] <= 1 for i in growable):
         return None
 
     chunk_bytes = itemsize
@@ -353,7 +438,7 @@ def _auto_shard_for_level(
     want_chunks = max(2, round(target_bytes / chunk_bytes))
 
     multiplier = [1] * ndim
-    order = sorted(range(ndim), key=lambda a: chunks_per_axis[a], reverse=True)
+    order = sorted(growable, key=lambda a: chunks_per_axis[a], reverse=True)
 
     def _total() -> int:
         total = 1
@@ -370,6 +455,9 @@ def _auto_shard_for_level(
                 progressed = True
                 if _total() >= want_chunks:
                     break
+
+    if all(m == 1 for m in multiplier):
+        return None
 
     return tuple(int(c) * int(m) for c, m in zip(chunk, multiplier))
 
@@ -416,8 +504,15 @@ def _resolve_shards_for_levels(
     *,
     zarr_format: int,
     target_bytes: int,
+    axes: Sequence[str] | None = None,
+    exclude_axes: Sequence[str] = (),
 ) -> list[tuple[int, ...] | None]:
-    """Resolve a per-pyramid-level shard shape (or ``None``) for zarr v3 writes."""
+    """Resolve a per-pyramid-level shard shape (or ``None``) for zarr v3 writes.
+
+    ``axes``/``exclude_axes`` only affect ``shards="auto"``; an explicit
+    shard shape (single tuple or per-level list) always applies exactly as
+    requested.
+    """
     n_levels = len(shapes)
     if shards is None:
         return [None] * n_levels
@@ -438,7 +533,10 @@ def _resolve_shards_for_levels(
                 "shard shape, or one shard shape per pyramid level."
             )
         return [
-            _auto_shard_for_level(shape, chunk, itemsize, target_bytes)
+            _auto_shard_for_level(
+                shape, chunk, itemsize, target_bytes,
+                axes=axes, exclude_axes=exclude_axes,
+            )
             for shape, chunk in zip(shapes, chunks)
         ]
 

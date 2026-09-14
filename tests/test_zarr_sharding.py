@@ -9,6 +9,131 @@ import pymif.microscope_manager as mm
 from pymif.microscope_manager.utils.ngff import _resolve_shards_for_levels
 
 
+def test_auto_shards_never_merge_t_or_c_by_default(tmp_path, image_pyramid, metadata):
+    """`shards="auto"` must not group chunks along t or c unless asked to."""
+    out = tmp_path / "auto_no_tc.zarr"
+
+    writer = mm.ArrayManager(image_pyramid, metadata)
+    writer.to_zarr(
+        str(out),
+        ngff_version="0.5",
+        zarr_format=3,
+        shards="auto",
+        shard_target_mb=1000,  # generous enough to merge everything if allowed
+        overwrite=True,
+    )
+
+    root = zarr.open_group(str(out), mode="r")
+    axes = "tczyx"
+    t_idx, c_idx = axes.index("t"), axes.index("c")
+    for i in range(3):
+        z = root[str(i)]
+        assert z.shards is not None
+        # t and c must stay at exactly one chunk each (no merging).
+        assert z.shards[t_idx] == z.chunks[t_idx]
+        assert z.shards[c_idx] == z.chunks[c_idx]
+        # z, y or x should still have grown, otherwise nothing was sharded.
+        assert any(
+            z.shards[i] != z.chunks[i] for i in range(len(z.chunks)) if i not in (t_idx, c_idx)
+        )
+
+
+def test_shard_exclude_axes_override_allows_t_and_c(tmp_path, image_pyramid, metadata):
+    """Passing shard_exclude_axes=() restores the old grow-every-axis behavior."""
+    out = tmp_path / "auto_allow_tc.zarr"
+
+    writer = mm.ArrayManager(image_pyramid, metadata)
+    writer.to_zarr(
+        str(out),
+        ngff_version="0.5",
+        zarr_format=3,
+        shards="auto",
+        shard_target_mb=1000,
+        shard_exclude_axes=(),
+        overwrite=True,
+    )
+
+    root = zarr.open_group(str(out), mode="r")
+    axes = "tczyx"
+    t_idx, c_idx = axes.index("t"), axes.index("c")
+    z0 = root["0"]
+    assert z0.shards[t_idx] > z0.chunks[t_idx]
+    assert z0.shards[c_idx] > z0.chunks[c_idx]
+
+
+def test_chunks_override_rechunks_before_writing(tmp_path, image_pyramid, metadata):
+    """`chunks=` controls the on-disk chunk shape, independent of the input dask chunking."""
+    out = tmp_path / "custom_chunks.zarr"
+
+    # image_pyramid level 0 is chunked (1,1,2,8,8); ask for a coarser chunk.
+    writer = mm.ArrayManager(image_pyramid, metadata)
+    writer.to_zarr(
+        str(out),
+        ngff_version="0.5",
+        zarr_format=3,
+        chunks=(2, 2, 4, 16, 16),
+        overwrite=True,
+    )
+
+    root = zarr.open_group(str(out), mode="r")
+    assert root["0"].chunks == (2, 2, 4, 16, 16)
+
+    # Data must still round-trip correctly after rechunking.
+    d = mm.ZarrManager(str(out), mode="r")
+    np.testing.assert_array_equal(np.asarray(d.data[0]), image_pyramid[0].compute())
+
+
+def test_chunks_per_level_list(tmp_path, image_pyramid, metadata):
+    out = tmp_path / "custom_chunks_per_level.zarr"
+
+    per_level = [
+        (1, 1, 4, 16, 16),
+        (1, 1, 2, 8, 8),
+        (1, 1, 1, 4, 4),
+    ]
+    writer = mm.ArrayManager(image_pyramid, metadata)
+    writer.to_zarr(
+        str(out),
+        ngff_version="0.5",
+        zarr_format=3,
+        chunks=per_level,
+        overwrite=True,
+    )
+
+    root = zarr.open_group(str(out), mode="r")
+    for i, expected in enumerate(per_level):
+        assert root[str(i)].chunks == tuple(expected)
+
+
+def test_chunks_clip_to_level_extent(tmp_path, image_pyramid, metadata):
+    """An oversized chunk request is clipped to each level's own shape."""
+    out = tmp_path / "custom_chunks_clip.zarr"
+
+    writer = mm.ArrayManager(image_pyramid, metadata)
+    writer.to_zarr(
+        str(out),
+        ngff_version="0.5",
+        zarr_format=3,
+        chunks=(1000, 1000, 1000, 1000, 1000),
+        overwrite=True,
+    )
+
+    root = zarr.open_group(str(out), mode="r")
+    for i, shape in enumerate([(2, 2, 4, 16, 16), (2, 2, 2, 8, 8), (2, 2, 1, 4, 4)]):
+        assert root[str(i)].chunks == tuple(shape)
+
+
+def test_no_chunks_override_keeps_existing_chunking(tmp_path, image_pyramid, metadata):
+    out = tmp_path / "no_chunks_override.zarr"
+
+    writer = mm.ArrayManager(image_pyramid, metadata)
+    writer.to_zarr(str(out), ngff_version="0.5", zarr_format=3, overwrite=True)
+
+    root = zarr.open_group(str(out), mode="r")
+    for i, expected in enumerate(metadata["chunksize"]):
+        assert root[str(i)].chunks == tuple(expected)
+
+
 def test_no_shards_by_default(tmp_path, image_pyramid, metadata):
     """Backward compatibility: omitting `shards` writes plain chunked arrays."""
     out = tmp_path / "no_shards.zarr"
@@ -45,6 +170,41 @@ def test_auto_shards_reduce_file_count(tmp_path, image_pyramid, metadata):
     # Data still round-trips correctly through the high-level reader.
     d = mm.ZarrManager(str(out), mode="r")
     np.testing.assert_array_equal(np.asarray(d.data[0]), image_pyramid[0].compute())
+
+
+def test_auto_shards_reported_in_read_metadata(tmp_path, image_pyramid, metadata):
+    """metadata['shards'] should reflect the actual on-disk shard shapes."""
+    out = tmp_path / "auto_shards_metadata.zarr"
+
+    writer = mm.ArrayManager(image_pyramid, metadata)
+    writer.to_zarr(
+        str(out),
+        ngff_version="0.5",
+        zarr_format=3,
+        shards="auto",
+        shard_target_mb=1,
+        overwrite=True,
+    )
+
+    d = mm.ZarrManager(str(out), mode="r")
+    root = zarr.open_group(str(out), mode="r")
+
+    reported = d.metadata["shards"]
+    assert reported is not None
+    assert len(reported) == 3
+    for i, shard_shape in enumerate(reported):
+        assert shard_shape is not None
+        assert tuple(shard_shape) == tuple(root[str(i)].shards)
+
+
+def test_unsharded_read_metadata_reports_none(tmp_path, image_pyramid, metadata):
+    out = tmp_path / "no_shards_metadata.zarr"
+
+    writer = mm.ArrayManager(image_pyramid, metadata)
+    writer.to_zarr(str(out), ngff_version="0.5", zarr_format=3, overwrite=True)
+
+    d = mm.ZarrManager(str(out), mode="r")
+    assert d.metadata["shards"] is None
 
 
 def test_explicit_shard_shape_snaps_to_chunk_multiple(tmp_path, image_pyramid, metadata):

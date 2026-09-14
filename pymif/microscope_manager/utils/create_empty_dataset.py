@@ -7,6 +7,7 @@ import zarr
 
 from .axes import normalize_axes, normalize_data_type
 from .ngff import (
+    DEFAULT_SHARD_EXCLUDE_AXES,
     ZarrWriteConfig,
     _build_axes,
     _build_coordinate_transformations,
@@ -30,6 +31,7 @@ def create_empty_dataset(
     data_type: str | None = None,
     shards: Any = None,
     shard_target_mb: float = 64.0,
+    shard_exclude_axes: Any = None,
 ):
     """Create an on-disk empty OME-Zarr image pyramid from metadata only.
 
@@ -62,6 +64,11 @@ def create_empty_dataset(
     _validate_metadata(dummy_levels, effective_metadata, axes)
 
     shards = shards if shards is not None else metadata.get("shards")
+    shard_exclude_axes = (
+        shard_exclude_axes
+        if shard_exclude_axes is not None
+        else metadata.get("shard_exclude_axes", DEFAULT_SHARD_EXCLUDE_AXES)
+    )
     shard_shapes = _resolve_shards_for_levels(
         sizes,
         chunks,
@@ -69,6 +76,8 @@ def create_empty_dataset(
         shards,
         zarr_format=zarr_format,
         target_bytes=int(shard_target_mb * 1024 * 1024),
+        axes=axes,
+        exclude_axes=shard_exclude_axes,
     )
 
     for i, (shape, chunk) in enumerate(zip(sizes, chunks)):
