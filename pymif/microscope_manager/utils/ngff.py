@@ -95,7 +95,7 @@ class ZarrWriteConfig:
     data_type: Literal["intensity", "label"] | None = None
     chunks: Sequence[int] | Sequence[Sequence[int]] | None = None
     shards: Literal["auto"] | Sequence[int] | Sequence[Sequence[int]] | None = None
-    shard_target_mb: float = 64.0
+    shard_target_mb: float = 5 * 1024.0 # in MB
     shard_exclude_axes: Sequence[str] = DEFAULT_SHARD_EXCLUDE_AXES
 
 def _infer_ngff_version(group: zarr.Group) -> str:
