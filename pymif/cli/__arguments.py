@@ -102,6 +102,69 @@ def parse_downscale_factor(value: str):
     return factors[0] if len(factors) == 1 else tuple(factors)
 
 
+def parse_shards_spec(value):
+    """Parse a --shards value or batch CSV cell into "auto" or a shard shape.
+
+    Examples
+    --------
+    ``auto`` -> ``"auto"``
+    ``1 1 8 2160 4096`` -> ``(1, 1, 8, 2160, 4096)``
+    ``1,1,8,2160,4096`` -> ``(1, 1, 8, 2160, 4096)``
+    """
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        tokens = [str(v).strip() for v in value]
+    else:
+        text = str(value).strip()
+        if text == "" or text.lower() in {"none", "null", "nan", "-1"}:
+            return None
+        tokens = [p for p in re.split(r'[\s,;]+', text) if p]
+
+    if len(tokens) == 1 and tokens[0].lower() == "auto":
+        return "auto"
+
+    try:
+        return tuple(int(t) for t in tokens)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"Invalid shards value '{value}'. Use 'auto' or a shard shape matching "
+            "the dataset's axes, e.g. '1 1 8 2160 4096'."
+        ) from exc
+
+
+def parse_shard_exclude_axes_spec(value):
+    """Parse a --shard_exclude_axes value or batch CSV cell into an axis tuple.
+
+    Examples
+    --------
+    ``t c`` -> ``('t', 'c')``
+    ``none`` -> ``()`` (allow every axis to be merged by shards="auto")
+    """
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        tokens = [str(v).strip().lower() for v in value]
+    else:
+        text = str(value).strip()
+        if text == "":
+            return None
+        tokens = [p for p in re.split(r'[\s,;]+', text) if p]
+        tokens = [t.lower() for t in tokens]
+
+    if len(tokens) == 1 and tokens[0] in {"none", "null", "nan", "-1"}:
+        return ()
+
+    valid = {"t", "c", "z", "y", "x"}
+    invalid = [t for t in tokens if t not in valid]
+    if invalid:
+        raise argparse.ArgumentTypeError(
+            f"Invalid shard_exclude_axes {invalid!r}. Must be a subset of t, c, z, y, x, "
+            "or 'none' to allow every axis to merge."
+        )
+    return tuple(tokens)
+
+
 def _parse_subset_selection(selection: str, axis: str):
     """Parse a per-axis selection from a CLI subset specification."""
     text = selection.strip()
@@ -296,6 +359,31 @@ def _parse_arguments():
         type=str,
         help='Subset the input before pyramid generation. Format: axis=selection pairs separated by semicolons, e.g. "y=10:100:2;x=20:80". Use integers, comma-separated indices, or slices like 0:10:2.',
     )
+    single_convert_parser.add_argument(
+        '-sh', '--shards',
+        required=False,
+        nargs='+',
+        help=(
+            'Zarr v3 sharding for the output. Only valid with --zarr_format 3. '
+            'Use "auto" to size shards automatically, or a shard shape matching the '
+            'dataset axes, e.g. "-sh 1 1 8 2160 4096". Default: no sharding.'
+        ),
+    )
+    single_convert_parser.add_argument(
+        '-stm', '--shard_target_mb',
+        required=False,
+        type=float,
+        help='Target uncompressed shard size in MB, used when --shards auto. Default: 64.',
+    )
+    single_convert_parser.add_argument(
+        '-sea', '--shard_exclude_axes',
+        required=False,
+        nargs='+',
+        help=(
+            'Axes that --shards auto never merges chunks along, e.g. "-sea t c". '
+            'Use "none" to allow every axis to merge. Default: t c.'
+        ),
+    )
 
     # Required args
     requiredNamed = single_convert_parser.add_argument_group('Required Named arguments.')
@@ -317,12 +405,14 @@ def _parse_arguments():
     long_block = """\
         Convert to zarr format a batch of images.
         The INPUT_FILE is a .csv file of the form:
-        input              | microscope  | output           | chunk_size    | max_size(MB) | scene_index | zarr_format | downscale_factor | subset                         | channel_colors | channel_names | num_levels
-        /path/to/input_1   | opera       | /path/to/zarr_1  | 1 1 2 512 512 | 100          | 0           | 3           | 1 2 2            | y=10:100:2;x=20:80             | lime white     | gfp bf        | 3
-        /path/to/input_2   | viventis    | /path/to/zarr_2  |               | 100          |             | 2           | 2                | z=0:10;c=0,2                   | 000FF FF00FF   |               | 
+        input              | microscope  | output           | chunk_size    | max_size(MB) | scene_index | zarr_format | downscale_factor | subset                         | channel_colors | channel_names | num_levels | shards            | shard_target_mb | shard_exclude_axes
+        /path/to/input_1   | opera       | /path/to/zarr_1  | 1 1 2 512 512 | 100          | 0           | 3           | 1 2 2            | y=10:100:2;x=20:80             | lime white     | gfp bf        | 3          | auto              | 256             | t c
+        /path/to/input_2   | viventis    | /path/to/zarr_2  |               | 100          |             | 2           | 2                | z=0:10;c=0,2                   | 000FF FF00FF   |               |            |                   |                 |
         ...
-        /path/to/input_n   | viventis    | /path/to/zarr_n  | 1 1 2 512 512 |              | 0           | 3           | 2                |                                |                |               | 2
+        /path/to/input_n   | viventis    | /path/to/zarr_n  | 1 1 2 512 512 |              | 0           | 3           | 2                |                                |                |               | 2          | 1 1 8 2160 4096   |                 | none
         channel_colors can be hex code or valid matplotlib colors.
+        shards is only valid with zarr_format 3: "auto" or an explicit shard shape matching the dataset axes.
+        shard_target_mb only applies to shards=auto (default 64). shard_exclude_axes defaults to "t c"; use "none" to allow every axis to merge.
     """
     batch_convert_parser = subparsers.add_parser(
         'batch2zarr',

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pymif"
-version = "2026.9.0"
+version = "2026.9.1"
 description = "A collection of functions in Python for MIF users."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -72,14 +72,14 @@ napari = [
     "napari-console",
     "napari-metadata",
     "napari-ome-zarr>=0.8.2",
-    "npe2==0.8.1",
+    "npe2>=0.9.0",
     "psygnal==0.15.1",
     "pyconify==0.2.1",
     "PyOpenGL==3.1.10",
     "qtconsole==5.7.2",
     "QtPy==2.4.3",
     "superqt==0.8.0",
-    "vispy==0.16.1",
+    "vispy>=0.16.2,<0.17",
     "PyQt6",
 ]
 dev = [
@@ -104,14 +104,14 @@ all = [
     "napari-console",
     "napari-metadata",
     "napari-ome-zarr",
-    "npe2==0.8.1",
+    "npe2>=0.9.0",
     "psygnal==0.15.1",
     "pyconify==0.2.1",
     "PyOpenGL==3.1.10",
     "qtconsole==5.7.2",
     "QtPy==2.4.3",
     "superqt==0.8.0",
-    "vispy==0.16.1",
+    "vispy>=0.16.2,<0.17",
     "PyQt6",
     "Sphinx==9.1.0",
     "sphinx-autoapi==3.8.0",
