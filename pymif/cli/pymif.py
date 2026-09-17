@@ -7,7 +7,14 @@ import numpy as np
 import pandas as pd
 
 import pymif.microscope_manager as mm
-from pymif.cli.__arguments import _parse_arguments, parse_color, parse_downscale_factor, parse_subset_spec
+from pymif.cli.__arguments import (
+    _parse_arguments,
+    parse_color,
+    parse_downscale_factor,
+    parse_shard_exclude_axes_spec,
+    parse_shards_spec,
+    parse_subset_spec,
+)
 
 
 def _axes(metadata):
@@ -77,6 +84,30 @@ def _present(value):
         pd.isna(value)
         or (isinstance(value, str) and value.strip() == "")
         or value == "-1"
+    )
+
+
+def _normalize_shards(value):
+    """Normalize a `shards` CLI/CSV/kwarg value into ``None``, ``"auto"`` or a tuple."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return parse_shards_spec(value)
+    if isinstance(value, (list, tuple)):
+        return parse_shards_spec(value)
+    raise TypeError(
+        f"shards must be 'auto', a shard shape, or None; got {value!r}."
+    )
+
+
+def _normalize_shard_exclude_axes(value):
+    """Normalize a `shard_exclude_axes` CLI/CSV/kwarg value into ``None`` or a tuple."""
+    if value is None:
+        return None
+    if isinstance(value, (str, list, tuple)):
+        return parse_shard_exclude_axes_spec(value)
+    raise TypeError(
+        f"shard_exclude_axes must be a sequence of axis names, 'none', or None; got {value!r}."
     )
 
 
@@ -161,6 +192,9 @@ def zarr_convert(
     downscale_factor: Optional[int] = 2,
     num_levels: Optional[int] = None,
     subset: Optional[dict] = None,
+    shards: Optional[Any] = None,
+    shard_target_mb: Optional[float] = None,
+    shard_exclude_axes: Optional[Any] = None,
 ):
     """Helper function for CLI to convert a dataset to zarr given some parameters.
 
@@ -205,6 +239,19 @@ def zarr_convert(
             Axis subset to apply before chunk selection and pyramid generation.\n
             Example: "--subset y=10:100:2;x=20:80"\n
             Default: None
+        shards : Optional[str | List[int]]
+            Zarr v3 sharding for the output. Only valid with zarr_format=3.\n
+            "auto" sizes shards automatically; a shape (matching the dataset's
+            axes) requests that shard shape explicitly.\n
+            Example: \"-sh auto\" or \"-sh 1 1 8 2160 4096\"\n
+            Default: None (no sharding)
+        shard_target_mb : Optional[float]
+            Target uncompressed shard size in MB, used when shards="auto".\n
+            Default: 64 (pymif's own default; unset here means "let pymif choose")
+        shard_exclude_axes : Optional[List[str]]
+            Axes that shards="auto" never merges chunks along.\n
+            Example: \"-sea t c\" (default) or \"-sea none\" to allow every axis to merge.\n
+            Default: None (falls back to pymif's own default of t, c)
     """
 
     manager, resolved_microscope = _resolve_zarr_manager(input_path, microscope)
@@ -298,6 +345,17 @@ def zarr_convert(
     print("\n--->Updating metadata to selected zarr_format and downscale_factor")
     ngff_version = '0.4' if int(zarr_format) == 2 else '0.5'
 
+    # --- Resolve sharding options ---
+    shards = _normalize_shards(shards)
+    shard_exclude_axes = _normalize_shard_exclude_axes(shard_exclude_axes)
+    to_zarr_kwargs = {"zarr_format": int(zarr_format), "ngff_version": ngff_version}
+    if shards is not None:
+        to_zarr_kwargs["shards"] = shards
+        if shard_target_mb is not None:
+            to_zarr_kwargs["shard_target_mb"] = float(shard_target_mb)
+        if shard_exclude_axes is not None:
+            to_zarr_kwargs["shard_exclude_axes"] = shard_exclude_axes
+
     # --- Show metadata summary ---
     print("\n--->Input dataset after adjustments")
     for i in dataset.metadata:
@@ -306,10 +364,14 @@ def zarr_convert(
     print(f"N CHUNKS: {n_chunks}.")
     print(f"PYRAMID LEVELS: {num_levels}.")
     print(f"ZARR FORMAT: {zarr_format}, NGFF VERSION: {ngff_version}.")
+    print(f"SHARDS: {shards}.")
+    if shards is not None:
+        print(f"SHARD_TARGET_MB: {to_zarr_kwargs.get('shard_target_mb', '(pymif default: 64)')}.")
+        print(f"SHARD_EXCLUDE_AXES: {shard_exclude_axes if shard_exclude_axes is not None else '(pymif default: t, c)'}.")
 
     # --- Write to OME-Zarr format ---
     print("\n--->Writing to zarr")
-    dataset.to_zarr(zarr_path, zarr_format=int(zarr_format), ngff_version=ngff_version)
+    dataset.to_zarr(zarr_path, **to_zarr_kwargs)
 
     # --- Show metadata summary for updated dataset ---
     dataset = mm.ZarrManager(path=zarr_path)
@@ -373,6 +435,15 @@ def convert_batch(args):
         if "subset" in database.columns and _present(v.get("subset")):
             conv_kwargs["subset"] = v["subset"]
 
+        if "shards" in database.columns and _present(v.get("shards")):
+            conv_kwargs["shards"] = v["shards"]
+
+        if "shard_target_mb" in database.columns and _present(v.get("shard_target_mb")):
+            conv_kwargs["shard_target_mb"] = float(v["shard_target_mb"])
+
+        if "shard_exclude_axes" in database.columns and _present(v.get("shard_exclude_axes")):
+            conv_kwargs["shard_exclude_axes"] = v["shard_exclude_axes"]
+
         zarr_convert(**conv_kwargs)
 
 def convert_single(args):
@@ -387,7 +458,9 @@ def convert_single(args):
         f'--scene_index {args.scene_index} --channel_names {args.channel_names} '
         f'--channel_colors {args.channel_colors} --zarr_format {args.zarr_format} '
         f'--num_levels {args.num_levels} --downscale_factor {args.downscale_factor} '
-        f'--chunk_size {args.chunk_size} --subset {args.subset}'
+        f'--chunk_size {args.chunk_size} --subset {args.subset} '
+        f'--shards {args.shards} --shard_target_mb {args.shard_target_mb} '
+        f'--shard_exclude_axes {args.shard_exclude_axes}'
     )
     print(f'Converting single file.\nRunning through: {cli}')
     exclude = {"runmode"}

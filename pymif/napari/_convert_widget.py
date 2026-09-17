@@ -212,6 +212,9 @@ BATCH_CSV_COLUMNS = [
     "channel_colors",
     "channel_names",
     "num_levels",
+    "shards",
+    "shard_target_mb",
+    "shard_exclude_axes",
 ]
 
 
@@ -296,6 +299,9 @@ def _run_conversion(
     output_path,
     file_format,
     zarr_format,
+    shards=None,
+    shard_target_mb=None,
+    shard_exclude_axes=None,
     ):
     """Run the conversion pipeline used by the napari worker thread."""
     print("Starting conversion in background thread...")
@@ -358,7 +364,15 @@ def _run_conversion(
     print("Chunks after pyramid:", [arr.chunksize for arr in dataset.data])
 
     ngff_version = "0.4" if zarr_format == 2 else "0.5"
-    dataset.to_zarr(output_path, zarr_format=zarr_format, ngff_version=ngff_version)    
+    to_zarr_kwargs = {"zarr_format": zarr_format, "ngff_version": ngff_version}
+    if shards is not None:
+        to_zarr_kwargs["shards"] = shards
+        if shard_target_mb is not None:
+            to_zarr_kwargs["shard_target_mb"] = shard_target_mb
+        if shard_exclude_axes is not None:
+            to_zarr_kwargs["shard_exclude_axes"] = shard_exclude_axes
+
+    dataset.to_zarr(output_path, **to_zarr_kwargs)
 
     return output_path
 
@@ -718,7 +732,17 @@ def convert_widget():
         downscale_y={"label": "Downscale Y", "min": 1, "max": 64, "step": 1, "value": 2},
         downscale_x={"label": "Downscale X", "min": 1, "max": 64, "step": 1, "value": 2},
         zarr_format={"label": "Zarr format", "choices": [2, 3], "value": 3},
-        
+
+        shards={"label": "Sharding (zarr v3 only)", "choices": ["none", "auto"], "value": "none"},
+        shard_target_mb={"label": "Shard target (MB)", "min": 1, "max": 100000, "step": 1, "value": 64},
+        shard_exclude_axes={
+            "label": "Never merge axes",
+            "choices": ["t", "c", "z", "y", "x"],
+            "widget_type": "Select",
+            "allow_multiple": True,
+            "value": ("t", "c"),
+        },
+
         t_range={"label": "T range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
         single_t = {"label": "Single T frame", "widget_type": "CheckBox", "value": False},
         z_range={"label": "Z range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
@@ -751,6 +775,9 @@ def convert_widget():
         downscale_y=2,
         downscale_x=2,
         zarr_format=3,
+        shards="none",
+        shard_target_mb=64,
+        shard_exclude_axes=("t", "c"),
         output_path: FileEdit = None,
     ):
 
@@ -761,6 +788,8 @@ def convert_widget():
 
         chunks = (1, 1, chunk_z, chunk_y, chunk_x)
         downscale_factor = (downscale_z, downscale_y, downscale_x)
+
+        shards_value = None if shards == "none" else "auto"
 
         worker = convert_worker(
                 reader=reader,
@@ -777,6 +806,9 @@ def convert_widget():
                 output_path=output_path,
                 file_format=file_format,
                 zarr_format=zarr_format,
+                shards=shards_value,
+                shard_target_mb=float(shard_target_mb) if shards_value is not None else None,
+                shard_exclude_axes=tuple(shard_exclude_axes) if shards_value is not None else None,
             )
         
         make_convert_widget.enabled = False
@@ -796,6 +828,16 @@ def convert_widget():
             make_visualize_widget.enabled = True
 
         worker.start()
+
+    @make_convert_widget.zarr_format.changed.connect
+    def _update_sharding_availability(zarr_format):
+        # Sharding is a zarr v3 / NGFF 0.5 feature only.
+        sharding_available = int(zarr_format) == 3
+        make_convert_widget.shards.enabled = sharding_available
+        make_convert_widget.shard_target_mb.enabled = sharding_available
+        make_convert_widget.shard_exclude_axes.enabled = sharding_available
+        if not sharding_available:
+            make_convert_widget.shards.value = "none"
 
     @magicgui(
         call_button="Append to batch CSV",
@@ -822,6 +864,7 @@ def convert_widget():
         )
 
         selected_colors = _channel_colors_from_metadata(dataset, selected_channel_names)
+        shards_selected = make_convert_widget.shards.value
         row = {
             "input": str(Path(make_visualize_widget.input_path.value).resolve()),
             "microscope": str(make_visualize_widget.file_format.value),
@@ -835,6 +878,12 @@ def convert_widget():
             "channel_colors": " ".join(selected_colors),
             "channel_names": " ".join(normalized_channel_names),
             "num_levels": str(make_convert_widget.n_levels.value),
+            "shards": "" if shards_selected == "none" else str(shards_selected),
+            "shard_target_mb": "" if shards_selected == "none" else str(make_convert_widget.shard_target_mb.value),
+            "shard_exclude_axes": (
+                "" if shards_selected == "none"
+                else (" ".join(make_convert_widget.shard_exclude_axes.value) or "none")
+            ),
         }
         _append_batch_csv(csv_path, row)
         print(f"Appended batch row to {csv_path.resolve()}")
@@ -1019,6 +1068,9 @@ def convert_widget():
         make_convert_widget.downscale_y.native.parent(),
         make_convert_widget.downscale_x.native.parent(),
         make_convert_widget.zarr_format.native.parent(),
+        make_convert_widget.shards.native.parent(),
+        make_convert_widget.shard_target_mb.native.parent(),
+        make_convert_widget.shard_exclude_axes.native.parent(),
     ]
 
     for w in advanced_widgets:
