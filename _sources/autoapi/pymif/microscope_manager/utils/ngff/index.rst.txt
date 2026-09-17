@@ -1,0 +1,363 @@
+pymif.microscope_manager.utils.ngff
+===================================
+
+.. py:module:: pymif.microscope_manager.utils.ngff
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.ngff.DEFAULT_COLORS
+   pymif.microscope_manager.utils.ngff.SPATIAL_AXES
+   pymif.microscope_manager.utils.ngff.DEFAULT_SHARD_EXCLUDE_AXES
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.ngff.ZarrWriteConfig
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.ngff._infer_ngff_version
+   pymif.microscope_manager.utils.ngff._label_entry
+   pymif.microscope_manager.utils.ngff._labels_contains
+   pymif.microscope_manager.utils.ngff._register_label_on_labels_group
+   pymif.microscope_manager.utils.ngff._get_group_ome_attrs
+   pymif.microscope_manager.utils.ngff._get_multiscales
+   pymif.microscope_manager.utils.ngff._get_group_multiscales
+   pymif.microscope_manager.utils.ngff._infer_data_type_from_group
+   pymif.microscope_manager.utils.ngff._set_group_ngff_metadata
+   pymif.microscope_manager.utils.ngff._set_dimension_names
+   pymif.microscope_manager.utils.ngff._resolve_format
+   pymif.microscope_manager.utils.ngff._rechunk_to_shape
+   pymif.microscope_manager.utils.ngff._resolve_write_chunks
+   pymif.microscope_manager.utils.ngff._write_pyramid_v2
+   pymif.microscope_manager.utils.ngff._write_pyramid_v3
+   pymif.microscope_manager.utils.ngff._shape_tuple
+   pymif.microscope_manager.utils.ngff._auto_shard_for_level
+   pymif.microscope_manager.utils.ngff._snap_shard_shape
+   pymif.microscope_manager.utils.ngff._resolve_shards_for_levels
+   pymif.microscope_manager.utils.ngff._get_chunks
+   pymif.microscope_manager.utils.ngff._build_v2_compressor
+   pymif.microscope_manager.utils.ngff._build_v3_compressors
+   pymif.microscope_manager.utils.ngff._validate_metadata
+   pymif.microscope_manager.utils.ngff._build_axes
+   pymif.microscope_manager.utils.ngff._build_coordinate_transformations
+   pymif.microscope_manager.utils.ngff._build_omero_metadata
+   pymif.microscope_manager.utils.ngff._default_window
+   pymif.microscope_manager.utils.ngff._normalize_color
+   pymif.microscope_manager.utils.ngff._normalize_unit
+
+
+Module Contents
+---------------
+
+.. py:data:: DEFAULT_COLORS
+   :value: ('FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', 'FFFFFF', '808080')
+
+
+.. py:data:: SPATIAL_AXES
+
+.. py:data:: DEFAULT_SHARD_EXCLUDE_AXES
+   :type:  tuple[str, Ellipsis]
+   :value: ('t', 'c')
+
+
+.. py:class:: ZarrWriteConfig
+
+   Configuration container for NGFF/OME-Zarr writing operations.
+
+   Parameters
+   ----------
+   ngff_version, zarr_format
+       ``0.4``/Zarr v2 and ``0.5``/Zarr v3 are the supported pairs.
+   data_type
+       Optional dataset semantic type.  Use ``"intensity"`` for regular image
+       intensities or ``"label"`` for integer segmentation/annotation data.
+   chunks
+       Requested on-disk chunk shape, overriding whatever chunking the input
+       dask arrays already have. One of:
+
+       - ``None`` (default): write each level with its existing dask
+         chunking, unchanged.
+       - A single chunk shape matching the array's ndim: used for every
+         level, clipped so no chunk axis exceeds that level's extent.
+       - A sequence of chunk shapes, one per pyramid level.
+
+       Applies to both zarr v2 and v3. This only changes the write-time
+       chunk shape; it does not touch ``metadata['chunksize']``, which is
+       only used when a pyramid is built via
+       :func:`~pymif.microscope_manager.utils.pyramid.build_pyramid`.
+   shards
+       Zarr v3 sharding configuration, applied per pyramid level. One of:
+
+       - ``None`` (default): no sharding, one file per chunk (unchanged
+         behaviour).
+       - ``"auto"``: pick a shard shape per level automatically so each
+         shard is close to ``shard_target_mb`` in (uncompressed) size,
+         grouping whole chunks along the axes with the most chunks first.
+         Levels that are already small (few chunks, or a chunk already at
+         or above the target size) are left unsharded.
+       - A single shape tuple matching the array's ndim: used as the
+         requested shard shape for every level, snapped to the nearest
+         multiple of that level's chunk shape and clipped so it never
+         exceeds the level's extent.
+       - A sequence of shape tuples, one per pyramid level, each resolved
+         the same way.
+
+       Only valid when writing zarr v3 (``ngff_version="0.5"``); sharding
+       has no zarr v2 equivalent. ``shard_exclude_axes`` only constrains
+       ``"auto"``; an explicit shard shape always applies exactly as given.
+   shard_target_mb
+       Target *uncompressed* shard size in megabytes used by
+       ``shards="auto"``.
+   shard_exclude_axes
+       Axis names that ``shards="auto"`` never merges chunks along, even if
+       doing so would help reach ``shard_target_mb``. Defaults to
+       ``("t", "c")`` so each timepoint and channel stays independently
+       addressable; the spatial axes (``z``/``y``/``x``) are consolidated
+       automatically. Pass ``()`` to allow every axis to grow.
+
+
+   .. py:attribute:: ngff_version
+      :type:  Literal['0.4', '0.5'] | None
+      :value: None
+
+
+
+   .. py:attribute:: zarr_format
+      :type:  Literal[2, 3] | None
+      :value: None
+
+
+
+   .. py:attribute:: overwrite
+      :type:  bool
+      :value: True
+
+
+
+   .. py:attribute:: compute
+      :type:  bool
+      :value: True
+
+
+
+   .. py:attribute:: storage_options
+      :type:  dict[str, Any] | None
+      :value: None
+
+
+
+   .. py:attribute:: compressor
+      :type:  Literal['blosc', 'gzip'] | None
+      :value: None
+
+
+
+   .. py:attribute:: compressor_level
+      :type:  int
+      :value: 3
+
+
+
+   .. py:attribute:: data_type
+      :type:  Literal['intensity', 'label'] | None
+      :value: None
+
+
+
+   .. py:attribute:: chunks
+      :type:  Sequence[int] | Sequence[Sequence[int]] | None
+      :value: None
+
+
+
+   .. py:attribute:: shards
+      :type:  Literal['auto'] | Sequence[int] | Sequence[Sequence[int]] | None
+      :value: None
+
+
+
+   .. py:attribute:: shard_target_mb
+      :type:  float
+      :value: 5120.0
+
+
+
+   .. py:attribute:: shard_exclude_axes
+      :type:  Sequence[str]
+      :value: ('t', 'c')
+
+
+
+.. py:function:: _infer_ngff_version(group: zarr.Group) -> str
+
+   Infer the NGFF metadata layout used by an existing group.
+
+
+.. py:function:: _label_entry(label_name: str) -> str
+
+.. py:function:: _labels_contains(labels: Sequence[Any], label_name: str) -> bool
+
+.. py:function:: _register_label_on_labels_group(root: zarr.Group, label_name: str, ngff_version: str) -> None
+
+   Register a label image on the ``labels`` container group.
+
+
+.. py:function:: _get_group_ome_attrs(group: zarr.Group) -> dict[str, Any]
+
+   Return the effective OME-NGFF metadata mapping for a group.
+
+
+.. py:function:: _get_multiscales(group: zarr.Group) -> list[dict[str, Any]]
+
+   Return the raw ``multiscales`` list from a group across NGFF versions.
+
+
+.. py:function:: _get_group_multiscales(group: zarr.Group)
+
+   Compatibility helper returning the stored multiscales block for a group.
+
+
+.. py:function:: _infer_data_type_from_group(group: zarr.Group) -> str
+
+   Infer ``intensity`` or ``label`` from explicit and legacy metadata.
+
+
+.. py:function:: _set_group_ngff_metadata(group: zarr.Group, *, ngff_version: str, multiscales: dict[str, Any], omero: dict[str, Any] | None = None, data_type: str | None = None, extra: dict[str, Any] | None = None) -> None
+
+   Write NGFF metadata to ``group`` using either the v0.4 or v0.5 layout.
+
+
+.. py:function:: _set_dimension_names(group: zarr.Group, datasets: Sequence[dict[str, Any]], axes: Sequence[str], *, zarr_format: int) -> None
+
+   Write Zarr v3 array-level dimension names required by NGFF v0.5.
+
+
+.. py:function:: _resolve_format(cfg: ZarrWriteConfig) -> tuple[str, int]
+
+   Resolve and validate the NGFF version / zarr format pair to use.
+
+
+.. py:function:: _rechunk_to_shape(arr: dask.array.Array, chunks: Sequence[int]) -> dask.array.Array
+
+   Rechunk ``arr`` to ``chunks``, clipped so no axis exceeds the array's extent.
+
+
+.. py:function:: _resolve_write_chunks(data_levels: Sequence[dask.array.Array], chunks: Sequence[int] | Sequence[Sequence[int]] | None) -> list[dask.array.Array]
+
+   Rechunk each pyramid level to the requested write-time ``chunks``.
+
+   ``chunks`` is either ``None`` (levels are written with whatever chunking
+   they already have), a single chunk shape applied to every level, or one
+   chunk shape per level. Mirrors how ``shards`` accepts a single shape or a
+   per-level list.
+
+
+.. py:function:: _write_pyramid_v2(*, root: zarr.Group, data_levels: Sequence[dask.array.Array], cfg: ZarrWriteConfig)
+
+   Create and populate zarr v2 arrays for each pyramid level.
+
+
+.. py:function:: _write_pyramid_v3(*, root: zarr.Group, data_levels: Sequence[dask.array.Array], cfg: ZarrWriteConfig, axes: Sequence[str] | None = None)
+
+   Create and populate zarr v3 arrays for each pyramid level.
+
+
+.. py:function:: _shape_tuple(value: Any, ndim: int) -> tuple[int, Ellipsis] | None
+
+   Return a positive shape tuple of length ``ndim`` from ``value``, or ``None``.
+
+
+.. py:function:: _auto_shard_for_level(shape: Sequence[int], chunk: Sequence[int], itemsize: int, target_bytes: int, *, axes: Sequence[str] | None = None, exclude_axes: Sequence[str] = ()) -> tuple[int, Ellipsis] | None
+
+   Pick a shard shape for one pyramid level targeting ``target_bytes`` per shard.
+
+   Whole chunks are grouped into a shard, growing the axes with the most
+   available chunks first (typically the spatial ``z``/``y``/``x`` axes).
+   Axes whose name is in ``exclude_axes`` (requires ``axes`` to be given)
+   are never grown, so e.g. timepoints or channels can be kept one-per-shard
+   even while z/y/x is merged. Levels with no growable axis holding more
+   than one chunk, or whose chunk is already at or above the target size,
+   are left unsharded (``None``).
+
+
+.. py:function:: _snap_shard_shape(spec: Any, shape: Sequence[int], chunk: Sequence[int]) -> tuple[int, Ellipsis] | None
+
+   Round a requested shard shape to a valid multiple of ``chunk``.
+
+   The request is rounded to the nearest whole number of chunks per axis
+   (minimum one) and clipped so the shard never spans more chunks than the
+   level actually has. Returns ``None`` when the result collapses back to
+   the plain chunk shape (i.e. sharding would add no value at this level).
+
+
+.. py:function:: _resolve_shards_for_levels(shapes: Sequence[Sequence[int]], chunks: Sequence[Sequence[int]], dtype: Any, shards: Literal['auto'] | Sequence[int] | Sequence[Sequence[int]] | None, *, zarr_format: int, target_bytes: int, axes: Sequence[str] | None = None, exclude_axes: Sequence[str] = ()) -> list[tuple[int, Ellipsis] | None]
+
+   Resolve a per-pyramid-level shard shape (or ``None``) for zarr v3 writes.
+
+   ``axes``/``exclude_axes`` only affect ``shards="auto"``; an explicit
+   shard shape (single tuple or per-level list) always applies exactly as
+   requested.
+
+
+.. py:function:: _get_chunks(arr: dask.array.Array) -> tuple[int, Ellipsis]
+
+   Return one normalized chunk tuple for a dask array.
+
+
+.. py:function:: _build_v2_compressor(compressor: str | None, level: int)
+
+   Construct a zarr v2-compatible compressor configuration.
+
+
+.. py:function:: _build_v3_compressors(compressor: str | None, level: int)
+
+   Construct a zarr v3-compatible compressor chain.
+
+
+.. py:function:: _validate_metadata(data_levels: Sequence[dask.array.Array], metadata: dict[str, Any], axes: tuple[str, Ellipsis]) -> None
+
+   Validate the minimal metadata contract required for NGFF writing.
+
+
+.. py:function:: _build_axes(axes: tuple[str, Ellipsis], metadata: dict[str, Any]) -> list[dict[str, Any]]
+
+   Build the NGFF ``axes`` description from the normalized PyMIF metadata.
+
+
+.. py:function:: _build_coordinate_transformations(*, axes: tuple[str, Ellipsis] | str, scales: Sequence[Sequence[float]], time_increment: float | None) -> list[list[dict[str, Any]]]
+
+   Generate one NGFF scale transformation entry per pyramid level.
+
+
+.. py:function:: _build_omero_metadata(arr: dask.array.Array, axes: tuple[str, Ellipsis] | str, metadata: dict[str, Any]) -> dict[str, Any]
+
+   Create OMERO channel display metadata for an intensity array.
+
+
+.. py:function:: _default_window(dtype: numpy.dtype | str) -> tuple[float, float]
+
+   Return a default display range for the provided dtype.
+
+
+.. py:function:: _normalize_color(color: Any) -> str
+
+   Normalize different color inputs to a six-digit uppercase hex string.
+
+
+.. py:function:: _normalize_unit(unit: str | None) -> str | None
+
+   Map common unit aliases to names expected in NGFF metadata.
+
+

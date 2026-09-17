@@ -1,0 +1,50 @@
+pymif.microscope_manager.utils.to_zarr
+======================================
+
+.. py:module:: pymif.microscope_manager.utils.to_zarr
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   pymif.microscope_manager.utils.to_zarr._metadata_for_write
+   pymif.microscope_manager.utils.to_zarr._build_multiscales
+   pymif.microscope_manager.utils.to_zarr.to_zarr
+   pymif.microscope_manager.utils.to_zarr.write_multiscale_to_group
+
+
+Module Contents
+---------------
+
+.. py:function:: _metadata_for_write(metadata: dict, axes: tuple[str, Ellipsis], *, config: pymif.microscope_manager.utils.ngff.ZarrWriteConfig, is_label: bool | None = None) -> dict
+
+.. py:function:: _build_multiscales(metadata: dict, axes: tuple[str, Ellipsis], *, name: str | None, n_levels: int) -> dict
+
+.. py:function:: to_zarr(path: str | pathlib.Path, data_levels: Sequence[dask.array.Array], metadata: dict, *, config: pymif.microscope_manager.utils.ngff.ZarrWriteConfig | None = None)
+
+   Write a pyramid of dask arrays to an OME-Zarr root group.
+
+   Parameters
+   ----------
+   path : str | Path
+       Destination zarr store.
+   data_levels : sequence of dask.array.Array
+       Pyramid levels ordered from finest to coarsest resolution.
+   metadata : dict
+       Normalized PyMIF metadata dictionary describing axes, scales, channel
+       metadata and units.
+   config : ZarrWriteConfig | None
+       Output configuration controlling NGFF version, zarr format, overwrite
+       behaviour and compression.
+
+
+.. py:function:: write_multiscale_to_group(group: zarr.Group, data_levels: Sequence[dask.array.Array], metadata: dict, *, config: pymif.microscope_manager.utils.ngff.ZarrWriteConfig | None = None, name: str | None = None, is_label: bool = False)
+
+   Write a pyramid of Dask arrays into an existing zarr group.
+
+   Used by :class:`pymif.microscope_manager.ZarrManager` for raw data, image
+   subgroups and label groups.  The axes may be any subset of ``tczyx``.
+
+
