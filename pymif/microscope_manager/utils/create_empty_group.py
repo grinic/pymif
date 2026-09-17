@@ -7,6 +7,7 @@ import zarr
 
 from .axes import normalize_axes, normalize_data_type
 from .ngff import (
+    DEFAULT_SHARD_EXCLUDE_AXES,
     ZarrWriteConfig,
     _build_axes,
     _build_coordinate_transformations,
@@ -16,6 +17,7 @@ from .ngff import (
     _infer_ngff_version,
     _register_label_on_labels_group,
     _resolve_format,
+    _resolve_shards_for_levels,
     _set_group_ngff_metadata,
     _set_dimension_names,
     _validate_metadata,
@@ -63,6 +65,9 @@ def create_empty_group(
     compressor: str | None = None,
     compressor_level: int = 3,
     data_type: str | None = None,
+    shards: Any = None,
+    shard_target_mb: float = 64.0,
+    shard_exclude_axes: Any = None,
 ):
     """Create an empty image subgroup or label subgroup inside an existing root.
 
@@ -117,6 +122,23 @@ def create_empty_group(
     dummy_levels = [da.empty(shape=s, dtype=dtype, chunks=c) for s, c in zip(sizes, chunks)]
     _validate_metadata(dummy_levels, effective_metadata, axes)
 
+    shards = shards if shards is not None else metadata.get("shards")
+    shard_exclude_axes = (
+        shard_exclude_axes
+        if shard_exclude_axes is not None
+        else metadata.get("shard_exclude_axes", DEFAULT_SHARD_EXCLUDE_AXES)
+    )
+    shard_shapes = _resolve_shards_for_levels(
+        sizes,
+        chunks,
+        dtype,
+        shards,
+        zarr_format=zarr_format,
+        target_bytes=int(shard_target_mb * 1024 * 1024),
+        axes=axes,
+        exclude_axes=shard_exclude_axes,
+    )
+
     for i, (shape, chunk) in enumerate(zip(sizes, chunks)):
         kwargs = {
             "name": str(i),
@@ -132,6 +154,8 @@ def create_empty_group(
             compressors = _build_v3_compressors(compressor, compressor_level)
             if compressors is not None:
                 kwargs["compressors"] = compressors
+            if shard_shapes[i] is not None:
+                kwargs["shards"] = shard_shapes[i]
 
         grp.create_array(**kwargs)
 

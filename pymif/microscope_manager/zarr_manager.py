@@ -169,6 +169,7 @@ class ZarrManager(MicroscopeManager):
         multiscales: dict[str, Any],
         omero: dict[str, Any],
         data_type: str = "intensity",
+        zarr_levels: List[Any] | None = None,
     ) -> Dict[str, Any]:
         """Translate NGFF metadata blocks into the normalized PyMIF schema.
 
@@ -192,6 +193,12 @@ class ZarrManager(MicroscopeManager):
         sizes = [tuple(arr.shape) for arr in data_levels]
         chunksize = [arr.chunksize for arr in data_levels]
         dtype = data_levels[0].dtype
+
+        shards = None
+        if zarr_levels is not None:
+            shard_shapes = [getattr(z, "shards", None) for z in zarr_levels]
+            if any(s is not None for s in shard_shapes):
+                shards = [tuple(s) if s is not None else None for s in shard_shapes]
 
         spatial_idx = [i for i, ax in enumerate(axis_names) if ax in ("z", "y", "x")]
         time_idx = axis_names.index("t") if "t" in axis_names else None
@@ -252,6 +259,7 @@ class ZarrManager(MicroscopeManager):
         return {
             "size": sizes,
             "chunksize": chunksize,
+            "shards": shards,
             "scales": scales,
             "units": units,
             "time_increment": time_increment,
@@ -304,6 +312,7 @@ class ZarrManager(MicroscopeManager):
             multiscales=multiscales,
             omero=omero,
             data_type=_infer_data_type_from_group(group),
+            zarr_levels=zarr_levels,
         )
 
         return data_levels, zarr_levels, metadata

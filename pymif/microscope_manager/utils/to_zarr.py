@@ -98,7 +98,7 @@ def to_zarr(
     )
 
     if zarr_format == 3:
-        delayed = _write_pyramid_v3(root=root, data_levels=data_levels, cfg=cfg)
+        delayed = _write_pyramid_v3(root=root, data_levels=data_levels, cfg=cfg, axes=axes)
     else:
         delayed = _write_pyramid_v2(root=root, data_levels=data_levels, cfg=cfg)
 
@@ -166,7 +166,7 @@ def write_multiscale_to_group(
                 del group[key]
 
     if zarr_format == 3:
-        delayed = _write_pyramid_v3(root=group, data_levels=data_levels, cfg=cfg)
+        delayed = _write_pyramid_v3(root=group, data_levels=data_levels, cfg=cfg, axes=axes)
     else:
         delayed = _write_pyramid_v2(root=group, data_levels=data_levels, cfg=cfg)
 
