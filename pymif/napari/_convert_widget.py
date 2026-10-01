@@ -216,6 +216,7 @@ BATCH_CSV_COLUMNS = [
     "shard_target_mb",
     "shard_exclude_axes",
     "drop_singleton",
+    "num_workers",
 ]
 
 
@@ -304,6 +305,7 @@ def _run_conversion(
     shard_target_mb=None,
     shard_exclude_axes=None,
     drop_singleton=True,
+    num_workers=None,
     ):
     """Run the conversion pipeline used by the napari worker thread."""
     print("Starting conversion in background thread...")
@@ -371,6 +373,8 @@ def _run_conversion(
         "ngff_version": ngff_version,
         "drop_singleton": bool(drop_singleton),
     }
+    if num_workers is not None:
+        to_zarr_kwargs["num_workers"] = int(num_workers)
     if shards is not None:
         to_zarr_kwargs["shards"] = shards
         if shard_target_mb is not None:
@@ -749,6 +753,7 @@ def convert_widget():
             "value": ("t", "c"),
         },
         drop_singleton={"label": "Drop singleton axes", "widget_type": "CheckBox", "value": True},
+        num_workers={"label": "Write threads (0 = auto)", "min": 0, "max": 256, "step": 1, "value": 0},
 
         t_range={"label": "T range", "widget_type": "RangeSlider", "min": 0, "max": 2**16, "step": 1, "value": (0, 2**16)},
         single_t = {"label": "Single T frame", "widget_type": "CheckBox", "value": False},
@@ -786,6 +791,7 @@ def convert_widget():
         shard_target_mb=64,
         shard_exclude_axes=("t", "c"),
         drop_singleton=True,
+        num_workers=0,
         output_path: FileEdit = None,
     ):
 
@@ -818,6 +824,7 @@ def convert_widget():
                 shard_target_mb=float(shard_target_mb) if shards_value is not None else None,
                 shard_exclude_axes=tuple(shard_exclude_axes) if shards_value is not None else None,
                 drop_singleton=bool(drop_singleton),
+                num_workers=int(num_workers) if int(num_workers) > 0 else None,
             )
         
         make_convert_widget.enabled = False
@@ -894,6 +901,7 @@ def convert_widget():
                 else (" ".join(make_convert_widget.shard_exclude_axes.value) or "none")
             ),
             "drop_singleton": str(bool(make_convert_widget.drop_singleton.value)).lower(),
+            "num_workers": "" if int(make_convert_widget.num_workers.value) <= 0 else str(int(make_convert_widget.num_workers.value)),
         }
         _append_batch_csv(csv_path, row)
         print(f"Appended batch row to {csv_path.resolve()}")
@@ -1082,6 +1090,7 @@ def convert_widget():
         make_convert_widget.shard_target_mb.native.parent(),
         make_convert_widget.shard_exclude_axes.native.parent(),
         make_convert_widget.drop_singleton.native.parent(),
+        make_convert_widget.num_workers.native.parent(),
     ]
 
     for w in advanced_widgets:

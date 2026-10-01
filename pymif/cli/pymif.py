@@ -197,6 +197,7 @@ def zarr_convert(
     shard_target_mb: Optional[float] = None,
     shard_exclude_axes: Optional[Any] = None,
     drop_singleton: Optional[bool] = True,
+    num_workers: Optional[int] = None,
 ):
     """Helper function for CLI to convert a dataset to zarr given some parameters.
 
@@ -258,6 +259,12 @@ def zarr_convert(
             Remove singleton t/c/z axes from the output dataset.\n
             Example: \"-ds false\" to keep them.\n
             Default: True
+        num_workers : Optional[int]
+            Number of threads used to write the zarr in parallel.
+
+            Example: \"-nw 4\"
+
+            Default: None (half of the available cores, capped at 8)
     """
 
     manager, resolved_microscope = _resolve_zarr_manager(input_path, microscope)
@@ -360,6 +367,8 @@ def zarr_convert(
         "ngff_version": ngff_version,
         "drop_singleton": drop_singleton,
     }
+    if num_workers is not None:
+        to_zarr_kwargs["num_workers"] = int(num_workers)
     if shards is not None:
         to_zarr_kwargs["shards"] = shards
         if shard_target_mb is not None:
@@ -376,6 +385,7 @@ def zarr_convert(
     print(f"PYRAMID LEVELS: {num_levels}.")
     print(f"ZARR FORMAT: {zarr_format}, NGFF VERSION: {ngff_version}.")
     print(f"DROP_SINGLETON: {drop_singleton}.")
+    print(f"NUM_WORKERS: {num_workers if num_workers is not None else '(pymif default)'}.")
     print(f"SHARDS: {shards}.")
     if shards is not None:
         print(f"SHARD_TARGET_MB: {to_zarr_kwargs.get('shard_target_mb', '(pymif default: 64)')}.")
@@ -459,6 +469,9 @@ def convert_batch(args):
         if "drop_singleton" in database.columns and _present(v.get("drop_singleton")):
             conv_kwargs["drop_singleton"] = parse_bool(v["drop_singleton"])
 
+        if "num_workers" in database.columns and _present(v.get("num_workers")):
+            conv_kwargs["num_workers"] = int(v["num_workers"])
+
         zarr_convert(**conv_kwargs)
 
 def convert_single(args):
@@ -476,7 +489,7 @@ def convert_single(args):
         f'--chunk_size {args.chunk_size} --subset {args.subset} '
         f'--shards {args.shards} --shard_target_mb {args.shard_target_mb} '
         f'--shard_exclude_axes {args.shard_exclude_axes} '
-        f'--drop_singleton {args.drop_singleton}'
+        f'--drop_singleton {args.drop_singleton} --num_workers {args.num_workers}'
     )
     print(f'Converting single file.\nRunning through: {cli}')
     exclude = {"runmode"}
