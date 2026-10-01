@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 import warnings
 from dataclasses import dataclass
 from typing import Any, Literal, Sequence
@@ -796,7 +797,7 @@ def _build_omero_metadata(
         channels.append(
             {
                 "label": label,
-                "color": _normalize_color(color),
+                "color": parse_color(color),
                 "window": {"start": lo, "end": hi, "min": lo, "max": hi},
                 "active": True,
                 "inverted": False,
@@ -819,19 +820,37 @@ def _default_window(dtype: np.dtype | str) -> tuple[float, float]:
     return 0.0, 1.0
 
 
-def _normalize_color(color: Any) -> str:
-    """Normalize different color inputs to a six-digit uppercase hex string."""
-    if isinstance(color, int):
-        return f"{color & 0xFFFFFF:06X}"
+_HEX_COLOR_PATTERN = re.compile(r"^#?[0-9a-fA-F]{6}$")
 
-    if isinstance(color, str):
-        value = color.strip().lstrip("#")
-        if value.lower().startswith("0x"):
-            value = value[2:]
-        if len(value) == 6:
-            return value.upper()
 
-    return "FFFFFF"
+def parse_color(value: str) -> str:
+    """Parse a color to a six-digit uppercase hex string (without ``#``).
+
+    Accepts 6-digit hex codes (``#`` optional) and matplotlib color names
+    (e.g. ``"magenta"``, ``"cyan"``).
+    """
+    from matplotlib.colors import cnames
+
+    if not isinstance(value, str):
+        raise TypeError("Channel colors must be strings.")
+
+    value = value.strip()
+    if _HEX_COLOR_PATTERN.match(value):
+        return value.replace("#", "").upper()
+
+    lower = value.lower()
+    if lower in cnames:
+        return cnames[lower].replace("#", "").upper()
+
+    raise TypeError(
+        f"Invalid color {value!r}. Use a 6-digit hex code or a valid "
+        "matplotlib color name."
+    )
+
+
+def ome_color_to_hex(value: int | str) -> str:
+    """Convert an OME-XML ``Color`` (signed 32-bit RGBA integer) to ``RRGGBB``."""
+    return f"{(int(value) & 0xFFFFFFFF) >> 8:06X}"
 
 
 def _normalize_unit(unit: str | None) -> str | None:

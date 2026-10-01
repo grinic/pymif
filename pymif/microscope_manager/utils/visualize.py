@@ -6,6 +6,7 @@ from typing import Any, Dict, List, TYPE_CHECKING, Union
 import dask.array as da
 
 from .axes import normalize_axes, spatial_axes_in_order
+from .ngff import parse_color
 
 if TYPE_CHECKING:
     import napari
@@ -18,7 +19,10 @@ def _parse_color(color: Union[int, str]) -> tuple[float, float, float]:
         g = (color >> 8) & 0xFF
         b = color & 0xFF
     elif isinstance(color, str):
-        s = color.strip()
+        try:
+            s = parse_color(color)  # hex or matplotlib color name
+        except TypeError:
+            s = color.strip()
         if s.startswith("#"):
             s = s[1:]
         if s.lower().startswith("0x"):

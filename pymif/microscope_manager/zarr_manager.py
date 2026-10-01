@@ -9,7 +9,7 @@ import zarr
 
 from .microscope_manager import MicroscopeManager
 from .utils.axes import normalize_axes, normalize_data_type
-from .utils.ngff import _infer_data_type_from_group, _register_label_on_labels_group
+from .utils.ngff import _infer_data_type_from_group, _register_label_on_labels_group, parse_color
 from collections.abc import Iterator, Sequence
 
 if TYPE_CHECKING:
@@ -822,9 +822,7 @@ class ZarrManager(MicroscopeManager):
 
         Channel-specific metadata is skipped for datasets without a channel axis.
         """
-        import re
         import warnings
-        from matplotlib.colors import cnames
 
         valid_keys = {
             "channel_names",
@@ -835,24 +833,6 @@ class ZarrManager(MicroscopeManager):
             "units",
             "data_type",
         }
-
-        hex_pattern = re.compile(r"^#?[0-9a-fA-F]{6}$")
-
-        def parse_color(value: str) -> str:
-            if not isinstance(value, str):
-                raise TypeError("Channel colors must be strings.")
-
-            if hex_pattern.match(value):
-                return value.replace("#", "").upper()
-
-            lower = value.lower()
-            if lower in cnames:
-                return cnames[lower].replace("#", "").upper()
-
-            raise TypeError(
-                f"Invalid color {value!r}. Use a 6-digit hex code or a valid "
-                "matplotlib color name."
-            )
 
         for name, dataset in self._iter_datasets(
             include_raw=True,
