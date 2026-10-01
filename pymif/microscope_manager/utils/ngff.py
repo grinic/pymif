@@ -83,6 +83,11 @@ class ZarrWriteConfig:
         ``("t", "c")`` so each timepoint and channel stays independently
         addressable; the spatial axes (``z``/``y``/``x``) are consolidated
         automatically. Pass ``()`` to allow every axis to grow.
+    drop_singleton
+        If ``True`` (default), ``t``, ``c`` and ``z`` axes of size 1 are
+        removed from the written arrays and metadata (``y`` and ``x`` are
+        always kept). ``chunks``/``shards`` given for the full axis set are
+        trimmed accordingly. Pass ``False`` to keep every axis.
     """
 
     ngff_version: Literal["0.4", "0.5"] | None = None
@@ -97,6 +102,7 @@ class ZarrWriteConfig:
     shards: Literal["auto"] | Sequence[int] | Sequence[Sequence[int]] | None = None
     shard_target_mb: float = 5 * 1024.0 # in MB
     shard_exclude_axes: Sequence[str] = DEFAULT_SHARD_EXCLUDE_AXES
+    drop_singleton: bool = True
 
 def _infer_ngff_version(group: zarr.Group) -> str:
     """Infer the NGFF metadata layout used by an existing group."""

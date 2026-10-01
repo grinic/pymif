@@ -57,7 +57,8 @@ class MicroscopeManager(ABC):
             Keyword arguments forwarded to :class:`~pymif.microscope_manager.utils.ngff.ZarrWriteConfig`,
             such as ``ngff_version``, ``zarr_format``, ``compressor``,
             ``compressor_level``, ``overwrite``, ``chunks``, ``shards``,
-            ``shard_target_mb`` or ``shard_exclude_axes``.
+            ``shard_target_mb``, ``shard_exclude_axes`` or ``drop_singleton``
+            (default ``True``: singleton t/c/z axes are removed on write).
         """
         from .utils.to_zarr import to_zarr as _to_zarr
         from .utils.ngff import ZarrWriteConfig
