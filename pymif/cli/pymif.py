@@ -9,6 +9,7 @@ import pandas as pd
 import pymif.microscope_manager as mm
 from pymif.cli.__arguments import (
     _parse_arguments,
+    parse_bool,
     parse_color,
     parse_downscale_factor,
     parse_shard_exclude_axes_spec,
@@ -195,6 +196,7 @@ def zarr_convert(
     shards: Optional[Any] = None,
     shard_target_mb: Optional[float] = None,
     shard_exclude_axes: Optional[Any] = None,
+    drop_singleton: Optional[bool] = True,
 ):
     """Helper function for CLI to convert a dataset to zarr given some parameters.
 
@@ -252,6 +254,10 @@ def zarr_convert(
             Axes that shards="auto" never merges chunks along.\n
             Example: \"-sea t c\" (default) or \"-sea none\" to allow every axis to merge.\n
             Default: None (falls back to pymif's own default of t, c)
+        drop_singleton : Optional[bool]
+            Remove singleton t/c/z axes from the output dataset.\n
+            Example: \"-ds false\" to keep them.\n
+            Default: True
     """
 
     manager, resolved_microscope = _resolve_zarr_manager(input_path, microscope)
@@ -348,7 +354,12 @@ def zarr_convert(
     # --- Resolve sharding options ---
     shards = _normalize_shards(shards)
     shard_exclude_axes = _normalize_shard_exclude_axes(shard_exclude_axes)
-    to_zarr_kwargs = {"zarr_format": int(zarr_format), "ngff_version": ngff_version}
+    drop_singleton = True if drop_singleton is None else parse_bool(drop_singleton)
+    to_zarr_kwargs = {
+        "zarr_format": int(zarr_format),
+        "ngff_version": ngff_version,
+        "drop_singleton": drop_singleton,
+    }
     if shards is not None:
         to_zarr_kwargs["shards"] = shards
         if shard_target_mb is not None:
@@ -364,6 +375,7 @@ def zarr_convert(
     print(f"N CHUNKS: {n_chunks}.")
     print(f"PYRAMID LEVELS: {num_levels}.")
     print(f"ZARR FORMAT: {zarr_format}, NGFF VERSION: {ngff_version}.")
+    print(f"DROP_SINGLETON: {drop_singleton}.")
     print(f"SHARDS: {shards}.")
     if shards is not None:
         print(f"SHARD_TARGET_MB: {to_zarr_kwargs.get('shard_target_mb', '(pymif default: 64)')}.")
@@ -444,6 +456,9 @@ def convert_batch(args):
         if "shard_exclude_axes" in database.columns and _present(v.get("shard_exclude_axes")):
             conv_kwargs["shard_exclude_axes"] = v["shard_exclude_axes"]
 
+        if "drop_singleton" in database.columns and _present(v.get("drop_singleton")):
+            conv_kwargs["drop_singleton"] = parse_bool(v["drop_singleton"])
+
         zarr_convert(**conv_kwargs)
 
 def convert_single(args):
@@ -460,7 +475,8 @@ def convert_single(args):
         f'--num_levels {args.num_levels} --downscale_factor {args.downscale_factor} '
         f'--chunk_size {args.chunk_size} --subset {args.subset} '
         f'--shards {args.shards} --shard_target_mb {args.shard_target_mb} '
-        f'--shard_exclude_axes {args.shard_exclude_axes}'
+        f'--shard_exclude_axes {args.shard_exclude_axes} '
+        f'--drop_singleton {args.drop_singleton}'
     )
     print(f'Converting single file.\nRunning through: {cli}')
     exclude = {"runmode"}

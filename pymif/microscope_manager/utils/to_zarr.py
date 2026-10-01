@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Sequence
 
 import dask.array as da
+import numpy as np
 import zarr
 
-from .axes import normalize_axes, normalize_data_type
+from .axes import normalize_axes, normalize_data_type, spatial_axes_in_order
 from .ngff import (
     ZarrWriteConfig,
     _build_axes,
@@ -19,6 +21,86 @@ from .ngff import (
     _write_pyramid_v2,
     _write_pyramid_v3,
 )
+
+_DROPPABLE_AXES = ("t", "c", "z")
+
+
+def _drop_axes_from_config_shapes(value, keep: list[int], ndim: int):
+    """Drop entries of a chunks/shards spec that refer to removed axes.
+
+    Handles a single shape or one shape per level; anything that does not look
+    like a full-``ndim`` shape (``None``, ``"auto"``) is returned unchanged.
+    """
+    if value is None or isinstance(value, str):
+        return value
+    seq = list(value)
+    if seq and all(isinstance(v, (int, np.integer)) for v in seq):
+        return tuple(seq[i] for i in keep) if len(seq) == ndim else value
+    return [
+        tuple(s[i] for i in keep) if len(s) == ndim else s
+        for s in seq
+    ]
+
+
+def _drop_singleton_axes(
+    data_levels: Sequence[da.Array],
+    metadata: dict,
+    config: ZarrWriteConfig,
+) -> tuple[list[da.Array], dict, ZarrWriteConfig]:
+    """Remove singleton ``t``/``c``/``z`` axes from the data and metadata.
+
+    ``y`` and ``x`` are never dropped. Returns the inputs unchanged when
+    ``config.drop_singleton`` is false or no axis qualifies.
+    """
+    data_levels = list(data_levels)
+    if not config.drop_singleton or not data_levels:
+        return data_levels, metadata, config
+
+    ndim = data_levels[0].ndim
+    axes = normalize_axes(metadata.get("axes"), ndim=ndim)
+    drop = [
+        i for i, ax in enumerate(axes)
+        if ax in _DROPPABLE_AXES and all(arr.shape[i] == 1 for arr in data_levels)
+    ]
+    if not drop:
+        return data_levels, metadata, config
+
+    keep = [i for i in range(ndim) if i not in drop]
+    dropped_axes = {axes[i] for i in drop}
+    new_axes = "".join(axes[i] for i in keep)
+
+    new_levels = [arr.reshape(tuple(arr.shape[i] for i in keep)) for arr in data_levels]
+
+    out = dict(metadata)
+    out["axes"] = new_axes
+    for key in ("size", "chunksize"):
+        if out.get(key) is not None:
+            out[key] = [
+                tuple(v[i] for i in keep) if len(v) == ndim else tuple(v)
+                for v in out[key]
+            ]
+    # scales/units only cover spatial axes, so drop the matching positions.
+    spatial = spatial_axes_in_order(axes)
+    keep_spatial = [i for i, ax in enumerate(spatial) if ax not in dropped_axes]
+    if len(keep_spatial) != len(spatial):
+        if out.get("scales") is not None:
+            out["scales"] = [tuple(s[i] for i in keep_spatial) for s in out["scales"]]
+        if out.get("units"):
+            out["units"] = tuple(out["units"][i] for i in keep_spatial)
+    if "t" in dropped_axes:
+        out.pop("time_increment", None)
+        out.pop("time_increment_unit", None)
+
+    new_config = replace(
+        config,
+        chunks=_drop_axes_from_config_shapes(config.chunks, keep, ndim),
+        shards=_drop_axes_from_config_shapes(config.shards, keep, ndim),
+        shard_exclude_axes=tuple(
+            ax for ax in (config.shard_exclude_axes or ()) if ax not in dropped_axes
+        ),
+    )
+    return new_levels, out, new_config
+
 
 def _metadata_for_write(
     metadata: dict,
@@ -86,6 +168,7 @@ def to_zarr(
     if not data_levels:
         raise ValueError("data_levels cannot be empty.")
 
+    data_levels, metadata, cfg = _drop_singleton_axes(data_levels, metadata, cfg)
     axes = normalize_axes(metadata.get("axes"), ndim=data_levels[0].ndim)
     effective_metadata = _metadata_for_write(metadata, axes, config=cfg)
     _validate_metadata(data_levels, effective_metadata, axes)
@@ -149,6 +232,7 @@ def write_multiscale_to_group(
     if not data_levels:
         raise ValueError("data_levels cannot be empty.")
 
+    data_levels, metadata, cfg = _drop_singleton_axes(data_levels, metadata, cfg)
     axes = normalize_axes(metadata.get("axes"), ndim=data_levels[0].ndim)
     effective_metadata = _metadata_for_write(
         metadata,

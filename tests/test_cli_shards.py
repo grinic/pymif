@@ -90,7 +90,8 @@ def test_zarr_convert_with_auto_shards(tmp_path):
         "channel_colors": ["FF0000", "00FF00"],
     }
     mm.ArrayManager(lvl0, metadata, chunks=(1, 1, 4, 64, 64)).to_zarr(
-        str(src), ngff_version="0.5", zarr_format=3, overwrite=True
+        str(src), ngff_version="0.5", zarr_format=3, overwrite=True,
+        drop_singleton=False,
     )
 
     zarr_convert(
@@ -100,6 +101,7 @@ def test_zarr_convert_with_auto_shards(tmp_path):
         chunk_size=[1, 1, 4, 64, 64],
         zarr_format=3,
         num_levels=1,
+        drop_singleton=False,
         shards="auto",
         shard_target_mb=0.5,
         shard_exclude_axes=["t", "c"],
