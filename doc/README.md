@@ -229,7 +229,7 @@ PyMIF provides napari widgets for conversion and overview generation. After inst
 
 The widget can load data, preview channels, define a 3D ROI, restrict z/time/channel ranges, choose pyramid settings, and export to OME-Zarr. For axis-aware zarr datasets, controls tied to missing axes are disabled; for example, a dataset with `axes="yx"` has no active T slider or channel selector.
 
-![napari-demo](documentation/napari-demo.png)
+![napari-demo](../documentation/napari-demo.png)
 
 ---
 
@@ -239,21 +239,24 @@ These options control how the OME-Zarr output is laid out and how fast it is wri
 
 | Python / CSV column | CLI flag | napari control | Default |
 |---|---|---|---|
-| `shards` | `-sh`, `--shards` | Sharding (zarr v3 only) | none |
-| `shard_target_mb` | `-stm`, `--shard_target_mb` | Shard target (MB) | see below |
+| `shards` | `-sh`, `--shards` | Sharding (zarr v3 only) | `auto` |
+| `shard_target_mb` | `-stm`, `--shard_target_mb` | Shard target (MB) | 1024 |
 | `shard_exclude_axes` | `-sea`, `--shard_exclude_axes` | Never merge axes | `t c` |
 | `drop_singleton` | `-ds`, `--drop_singleton` | Drop singleton axes | `true` |
 | `num_workers` | `-nw`, `--num_workers` | Write threads (0 = auto) | auto |
 
-In the batch CSV, leave a cell empty to use the default.
+In the batch CSV, leave a cell empty to use the default (so an empty `shards` cell means `auto`; write `none` to disable sharding).
 
 ### Sharding (zarr v3 only)
 
-By default every chunk is its own file. With sharding, many chunks are packed into one larger file (a *shard*), which greatly reduces the number of files on disk while each chunk stays individually readable. Sharding needs zarr v3 / NGFF 0.5 and raises an error with zarr v2.
+Sharding is on by default (`shards="auto"`). Without it every chunk is its own file; with sharding, many chunks are packed into one larger file (a *shard*), which greatly reduces the number of files on disk while each chunk stays individually readable. Sharding needs zarr v3 / NGFF 0.5: with zarr v2 PyMIF issues a warning and sets sharding to none.
 
 ```python
 # Let PyMIF choose shard sizes (about shard_target_mb of uncompressed data per shard)
 dataset.to_zarr("out.zarr", shards="auto", shard_target_mb=256)
+
+# Disable sharding: one file per chunk
+dataset.to_zarr("out.zarr", shards=None)
 
 # Or give an explicit shard shape (one value per axis); it is snapped to a
 # multiple of the chunk shape and clipped to each level's extent
@@ -261,12 +264,12 @@ dataset.to_zarr("out.zarr", shards=(1, 1, 8, 2160, 4096))
 ```
 
 ```console
-pymif 2zarr -i INPUT -m opera -z OUT.zarr -sh auto -stm 256 -sea t c
+pymif 2zarr -i INPUT -m opera -z OUT.zarr -sh auto -stm 256 -sea t c   # or: -sh none to disable
 ```
 
 - `shards="auto"` picks a shard shape per pyramid level and leaves small levels unsharded.
 - `shard_exclude_axes` lists axes that `"auto"` never merges chunks along. It defaults to `t c`, so each timepoint and channel stays in its own shard. Use `none` (CLI/CSV) or `()` (Python) to allow every axis to merge. An explicit shard shape is always used exactly as given.
-- `shard_target_mb` is the target uncompressed size of a shard. The Python default is 5 GB; the napari widget uses 64 MB. Larger shards mean fewer files but more memory per write thread (see below).
+- `shard_target_mb` is the target uncompressed size of a shard. The default is 1024 MB (1 GB). Larger shards mean fewer files but more memory per write thread (see below).
 
 ### Singleton axes
 

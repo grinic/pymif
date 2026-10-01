@@ -71,9 +71,7 @@ class ZarrWriteConfig:
     shards
         Zarr v3 sharding configuration, applied per pyramid level. One of:
 
-        - ``None`` (default): no sharding, one file per chunk (unchanged
-          behaviour).
-        - ``"auto"``: pick a shard shape per level automatically so each
+        - ``"auto"`` (default): pick a shard shape per level automatically so each
           shard is close to ``shard_target_mb`` in (uncompressed) size,
           grouping whole chunks along the axes with the most chunks first.
           Levels that are already small (few chunks, or a chunk already at
@@ -84,9 +82,11 @@ class ZarrWriteConfig:
           exceeds the level's extent.
         - A sequence of shape tuples, one per pyramid level, each resolved
           the same way.
+        - ``None``: no sharding, one file per chunk.
 
         Only valid when writing zarr v3 (``ngff_version="0.5"``); sharding
-        has no zarr v2 equivalent. ``shard_exclude_axes`` only constrains
+        has no zarr v2 equivalent, so for zarr v2 a warning is issued and
+        sharding is set to ``None``. ``shard_exclude_axes`` only constrains
         ``"auto"``; an explicit shard shape always applies exactly as given.
     shard_target_mb
         Target *uncompressed* shard size in megabytes used by
@@ -120,8 +120,8 @@ class ZarrWriteConfig:
     compressor_level: int = 3
     data_type: Literal["intensity", "label"] | None = None
     chunks: Sequence[int] | Sequence[Sequence[int]] | None = None
-    shards: Literal["auto"] | Sequence[int] | Sequence[Sequence[int]] | None = None
-    shard_target_mb: float = 5 * 1024.0 # in MB
+    shards: Literal["auto"] | Sequence[int] | Sequence[Sequence[int]] | None = "auto"
+    shard_target_mb: float = 1024.0 # in MB (1 GB)
     shard_exclude_axes: Sequence[str] = DEFAULT_SHARD_EXCLUDE_AXES
     drop_singleton: bool = True
     num_workers: int | None = None
@@ -381,9 +381,12 @@ def _write_pyramid_v2(
 ):
     """Create and populate zarr v2 arrays for each pyramid level."""
     if cfg.shards is not None:
-        raise ValueError(
-            "Sharding is only supported for zarr_format=3 (NGFF v0.5) datasets; "
-            "got zarr_format=2."
+        warnings.warn(
+            f"Sharding (shards={cfg.shards!r}) is only supported for zarr_format=3 "
+            "(NGFF v0.5) datasets; it will be set to None (no sharding) for "
+            "zarr_format=2.",
+            UserWarning,
+            stacklevel=4,
         )
 
     data_levels = _resolve_write_chunks(data_levels, cfg.chunks)

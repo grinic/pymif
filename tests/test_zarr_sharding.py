@@ -134,12 +134,23 @@ def test_no_chunks_override_keeps_existing_chunking(tmp_path, image_pyramid, met
         assert root[str(i)].chunks == tuple(expected)
 
 
-def test_no_shards_by_default(tmp_path, image_pyramid, metadata):
-    """Backward compatibility: omitting `shards` writes plain chunked arrays."""
-    out = tmp_path / "no_shards.zarr"
+def test_shards_auto_by_default(tmp_path, image_pyramid, metadata):
+    """Omitting `shards` is the same as shards="auto"."""
+    out = tmp_path / "default_shards.zarr"
 
     writer = mm.ArrayManager(image_pyramid, metadata)
     writer.to_zarr(str(out), ngff_version="0.5", zarr_format=3, overwrite=True)
+
+    root = zarr.open_group(str(out), mode="r")
+    for i in range(3):
+        assert root[str(i)].shards is not None
+
+
+def test_shards_none_disables_sharding(tmp_path, image_pyramid, metadata):
+    out = tmp_path / "no_shards.zarr"
+
+    writer = mm.ArrayManager(image_pyramid, metadata)
+    writer.to_zarr(str(out), ngff_version="0.5", zarr_format=3, overwrite=True, shards=None)
 
     root = zarr.open_group(str(out), mode="r")
     for i in range(3):
@@ -201,7 +212,7 @@ def test_unsharded_read_metadata_reports_none(tmp_path, image_pyramid, metadata)
     out = tmp_path / "no_shards_metadata.zarr"
 
     writer = mm.ArrayManager(image_pyramid, metadata)
-    writer.to_zarr(str(out), ngff_version="0.5", zarr_format=3, overwrite=True)
+    writer.to_zarr(str(out), ngff_version="0.5", zarr_format=3, overwrite=True, shards=None)
 
     d = mm.ZarrManager(str(out), mode="r")
     assert d.metadata["shards"] is None
@@ -254,18 +265,26 @@ def test_per_level_shard_shapes(tmp_path, image_pyramid, metadata):
         assert tuple(z.shards) == tuple(expected_shape)
 
 
-def test_shards_rejected_for_zarr_v2(tmp_path, image_pyramid, metadata):
-    out = tmp_path / "bad_v2_shards.zarr"
+@pytest.mark.parametrize("kwargs", [{}, {"shards": "auto"}, {"shards": (1, 1, 2, 8, 8)}])
+def test_shards_with_zarr_v2_warn_and_are_disabled(tmp_path, image_pyramid, metadata, kwargs):
+    out = tmp_path / "v2_shards.zarr"
 
     writer = mm.ArrayManager(image_pyramid, metadata)
-    with pytest.raises(ValueError, match="zarr_format=3"):
-        writer.to_zarr(
-            str(out),
-            ngff_version="0.4",
-            zarr_format=2,
-            shards="auto",
-            overwrite=True,
-        )
+    with pytest.warns(UserWarning, match="set to None"):
+        writer.to_zarr(str(out), ngff_version="0.4", zarr_format=2, overwrite=True, **kwargs)
+
+    root = zarr.open_group(str(out), mode="r")
+    assert root["0"].metadata.zarr_format == 2
+
+
+def test_no_warning_for_zarr_v2_when_sharding_disabled(tmp_path, image_pyramid, metadata):
+    import warnings
+
+    out = tmp_path / "v2_no_shards.zarr"
+    writer = mm.ArrayManager(image_pyramid, metadata)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        writer.to_zarr(str(out), ngff_version="0.4", zarr_format=2, overwrite=True, shards=None)
 
 
 def test_invalid_shards_string_rejected(tmp_path, image_pyramid, metadata):

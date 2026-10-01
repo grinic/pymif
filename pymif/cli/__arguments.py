@@ -129,6 +129,8 @@ def parse_shards_spec(value):
         return None
     if isinstance(value, (list, tuple)):
         tokens = [str(v).strip() for v in value]
+        if len(tokens) == 1 and tokens[0].lower() in {"none", "null", "nan", "-1", ""}:
+            return None
     else:
         text = str(value).strip()
         if text == "" or text.lower() in {"none", "null", "nan", "-1"}:
@@ -378,16 +380,17 @@ def _parse_arguments():
         required=False,
         nargs='+',
         help=(
-            'Zarr v3 sharding for the output. Only valid with --zarr_format 3. '
-            'Use "auto" to size shards automatically, or a shard shape matching the '
-            'dataset axes, e.g. "-sh 1 1 8 2160 4096". Default: no sharding.'
+            'Zarr v3 sharding for the output. Use "auto" to size shards automatically, '
+            'a shard shape matching the dataset axes, e.g. "-sh 1 1 8 2160 4096", or '
+            '"none" to disable sharding. With --zarr_format 2 sharding is not supported '
+            'and is set to none with a warning. Default: auto.'
         ),
     )
     single_convert_parser.add_argument(
         '-stm', '--shard_target_mb',
         required=False,
         type=float,
-        help='Target uncompressed shard size in MB, used when --shards auto. Default: 64.',
+        help='Target uncompressed shard size in MB, used when --shards auto. Default: 1024.',
     )
     single_convert_parser.add_argument(
         '-sea', '--shard_exclude_axes',
@@ -437,8 +440,8 @@ def _parse_arguments():
         ...
         /path/to/input_n   | viventis    | /path/to/zarr_n  | 1 1 2 512 512 |              | 0           | 3           | 2                |                                |                |               | 2          | 1 1 8 2160 4096   |                 | none               | false          |
         channel_colors can be hex code or valid matplotlib colors.
-        shards is only valid with zarr_format 3: "auto" or an explicit shard shape matching the dataset axes.
-        shard_target_mb only applies to shards=auto (default 64). shard_exclude_axes defaults to "t c"; use "none" to allow every axis to merge.
+        shards: "auto" (default when empty), an explicit shard shape matching the dataset axes, or "none" to disable. Not supported with zarr_format 2 (set to none with a warning).
+        shard_target_mb only applies to shards=auto (default 1024). shard_exclude_axes defaults to "t c"; use "none" to allow every axis to merge.
         drop_singleton (true/false, default true) removes singleton t/c/z axes from the output.
         num_workers is the number of write threads (default: half of the available cores, capped at 8).
     """

@@ -66,7 +66,7 @@ def create_empty_group(
     compressor_level: int = 3,
     data_type: str | None = None,
     shards: Any = None,
-    shard_target_mb: float = 64.0,
+    shard_target_mb: float = 1024.0,
     shard_exclude_axes: Any = None,
 ):
     """Create an empty image subgroup or label subgroup inside an existing root.

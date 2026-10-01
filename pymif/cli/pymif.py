@@ -193,7 +193,7 @@ def zarr_convert(
     downscale_factor: Optional[int] = 2,
     num_levels: Optional[int] = None,
     subset: Optional[dict] = None,
-    shards: Optional[Any] = None,
+    shards: Optional[Any] = "auto",
     shard_target_mb: Optional[float] = None,
     shard_exclude_axes: Optional[Any] = None,
     drop_singleton: Optional[bool] = True,
@@ -243,14 +243,18 @@ def zarr_convert(
             Example: "--subset y=10:100:2;x=20:80"\n
             Default: None
         shards : Optional[str | List[int]]
-            Zarr v3 sharding for the output. Only valid with zarr_format=3.\n
+            Zarr v3 sharding for the output.
+
             "auto" sizes shards automatically; a shape (matching the dataset's
-            axes) requests that shard shape explicitly.\n
-            Example: \"-sh auto\" or \"-sh 1 1 8 2160 4096\"\n
-            Default: None (no sharding)
+            axes) requests that shard shape explicitly; "none" disables sharding.
+            With zarr_format=2 sharding is set to none with a warning.
+
+            Example: \"-sh auto\", \"-sh 1 1 8 2160 4096\" or \"-sh none\"
+
+            Default: "auto"
         shard_target_mb : Optional[float]
             Target uncompressed shard size in MB, used when shards="auto".\n
-            Default: 64 (pymif's own default; unset here means "let pymif choose")
+            Default: 1024 (pymif's own default; unset here means "let pymif choose")
         shard_exclude_axes : Optional[List[str]]
             Axes that shards="auto" never merges chunks along.\n
             Example: \"-sea t c\" (default) or \"-sea none\" to allow every axis to merge.\n
@@ -366,11 +370,11 @@ def zarr_convert(
         "zarr_format": int(zarr_format),
         "ngff_version": ngff_version,
         "drop_singleton": drop_singleton,
+        "shards": shards,
     }
     if num_workers is not None:
         to_zarr_kwargs["num_workers"] = int(num_workers)
     if shards is not None:
-        to_zarr_kwargs["shards"] = shards
         if shard_target_mb is not None:
             to_zarr_kwargs["shard_target_mb"] = float(shard_target_mb)
         if shard_exclude_axes is not None:
@@ -388,7 +392,7 @@ def zarr_convert(
     print(f"NUM_WORKERS: {num_workers if num_workers is not None else '(pymif default)'}.")
     print(f"SHARDS: {shards}.")
     if shards is not None:
-        print(f"SHARD_TARGET_MB: {to_zarr_kwargs.get('shard_target_mb', '(pymif default: 64)')}.")
+        print(f"SHARD_TARGET_MB: {to_zarr_kwargs.get('shard_target_mb', '(pymif default: 1024)')}.")
         print(f"SHARD_EXCLUDE_AXES: {shard_exclude_axes if shard_exclude_axes is not None else '(pymif default: t, c)'}.")
 
     # --- Write to OME-Zarr format ---

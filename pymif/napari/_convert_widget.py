@@ -10,7 +10,7 @@ import sys
 from qtpy.QtWidgets import QTextEdit, QLineEdit
 from qtpy.QtCore import QObject, Qt, Signal, QUrl
 from qtpy.QtGui import QTextCursor
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QToolButton
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QToolButton, QFrame
 from pathlib import Path
 from matplotlib import rc
 rc('font', size=12)
@@ -286,6 +286,73 @@ def _append_batch_csv(csv_path, row):
     combined = combined.reindex(columns=BATCH_CSV_COLUMNS, fill_value="")
     combined.to_csv(csv_path, index=False)
 
+def _make_section(*widgets):
+    """Wrap widgets in a rounded, bordered frame to visually separate a block.
+
+    The border uses a translucent grey so it reads on both light and dark
+    napari themes. More widgets can be added later via ``section.layout()``.
+    """
+    frame = QFrame()
+    frame.setObjectName("pymifSection")
+    frame.setStyleSheet(
+        "QFrame#pymifSection { border: 1px solid rgba(128, 128, 128, 0.55);"
+        " border-radius: 6px; }"
+    )
+    inner = QVBoxLayout(frame)
+    inner.setContentsMargins(8, 6, 8, 8)
+    inner.setSpacing(4)
+    for w in widgets:
+        inner.addWidget(w)
+    return frame
+
+
+def _compact_advanced_rows(widget, insert_after):
+    """Regroup the "Additional parameters" of the converter into compact rows.
+
+    Related controls (chunks, downscale, ...) share one row instead of one row
+    each. The magicgui widgets are moved, not copied, so ``widget.chunk_x`` and
+    friends keep working (values, ``enabled``, signals). Their original
+    one-per-row wrappers are hidden for good.
+
+    Returns the new row widgets; show or hide them together as one group.
+    """
+    layout = widget.native.layout()
+
+    def row(label, *items):
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(4)
+        title = QLabel(label)
+        title.setMinimumWidth(78)
+        row_layout.addWidget(title)
+        for prefix, name in items:
+            mg = getattr(widget, name)
+            wrapper = mg.native.parent()
+            if prefix:
+                row_layout.addWidget(QLabel(prefix))
+            row_layout.addWidget(mg.native, 1)
+            # A checkbox has no row wrapper (its parent is the whole panel).
+            if wrapper is not widget.native:
+                wrapper.setVisible(False)
+        return row_widget
+
+    rows = [
+        row("Chunks", ("Z", "chunk_z"), ("Y", "chunk_y"), ("X", "chunk_x")),
+        row("Downscale", ("Z", "downscale_z"), ("Y", "downscale_y"), ("X", "downscale_x")),
+        row("Output", ("Levels", "n_levels"), ("Zarr", "zarr_format")),
+        row("Sharding", (None, "shards"), ("MB", "shard_target_mb")),
+        row("Never merge", (None, "shard_exclude_axes")),
+        row("Other", (None, "drop_singleton"), ("Threads", "num_workers")),
+    ]
+    widget.shard_exclude_axes.native.setMaximumHeight(60)
+
+    index = layout.indexOf(insert_after) + 1
+    for offset, row_widget in enumerate(rows):
+        layout.insertWidget(index + offset, row_widget)
+    return rows
+
+
 def _run_conversion(
     reader,
     path,
@@ -301,7 +368,7 @@ def _run_conversion(
     output_path,
     file_format,
     zarr_format,
-    shards=None,
+    shards="auto",
     shard_target_mb=None,
     shard_exclude_axes=None,
     drop_singleton=True,
@@ -372,11 +439,11 @@ def _run_conversion(
         "zarr_format": zarr_format,
         "ngff_version": ngff_version,
         "drop_singleton": bool(drop_singleton),
+        "shards": shards,
     }
     if num_workers is not None:
         to_zarr_kwargs["num_workers"] = int(num_workers)
     if shards is not None:
-        to_zarr_kwargs["shards"] = shards
         if shard_target_mb is not None:
             to_zarr_kwargs["shard_target_mb"] = shard_target_mb
         if shard_exclude_axes is not None:
@@ -743,8 +810,8 @@ def convert_widget():
         downscale_x={"label": "Downscale X", "min": 1, "max": 64, "step": 1, "value": 2},
         zarr_format={"label": "Zarr format", "choices": [2, 3], "value": 3},
 
-        shards={"label": "Sharding (zarr v3 only)", "choices": ["none", "auto"], "value": "none"},
-        shard_target_mb={"label": "Shard target (MB)", "min": 1, "max": 100000, "step": 1, "value": 64},
+        shards={"label": "Sharding (zarr v3 only)", "choices": ["none", "auto"], "value": "auto"},
+        shard_target_mb={"label": "Shard target (MB)", "min": 1, "max": 100000, "step": 1, "value": 1024},
         shard_exclude_axes={
             "label": "Never merge axes",
             "choices": ["t", "c", "z", "y", "x"],
@@ -787,8 +854,8 @@ def convert_widget():
         downscale_y=2,
         downscale_x=2,
         zarr_format=3,
-        shards="none",
-        shard_target_mb=64,
+        shards="auto",
+        shard_target_mb=1024,
         shard_exclude_axes=("t", "c"),
         drop_singleton=True,
         num_workers=0,
@@ -894,7 +961,8 @@ def convert_widget():
             "channel_colors": " ".join(selected_colors),
             "channel_names": " ".join(normalized_channel_names),
             "num_levels": str(make_convert_widget.n_levels.value),
-            "shards": "" if shards_selected == "none" else str(shards_selected),
+            # A blank cell means "auto" in the CLI, so disabling must be explicit.
+            "shards": "none" if shards_selected == "none" else str(shards_selected),
             "shard_target_mb": "" if shards_selected == "none" else str(make_convert_widget.shard_target_mb.value),
             "shard_exclude_axes": (
                 "" if shards_selected == "none"
@@ -1048,17 +1116,34 @@ def convert_widget():
         }
     """)
 
-    title2_label = QLabel("Dataset conversion:")
-    title2_label.setStyleSheet("""
-        QLabel {
-            font-weight: bold;
-            font-size: 15px;
-            padding: 2px 0px;
-        }
-    """)
-    layout.addWidget(title1_label)
-    layout.addWidget(make_visualize_widget.native)
-    layout.addWidget(title2_label)
+    # Collapsible section header, same pattern as "Additional parameters".
+    title2_btn = QToolButton()
+    title2_btn.setCheckable(True)
+    title2_btn.setChecked(False)
+    title2_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+
+    def _toggle_conversion(checked):
+        make_convert_widget.native.setVisible(checked)
+        title2_btn.setText("Dataset conversion: ▾" if checked else "Dataset conversion: ▸")
+        title2_btn.setStyleSheet("""
+            QToolButton {
+                font-weight: bold;
+                font-size: 15px;
+                padding: 2px 0px;
+                color: %s;
+            }
+            QToolButton:hover {
+                color: white;
+            }
+        """ % ("#ffffff" if checked else "#aaaaaa"))
+
+    title2_btn.toggled.connect(_toggle_conversion)
+
+    section_loading = _make_section(title1_label, make_visualize_widget.native)
+    section_conversion = _make_section(title2_btn)
+    layout.setSpacing(10)
+    layout.addWidget(section_loading)
+    layout.addWidget(section_conversion)
 
     advanced_btn = QToolButton()
     advanced_btn.setText("Additional parameters ▸")
@@ -1077,25 +1162,6 @@ def convert_widget():
     advanced_btn.setChecked(False)
     advanced_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
-    advanced_widgets = [
-        make_convert_widget.chunk_x.native.parent(),
-        make_convert_widget.chunk_y.native.parent(),
-        make_convert_widget.chunk_z.native.parent(),
-        make_convert_widget.n_levels.native.parent(),
-        make_convert_widget.downscale_z.native.parent(),
-        make_convert_widget.downscale_y.native.parent(),
-        make_convert_widget.downscale_x.native.parent(),
-        make_convert_widget.zarr_format.native.parent(),
-        make_convert_widget.shards.native.parent(),
-        make_convert_widget.shard_target_mb.native.parent(),
-        make_convert_widget.shard_exclude_axes.native.parent(),
-        make_convert_widget.drop_singleton.native.parent(),
-        make_convert_widget.num_workers.native.parent(),
-    ]
-
-    for w in advanced_widgets:
-        w.setVisible(False)
-
     def _toggle_advanced(checked):
         for w in advanced_widgets:
             w.setVisible(checked)
@@ -1112,7 +1178,17 @@ def convert_widget():
 
     make_convert_widget.native.layout().insertWidget(7, advanced_btn)
 
-    layout.addWidget(make_convert_widget.native)
+    advanced_widgets = _compact_advanced_rows(make_convert_widget, advanced_btn)
+    for w in advanced_widgets:
+        w.setVisible(False)
+
+    # Tighter vertical spacing and a shorter channel list keep the panel small.
+    make_convert_widget.native.layout().setSpacing(2)
+    make_convert_widget.native.layout().setContentsMargins(0, 0, 0, 0)
+    make_convert_widget.channels.native.setMaximumHeight(64)
+
+    section_conversion.layout().addWidget(make_convert_widget.native)
+    _toggle_conversion(title2_btn.isChecked())
 
     title_csv_label = QLabel("Batch CSV export:")
     title_csv_label.setStyleSheet("""
@@ -1122,8 +1198,7 @@ def convert_widget():
             padding: 2px 0px;
         }
     """)
-    layout.addWidget(title_csv_label)
-    layout.addWidget(make_batch_csv_widget.native)
+    layout.addWidget(_make_section(title_csv_label, make_batch_csv_widget.native))
     # layout.addWidget(reset_roi_widget.native)
 
     # make_visualize_widget.input_path.tooltip = (
@@ -1132,7 +1207,8 @@ def convert_widget():
 
     log_widget = QTextEdit()
     log_widget.setReadOnly(True)
-    log_widget.setMinimumHeight(150)
+    log_widget.setMinimumHeight(60)
+    log_widget.setMaximumHeight(100)
     log_widget.setStyleSheet("""
         QTextEdit {
             background-color: #111;
@@ -1179,9 +1255,7 @@ def convert_widget():
     clear_btn = QPushButton("Clear log")
     clear_btn.clicked.connect(log_widget.clear)
 
-    layout.addWidget(title3_label)
-    layout.addWidget(log_widget)
-    layout.addWidget(clear_btn)
+    layout.addWidget(_make_section(title3_label, log_widget, clear_btn))
 
 
 

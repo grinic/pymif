@@ -118,8 +118,8 @@ def test_zarr_convert_with_auto_shards(tmp_path):
     assert any(z.shards[i] != z.chunks[i] for i in (2, 3, 4))
 
 
-def test_zarr_convert_without_shards_is_unchanged(tmp_path):
-    """Omitting shards must produce a plain unsharded store (backward compatible)."""
+def test_zarr_convert_shards_none_disables_sharding(tmp_path):
+    """shards="none" must produce a plain unsharded store."""
     src = tmp_path / "source2.zarr"
     out = tmp_path / "out2.zarr"
 
@@ -143,7 +143,61 @@ def test_zarr_convert_without_shards_is_unchanged(tmp_path):
         chunk_size=[1, 1, 8, 64, 64],
         zarr_format=3,
         num_levels=1,
+        shards="none",
     )
 
     root = zarr.open_group(str(out), mode="r")
     assert root["0"].shards is None
+
+
+def test_zarr_convert_defaults_to_auto_shards(tmp_path):
+    src = tmp_path / "source3.zarr"
+    out = tmp_path / "out3.zarr"
+
+    lvl0 = np.arange(1 * 2 * 8 * 64 * 64, dtype="uint16").reshape(1, 2, 8, 64, 64)
+    metadata = {
+        "axes": "tczyx",
+        "scales": [(1.0, 1.0, 1.0)],
+        "time_increment": 1.0,
+        "time_increment_unit": "second",
+    }
+    mm.ArrayManager(lvl0, metadata, chunks=(1, 1, 8, 64, 64)).to_zarr(
+        str(src), ngff_version="0.5", zarr_format=3, overwrite=True, shards=None,
+        drop_singleton=False,
+    )
+    # Several chunks per array, so auto-sharding has something to merge.
+    zarr_convert(
+        input_path=str(src), zarr_path=str(out), microscope="zarr",
+        chunk_size=[1, 1, 2, 16, 16], zarr_format=3, num_levels=1,
+        drop_singleton=False,
+    )
+    z = zarr.open_group(str(out), mode="r")["0"]
+    assert z.shards is not None and z.shards != z.chunks
+
+
+def test_zarr_convert_zarr_v2_warns_and_disables_sharding(tmp_path):
+    src = tmp_path / "source4.zarr"
+    out = tmp_path / "out4.zarr"
+
+    lvl0 = np.arange(1 * 2 * 8 * 64 * 64, dtype="uint16").reshape(1, 2, 8, 64, 64)
+    metadata = {
+        "axes": "tczyx",
+        "scales": [(1.0, 1.0, 1.0)],
+        "time_increment": 1.0,
+        "time_increment_unit": "second",
+    }
+    mm.ArrayManager(lvl0, metadata, chunks=(1, 1, 8, 64, 64)).to_zarr(
+        str(src), ngff_version="0.5", zarr_format=3, overwrite=True, shards=None,
+        drop_singleton=False,
+    )
+    with pytest.warns(UserWarning, match="set to None"):
+        zarr_convert(
+            input_path=str(src), zarr_path=str(out), microscope="zarr",
+            chunk_size=[1, 1, 8, 64, 64], zarr_format=2, num_levels=1,
+        )
+    assert zarr.open_group(str(out), mode="r")["0"].metadata.zarr_format == 2
+
+
+def test_parse_shards_spec_none_in_list_form():
+    assert parse_shards_spec(["none"]) is None
+    assert parse_shards_spec(["auto"]) == "auto"
