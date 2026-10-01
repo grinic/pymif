@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # tags are needed to derive the version shown in the docs
       - name: Set up Python
         uses: actions/setup-python@v6
         with:

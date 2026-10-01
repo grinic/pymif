@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=70", "wheel"]
+requires = ["setuptools>=70", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pymif"
-version = "2026.10.0"
+dynamic = ["version"]
 description = "A collection of functions in Python for MIF users."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -129,3 +129,13 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pymif*"]
+
+# The version is derived from git tags (vX.Y.Z), which are created automatically
+# by .github/workflows/release.yml when a PR is merged into main.
+[tool.setuptools_scm]
+version_file = "pymif/_version.py"
+fallback_version = "0.0.0"
+
+[tool.setuptools_scm.scm.git]
+# Ignore the legacy calendar tags (v2026.x.y) so they never become the version base.
+describe_command = "git describe --dirty --tags --long --abbrev=40 --match v*.*.* --exclude v20[0-9][0-9].*"

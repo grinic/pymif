@@ -1,0 +1,77 @@
+name: release
+
+# Every merged PR into main creates a new vX.Y.Z tag, a GitHub Release and a Docker image.
+# The bump (major/minor/patch/none) is decided by .github/scripts/next_version.py.
+# pull_request_target is used so merges of PRs from forks also get a write token; the
+# job only checks out the merge commit, i.e. code that is already on main.
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    # Serialize releases so two quick merges never compute the same version.
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Check out merge commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Compute next version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --json title,body,labels,commits,files > "$RUNNER_TEMP/pr.json"
+          version=$(python .github/scripts/next_version.py "$RUNNER_TEMP/pr.json")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ -z "$version" ]; then
+            echo "No release for this PR."
+          else
+            echo "Next version: $version"
+          fi
+
+      - name: Create tag and GitHub Release
+        if: steps.version.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "pymif $VERSION" "$SHA"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" \
+            --title "v$VERSION" --generate-notes --verify-tag
+
+  # Tags pushed with GITHUB_TOKEN do not trigger other workflows, so call the image build directly.
+  docker:
+    needs: tag
+    if: needs.tag.outputs.version != ''
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      version: ${{ needs.tag.outputs.version }}
+    permissions:
+      contents: read
+      packages: write
