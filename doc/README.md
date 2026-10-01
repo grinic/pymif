@@ -9,7 +9,7 @@ For the rendered docs, see [the documentation page](https://grinic.github.io/pym
 > [!NOTE]
 > Current PyMIF releases write **NGFF v0.5 / Zarr v3** by default. Existing **NGFF v0.4 / Zarr v2** datasets remain supported through `ZarrManager` and `ZarrV04Manager`.
 
-![Demo](documentation/demo.gif)
+![Demo](../documentation/demo.gif)
 
 *Demonstration of PyMIF usage. Data: near newborn mouse embryo (~1.5 cm long). Fluorescence signal: methylene blue + autofluorescence. Sample processed and imaged by Montserrat Coll at the Mesoscopic Imaging Facility. Video speed: 2.5× real speed.*
 
