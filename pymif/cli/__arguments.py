@@ -404,6 +404,12 @@ def _parse_arguments():
         type=parse_bool,
         help='Remove singleton t/c/z axes from the output ("true" or "false"). Default: true.',
     )
+    single_convert_parser.add_argument(
+        '-nw', '--num_workers',
+        required=False,
+        type=int,
+        help='Number of threads used to write the zarr in parallel. Default: half of the available cores, capped at 8.',
+    )
 
     # Required args
     requiredNamed = single_convert_parser.add_argument_group('Required Named arguments.')
@@ -425,15 +431,16 @@ def _parse_arguments():
     long_block = """\
         Convert to zarr format a batch of images.
         The INPUT_FILE is a .csv file of the form:
-        input              | microscope  | output           | chunk_size    | max_size(MB) | scene_index | zarr_format | downscale_factor | subset                         | channel_colors | channel_names | num_levels | shards            | shard_target_mb | shard_exclude_axes | drop_singleton
-        /path/to/input_1   | opera       | /path/to/zarr_1  | 1 1 2 512 512 | 100          | 0           | 3           | 1 2 2            | y=10:100:2;x=20:80             | lime white     | gfp bf        | 3          | auto              | 256             | t c                | true
-        /path/to/input_2   | viventis    | /path/to/zarr_2  |               | 100          |             | 2           | 2                | z=0:10;c=0,2                   | 000FF FF00FF   |               |            |                   |                 |                    |
+        input              | microscope  | output           | chunk_size    | max_size(MB) | scene_index | zarr_format | downscale_factor | subset                         | channel_colors | channel_names | num_levels | shards            | shard_target_mb | shard_exclude_axes | drop_singleton | num_workers
+        /path/to/input_1   | opera       | /path/to/zarr_1  | 1 1 2 512 512 | 100          | 0           | 3           | 1 2 2            | y=10:100:2;x=20:80             | lime white     | gfp bf        | 3          | auto              | 256             | t c                | true           | 4
+        /path/to/input_2   | viventis    | /path/to/zarr_2  |               | 100          |             | 2           | 2                | z=0:10;c=0,2                   | 000FF FF00FF   |               |            |                   |                 |                    |                |
         ...
-        /path/to/input_n   | viventis    | /path/to/zarr_n  | 1 1 2 512 512 |              | 0           | 3           | 2                |                                |                |               | 2          | 1 1 8 2160 4096   |                 | none               | false
+        /path/to/input_n   | viventis    | /path/to/zarr_n  | 1 1 2 512 512 |              | 0           | 3           | 2                |                                |                |               | 2          | 1 1 8 2160 4096   |                 | none               | false          |
         channel_colors can be hex code or valid matplotlib colors.
         shards is only valid with zarr_format 3: "auto" or an explicit shard shape matching the dataset axes.
         shard_target_mb only applies to shards=auto (default 64). shard_exclude_axes defaults to "t c"; use "none" to allow every axis to merge.
         drop_singleton (true/false, default true) removes singleton t/c/z axes from the output.
+        num_workers is the number of write threads (default: half of the available cores, capped at 8).
     """
     batch_convert_parser = subparsers.add_parser(
         'batch2zarr',

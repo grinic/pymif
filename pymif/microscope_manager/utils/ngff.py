@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import math
+import os
+import warnings
 from dataclasses import dataclass
 from typing import Any, Literal, Sequence
 
+import dask
 import dask.array as da
 import numpy as np
 import zarr
@@ -27,6 +31,16 @@ SPATIAL_AXES = SPATIAL_AXIS_SET
 # one in its own shard (or unsharded chunk) preserves that access pattern;
 # the spatial axes (z/y/x) get consolidated automatically.
 DEFAULT_SHARD_EXCLUDE_AXES: tuple[str, ...] = ("t", "c")
+
+# Default write parallelism: this fraction of the available cores, capped.
+# Beyond ~8 threads writes stop getting faster (compression and disk I/O
+# saturate) while memory use keeps growing.
+DEFAULT_WORKER_FRACTION = 0.5
+DEFAULT_MAX_WORKERS = 8
+# Share of free RAM the in-flight shard-sized blocks may use, and the fallback
+# budget (MB) when psutil is unavailable.
+DEFAULT_MEMORY_FRACTION = 0.5
+FALLBACK_MEMORY_BUDGET_MB = 4096.0
 
 
 @dataclass(slots=True)
@@ -88,6 +102,13 @@ class ZarrWriteConfig:
         removed from the written arrays and metadata (``y`` and ``x`` are
         always kept). ``chunks``/``shards`` given for the full axis set are
         trimmed accordingly. Pass ``False`` to keep every axis.
+    num_workers
+        Number of threads used to compress and write blocks in parallel.
+        ``None`` (default) uses half of the available cores, capped at 8.
+        For sharded levels the count is further reduced so the shard-sized
+        blocks held in memory at once fit in about half of the free RAM.
+        Only applies when ``compute=True``; with ``compute=False`` the caller
+        controls the scheduler when computing the returned tasks.
     """
 
     ngff_version: Literal["0.4", "0.5"] | None = None
@@ -103,6 +124,7 @@ class ZarrWriteConfig:
     shard_target_mb: float = 5 * 1024.0 # in MB
     shard_exclude_axes: Sequence[str] = DEFAULT_SHARD_EXCLUDE_AXES
     drop_singleton: bool = True
+    num_workers: int | None = None
 
 def _infer_ngff_version(group: zarr.Group) -> str:
     """Infer the NGFF metadata layout used by an existing group."""
@@ -297,6 +319,60 @@ def _resolve_write_chunks(
     return [_rechunk_to_shape(arr, c) for arr, c in zip(data_levels, chunks)]
 
 
+def _available_memory_mb() -> float:
+    """Free RAM in MB, or a fixed fallback budget when psutil is missing."""
+    try:
+        import psutil
+
+        return psutil.virtual_memory().available / (1024 * 1024)
+    except Exception:
+        return FALLBACK_MEMORY_BUDGET_MB / DEFAULT_MEMORY_FRACTION
+
+
+def _resolve_num_workers(cfg: ZarrWriteConfig, block_bytes: int = 0) -> int:
+    """Number of write threads for ``cfg``, limited by the in-flight block size.
+
+    ``block_bytes`` is the uncompressed size of the largest block a worker
+    holds at once (a whole shard for sharded levels, ``0`` otherwise). Each
+    worker may also hold a compressed copy, hence the factor of 2.
+    """
+    if cfg.num_workers is not None:
+        if int(cfg.num_workers) < 1:
+            raise ValueError(f"num_workers must be >= 1, got {cfg.num_workers}.")
+        workers = int(cfg.num_workers)
+    else:
+        cores = os.cpu_count() or 1
+        workers = min(max(1, int(cores * DEFAULT_WORKER_FRACTION)), DEFAULT_MAX_WORKERS)
+
+    if block_bytes > 0:
+        budget = _available_memory_mb() * DEFAULT_MEMORY_FRACTION * 1024 * 1024
+        fit = max(1, int(budget // (2 * block_bytes)))
+        if fit < workers:
+            if cfg.num_workers is not None or fit == 1:
+                warnings.warn(
+                    f"Shard-sized blocks of {block_bytes / 1024**2:.0f} MB limit write "
+                    f"parallelism to {fit} worker(s) (requested {workers}). Use smaller "
+                    "shards (shard_target_mb / shards) to write in parallel.",
+                    stacklevel=3,
+                )
+            workers = fit
+    return workers
+
+
+def _run_stores(tasks, cfg: ZarrWriteConfig, block_bytes: int = 0):
+    """Run (or return) the per-level store tasks of one multiscale dataset.
+
+    All levels are computed in a single dask pass so shared upstream work (for
+    example reading the source file) happens once instead of once per level.
+    With ``cfg.compute`` false the unevaluated tasks are returned unchanged.
+    """
+    if not cfg.compute:
+        return list(tasks)
+    with dask.config.set(num_workers=_resolve_num_workers(cfg, block_bytes)):
+        dask.compute(*tasks)
+    return []
+
+
 def _write_pyramid_v2(
     *,
     root: zarr.Group,
@@ -311,7 +387,7 @@ def _write_pyramid_v2(
         )
 
     data_levels = _resolve_write_chunks(data_levels, cfg.chunks)
-    delayed = []
+    tasks = []
 
     for i, arr in enumerate(data_levels):
         chunks = _get_chunks(arr)
@@ -330,11 +406,9 @@ def _write_pyramid_v2(
 
         z = root.create_array(**create_kwargs)
 
-        task = da.store(arr, z, lock=False, compute=cfg.compute)
-        if not cfg.compute:
-            delayed.append(task)
+        tasks.append(da.store(arr, z, lock=False, compute=False))
 
-    return delayed
+    return _run_stores(tasks, cfg)
 
 
 def _write_pyramid_v3(
@@ -346,7 +420,8 @@ def _write_pyramid_v3(
 ):
     """Create and populate zarr v3 arrays for each pyramid level."""
     data_levels = _resolve_write_chunks(data_levels, cfg.chunks)
-    delayed = []
+    tasks = []
+    block_bytes = 0
 
     chunks_per_level = [_get_chunks(arr) for arr in data_levels]
     shard_shapes = _resolve_shards_for_levels(
@@ -381,15 +456,22 @@ def _write_pyramid_v3(
 
         z = root.create_array(**create_kwargs)
 
-        # When a level is sharded, multiple dask chunks land in the same
-        # on-disk shard file, so concurrent unlocked writes can race (zarr
-        # partial-encodes the shard on every chunk write). Serialize writes
-        # for sharded levels; unsharded levels keep the fast unlocked path.
-        task = da.store(arr, z, lock=(shard_shapes[i] is not None), compute=cfg.compute)
-        if not cfg.compute:
-            delayed.append(task)
+        # When a level is sharded, several chunks land in the same shard file,
+        # so threads writing different chunks of one shard would race (zarr
+        # read-modify-writes the shard on every partial write). Instead make
+        # each dask block exactly one shard: a block then encodes and writes a
+        # whole shard file, and no two blocks ever touch the same file, so no
+        # lock is needed.
+        to_store = arr
+        if shard_shapes[i] is not None:
+            to_store = arr.rechunk(tuple(shard_shapes[i]))
+            block_bytes = max(
+                block_bytes,
+                math.prod(int(c) for c in shard_shapes[i]) * np.dtype(arr.dtype).itemsize,
+            )
+        tasks.append(da.store(to_store, z, lock=False, compute=False))
 
-    return delayed
+    return _run_stores(tasks, cfg, block_bytes=block_bytes)
 
 
 def _shape_tuple(value: Any, ndim: int) -> tuple[int, ...] | None:
