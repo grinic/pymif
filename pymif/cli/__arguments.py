@@ -6,6 +6,8 @@ import re
 import textwrap
 from matplotlib.colors import cnames
 
+from pymif import __version__
+
 
 class MultilineDefaultsHelpFormatter(
     argparse.RawDescriptionHelpFormatter,
@@ -279,6 +281,9 @@ def _parse_arguments():
             Welcome fellow MIF users!
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
 
     # Sub-parsers

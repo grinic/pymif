@@ -1,11 +1,17 @@
 name: Build and Publish Docker Image
 
 on:
+  # Normal path: called by release.yml after a merged PR creates a new version tag.
+  workflow_call:
+    inputs:
+      version:
+        description: "Release version without the leading v (e.g. 0.10.1)"
+        required: true
+        type: string
+  # Tags pushed by hand (not by release.yml's GITHUB_TOKEN) still build an image.
   push:
     tags:
       - 'v*'
-    # branches:
-    #   - 'main'  # Optional: also build whenever main is updated
   workflow_dispatch: # Allows manual triggering
 
 env:
@@ -15,15 +21,28 @@ env:
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
-    
+
     # Grants permissions to the GITHUB_TOKEN to upload packages to GHCR
     permissions:
       contents: read
       packages: write
 
     steps:
+      - name: Resolve version
+        id: ver
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          version="$INPUT_VERSION"
+          if [ -z "$version" ] && [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.ver.outputs.version && format('v{0}', steps.ver.outputs.version) || '' }}
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -38,12 +57,11 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # This matches your date format v2026.04.08 and uses it as the Docker tag
-            type=match,pattern=v(.*),group=1
-            # This handles the 'latest' tag for your main branch
-            type=raw,value=latest,enable={{is_default_branch}}
-            # Fallback to the branch name if it's not a tag
-            type=ref,event=branch
+            # Release version, e.g. 0.10.1, plus 'latest'
+            type=raw,value=${{ steps.ver.outputs.version }},enable=${{ steps.ver.outputs.version != '' }}
+            type=raw,value=latest,enable=${{ steps.ver.outputs.version != '' }}
+            # Manual runs on a branch are tagged with the branch name
+            type=ref,event=branch,enable=${{ steps.ver.outputs.version == '' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -52,3 +70,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PYMIF_VERSION=${{ steps.ver.outputs.version }}

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Tuple, Dict, Any
 from dask import delayed
 from .microscope_manager import MicroscopeManager
+from .utils.ngff import ome_color_to_hex
 
 class ViventisManager(MicroscopeManager):
     """
@@ -67,7 +68,8 @@ class ViventisManager(MicroscopeManager):
 
         channels = root.findall(".//{*}Channel")
         channel_names = [c.attrib.get("Name", f"Channel {i}") for i, c in enumerate(channels)]
-        channel_colors = [f"#{abs(int(c.attrib.get('Color', 0))):06X}" for c in channels]
+        # OME Color is a signed 32-bit RGBA int; default -1 is opaque white
+        channel_colors = [ome_color_to_hex(c.attrib.get("Color", -1)) for c in channels]
 
         dtype = str(pixels.attrib["Type"])
 

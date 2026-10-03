@@ -21,9 +21,14 @@ COPY . /app
 
 # Optional: choose extras at build time (default = base)
 ARG PYMIF_EXTRAS=""
+# Package version (set by CI); the image has no git, so setuptools-scm cannot read tags
+ARG PYMIF_VERSION=""
 
 # Upgrade pip and install package
 RUN pip install --upgrade pip && \
+    if [ -n "$PYMIF_VERSION" ]; then \
+        export SETUPTOOLS_SCM_PRETEND_VERSION="$PYMIF_VERSION"; \
+    fi && \
     if [ -z "$PYMIF_EXTRAS" ]; then \
         pip install .; \
     else \

@@ -10,8 +10,6 @@
 import os
 import sys
 from importlib.metadata import version as get_version, PackageNotFoundError
-from pathlib import Path
-import tomllib
 sys.path.insert(0, os.path.abspath("../../"))
 
 project = 'PyMIF'
@@ -20,9 +18,8 @@ author = 'Nicola Gritti'
 try:
     release = get_version("pymif")
 except PackageNotFoundError:
-    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
-    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-    release = data["project"]["version"]
+    # The version comes from git tags at install time; without an install it is unknown.
+    release = "unknown"
 
 version = release
 

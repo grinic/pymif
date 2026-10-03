@@ -199,36 +199,8 @@ class MicroscopeManager(ABC):
             "data_type",
         }
 
-        from matplotlib.colors import cnames
-        import re
+        from .utils.ngff import parse_color
 
-        HEX_PATTERN = re.compile(r'^#?[0-9a-fA-F]{6}$')
-
-        def parse_color(v: str) -> str:
-            """Parse a CLI color input:
-            - Accept 6-digit hex codes (# optional)
-            - Accept color names from matplotlib.colors.cnames
-            - Raise a meaningful error if invalid
-            """
-
-            # --- 1) Hex code (with or without #) ---
-            if HEX_PATTERN.match(v):
-                return v.replace("#", "").upper()
-
-            # --- 2) Matplotlib named color ---
-            lower = v.lower()
-            if lower in cnames:
-                # cnames returns a hex string with '#', e.g. "#ff00ff"
-                return cnames[lower].replace("#", "").upper()
-
-            # --- 3) Fail: report detailed reason ---
-            raise TypeError(
-                f"Invalid color '{v}'. "
-                f"Must be:\n"
-                f"  • A 6-digit hex code (e.g. FF00FF or #ff00ff), OR\n"
-                f"  • A valid color name from matplotlib ({', '.join(list(cnames.keys())[:10])}, ...)"
-            )
-        
         for key, value in updates.items():
             if key not in valid_keys:
                 warnings.warn(f"⚠️ Unsupported or unknown metadata key: '{key}'")

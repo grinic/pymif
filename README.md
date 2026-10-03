@@ -89,6 +89,19 @@ To use the napari widgets as well:
 pip install -e .[napari]
 ```
 
+### Versioning
+
+PyMIF uses semantic versions (`MAJOR.MINOR.PATCH`) derived from git tags with [setuptools-scm](https://setuptools-scm.readthedocs.io/). The version is never edited by hand: every pull request merged into `main` automatically creates a new `vX.Y.Z` tag, a GitHub Release and a Docker image. The PR title, description, labels and commit messages decide the bump:
+
+| PR contains | Bump |
+|---|---|
+| `BREAKING CHANGE`, `[major]`, a `type!:` prefix (e.g. `refactor!:`) or label `major` | major |
+| a `feat:` / `feat(scope):` prefix, `[minor]` or label `minor` | minor |
+| anything else | patch |
+| `[skip release]`, label `skip-release`, or only docs/CI files changed | no release |
+
+Direct pushes to `main` do not create a release. Installs from untagged commits get a dev version such as `0.3.2.dev3+g1a2b3c4`. Check the installed version with `pymif --version` or `pymif.__version__`.
+
 ---
 
 ## Quick usage

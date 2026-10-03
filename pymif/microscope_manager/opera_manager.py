@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Tuple, Dict, Any
 import tifffile
 from .microscope_manager import MicroscopeManager
+from .utils.ngff import ome_color_to_hex, parse_color
 
 class OperaManager(MicroscopeManager):
     """
@@ -76,12 +77,12 @@ class OperaManager(MicroscopeManager):
         default_colors = ["#FFFFFF", "#FF0000", "#0000FF", "#00FF00"]
         for i, channel in enumerate(pixels.findall("ome:Channel", ns)):
             channel_names.append(channel.attrib.get("Name", f"Ch{i}"))
-            color = channel.attrib.get("Color", default_colors[i%len(default_colors)])
-            if color:
-                s = str(color).lstrip('#')
-                channel_colors.append(f"#{int(s, 16 if any(c in s for c in 'ABCDEFabcdef') else 10):06X}")
-            else:
-                channel_colors.append("#FFFFFF")  # default white
+            color = channel.attrib.get("Color") or default_colors[i%len(default_colors)]
+            try:
+                # OME Color is a signed 32-bit RGBA int
+                channel_colors.append(ome_color_to_hex(color))
+            except ValueError:
+                channel_colors.append(parse_color(color))
 
         # Build scale list for NGFF: one level for now
         scales = [(px_z, px_y, px_x)]  # t, z, y, x
