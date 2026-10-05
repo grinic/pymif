@@ -126,7 +126,7 @@ def create_empty_dataset(
     if data_type == "intensity":
         omero = _build_omero_metadata(dummy_levels[0], axes, effective_metadata)
     else:
-        extra = {"image-label": {"source": {"image": "../"}}}
+        extra = {"image-label": {}}  # standalone label store: no source image
 
     _set_group_ngff_metadata(
         root,

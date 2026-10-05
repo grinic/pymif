@@ -200,7 +200,7 @@ def to_zarr(
     if data_type == "intensity":
         omero = _build_omero_metadata(data_levels[0], axes, effective_metadata)
     else:
-        extra = {"image-label": {"source": {"image": "../"}}}
+        extra = {"image-label": {}}  # standalone label store: no source image
 
     _set_group_ngff_metadata(
         root,
@@ -269,8 +269,9 @@ def write_multiscale_to_group(
     if data_type == "intensity":
         omero = _build_omero_metadata(data_levels[0], axes, effective_metadata)
     else:
-        label_source = "../../" if is_label else "../"
-        extra = {"image-label": {"source": {"image": label_source}}}
+        # Only labels nested in ``<image>/labels/<name>`` have a source image.
+        image_label = {"source": {"image": "../../"}} if is_label else {}
+        extra = {"image-label": image_label}
 
     _set_group_ngff_metadata(
         group,
