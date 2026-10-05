@@ -69,7 +69,8 @@ def test_yx_label_roundtrip_v05_has_label_metadata(tmp_path):
     ome = root.attrs.asdict()["ome"]
     assert ome["data_type"] == "label"
     assert ome["multiscales"][0]["type"] == "label"
-    assert "image-label" in ome
+    # Standalone label store: no source image to point at.
+    assert ome["image-label"] == {}
     assert root["0"].attrs.asdict()["dimension_names"] == ["y", "x"]
     assert "omero" not in ome
 

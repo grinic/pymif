@@ -100,6 +100,8 @@ def test_create_empty_label_group(tmp_path, image_pyramid, metadata):
     assert "nuclei" in root["labels"]
     label_grp = root["labels"]["nuclei"]
     assert "0" in label_grp
+    # Nested under <image>/labels/<name>: the source image is two levels up.
+    assert label_grp.attrs.asdict()["ome"]["image-label"] == {"source": {"image": "../../"}}
 
 
 def test_create_empty_label_group_v04_registers_labels_group(tmp_path, image_pyramid, metadata):

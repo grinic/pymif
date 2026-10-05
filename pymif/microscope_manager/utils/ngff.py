@@ -230,7 +230,9 @@ def _set_group_ngff_metadata(
     multiscales.setdefault("type", "label" if normalized_data_type == "label" else "image")
 
     if normalized_data_type == "label":
-        extra.setdefault("image-label", {"source": {"image": "../../"}})
+        # No ``source`` unless the caller knows where the source image lives
+        # (labels nested under ``<image>/labels/<name>`` pass ``../../``).
+        extra.setdefault("image-label", {})
 
     if ngff_version == "0.5":
         payload = {

@@ -199,7 +199,7 @@ def create_empty_group(
             multiscales=multiscales,
             omero=omero,
             data_type=data_type,
-            extra={"image-source": {"source": {"image": "../"}}},
+            extra=None,
         )
 
     return grp
