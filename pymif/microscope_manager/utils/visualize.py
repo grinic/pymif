@@ -6,43 +6,16 @@ from typing import Any, Dict, List, TYPE_CHECKING, Union
 import dask.array as da
 
 from .axes import normalize_axes, spatial_axes_in_order
-from .ngff import parse_color
+from .colors import hex_to_rgb, parse_channel_color
 
 if TYPE_CHECKING:
     import napari
 
 
 def _parse_color(color: Union[int, str]) -> tuple[float, float, float]:
-    """Convert OME int or hex string color to RGB float tuple for Napari."""
-    if isinstance(color, int):
-        r = (color >> 16) & 0xFF
-        g = (color >> 8) & 0xFF
-        b = color & 0xFF
-    elif isinstance(color, str):
-        try:
-            s = parse_color(color)  # hex or matplotlib color name
-        except TypeError:
-            s = color.strip()
-        if s.startswith("#"):
-            s = s[1:]
-        if s.lower().startswith("0x"):
-            s = s[2:]
+    """Convert an OME int, hex string or color name to an RGB float tuple for napari."""
+    return hex_to_rgb(parse_channel_color(color))
 
-        if len(s) == 8:
-            s = s[2:]  # drop AA from AARRGGBB
-
-        if len(s) != 6:
-            raise ValueError(
-                f"Invalid hex color string: {color!r} (expected 6 or 8 hex digits)"
-            )
-
-        r = int(s[0:2], 16)
-        g = int(s[2:4], 16)
-        b = int(s[4:6], 16)
-    else:
-        raise TypeError(f"Unsupported color type: {type(color)}")
-
-    return (r / 255.0, g / 255.0, b / 255.0)
 
 def _axis_scale(metadata: Dict[str, Any], axes: tuple[str, ...], level: int, *, drop_channel: bool) -> tuple[float, ...]:
     spatial_axes = spatial_axes_in_order(axes)

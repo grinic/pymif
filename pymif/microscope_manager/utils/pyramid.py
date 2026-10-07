@@ -5,22 +5,10 @@ from typing import Any, Dict, List, Sequence, Tuple, Union
 import dask.array as da
 
 from .axes import normalize_axes, spatial_axis_indices, spatial_axes_in_order
-from .downsampling import normalize_spatial_factor_for_axes
+from .chunks import rechunk_to_shape, shape_tuple
+from .downsampling import downsample_nearest, normalize_spatial_factor_for_axes
 
 SpatialFactor = Union[int, Sequence[int]]
-
-
-def _chunk_tuple(value: Any, ndim: int) -> tuple[int, ...] | None:
-    """Return a positive chunk tuple from metadata-like values."""
-    if value is None or isinstance(value, (str, bytes)):
-        return None
-    try:
-        candidate = tuple(int(c) for c in value)
-    except TypeError:
-        return None
-    if len(candidate) != ndim or any(c <= 0 for c in candidate):
-        return None
-    return candidate
 
 
 def _target_chunks(data_level: da.Array, metadata: Dict[str, Any]) -> tuple[int, ...]:
@@ -28,25 +16,16 @@ def _target_chunks(data_level: da.Array, metadata: Dict[str, Any]) -> tuple[int,
     ndim = data_level.ndim
     metadata_chunks = metadata.get("chunksize")
     if metadata_chunks:
-        target = _chunk_tuple(metadata_chunks, ndim)
+        target = shape_tuple(metadata_chunks, ndim)
         if target is not None:
             return target
         try:
-            target = _chunk_tuple(metadata_chunks[0], ndim)
+            target = shape_tuple(metadata_chunks[0], ndim)
         except (TypeError, IndexError):
             target = None
         if target is not None:
             return target
     return tuple(int(c) for c in data_level.chunksize)
-
-
-def _rechunk_to_target(array: da.Array, chunks: Sequence[int]) -> da.Array:
-    """Rechunk an array to the requested shape, clipped to the array bounds."""
-    normalized = tuple(
-        max(1, min(int(chunk), int(size)))
-        for chunk, size in zip(chunks, array.shape)
-    )
-    return array.rechunk(normalized)
 
 
 def get_spatial_axes(metadata: Dict[str, Any]) -> tuple[int, ...]:
@@ -63,39 +42,6 @@ def multiply_scales(scales: Sequence[float], factors: Sequence[int]) -> tuple[fl
     if len(scales) != len(factors):
         raise ValueError("scales and factors must have the same length.")
     return tuple(float(s) * f for s, f in zip(scales, factors))
-
-
-def pad_to_divisible(
-    array: da.Array,
-    factors: Sequence[int],
-    spatial_axes: Sequence[int],
-) -> da.Array:
-    """Pad spatial axes so they are divisible by the requested factors."""
-    if len(factors) != len(spatial_axes):
-        raise ValueError("factors must match spatial_axes length.")
-    pad_width = [(0, 0)] * array.ndim
-    for axis, factor in zip(spatial_axes, factors):
-        if factor == 1:
-            continue
-        size = array.shape[axis]
-        remainder = size % factor
-        if remainder != 0:
-            pad_width[axis] = (0, factor - remainder)
-    return da.pad(array, pad_width, mode="edge") if any(p != (0, 0) for p in pad_width) else array
-
-
-def downsample_nn(
-    array: da.Array,
-    factors: Sequence[int],
-    spatial_axes: Sequence[int],
-) -> da.Array:
-    """Nearest-neighbor downsampling via striding on spatial axes."""
-    if len(factors) != len(spatial_axes):
-        raise ValueError("factors must match spatial_axes length.")
-    slicing = [slice(None)] * array.ndim
-    for axis, factor in zip(spatial_axes, factors):
-        slicing[axis] = slice(0, None, factor)
-    return array[tuple(slicing)]
 
 
 def build_pyramid(
@@ -150,22 +96,20 @@ def build_pyramid(
     target_chunks = _target_chunks(data_levels[0], metadata)
 
     if start_level < len(data_levels):
-        pyramid = [_rechunk_to_target(data_levels[start_level], target_chunks)]
+        pyramid = [rechunk_to_shape(data_levels[start_level], target_chunks)]
         new_scales = [tuple(metadata["scales"][start_level])]
     else:
         base_downscale = factor_power(factors, start_level)
-        current = pad_to_divisible(data_levels[0], base_downscale, spatial_axes=spatial_axes)
-        down = downsample_nn(current, base_downscale, spatial_axes=spatial_axes)
-        pyramid = [_rechunk_to_target(down, target_chunks)]
+        down = downsample_nearest(data_levels[0], base_downscale, spatial_axes)
+        pyramid = [rechunk_to_shape(down, target_chunks)]
         new_scales = [multiply_scales(metadata["scales"][0], base_downscale)]
 
     for _ in range(1, num_levels):
         if spatial_axes:
-            current = pad_to_divisible(pyramid[-1], factors, spatial_axes=spatial_axes)
-            down = downsample_nn(current, factors, spatial_axes=spatial_axes)
+            down = downsample_nearest(pyramid[-1], factors, spatial_axes)
         else:
             down = pyramid[-1]
-        pyramid.append(_rechunk_to_target(down, target_chunks))
+        pyramid.append(rechunk_to_shape(down, target_chunks))
 
     for level in range(1, num_levels):
         scale_factor = factor_power(factors, level)

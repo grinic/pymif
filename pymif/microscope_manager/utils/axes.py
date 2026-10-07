@@ -213,3 +213,36 @@ def selection_length_and_spacing(selection: Any, axis_size: int, axis_name: str)
         raise ValueError(f"Indices for axis {axis_name!r} must be strictly increasing.")
 
     return len(indices), int(diffs[0])
+
+
+def to_tczyx(arr: Any, axes: str | Sequence[str], target: str = "tczyx") -> Any:
+    """Reorder ``arr`` to ``target`` axes, inserting singleton dimensions.
+
+    Works for any array supporting ``reshape``/``transpose`` semantics through
+    dask (a dask array is expected). Axes of ``arr`` that are not in ``target``
+    raise ``ValueError``; target axes missing from ``arr`` are added with size 1.
+
+    Parameters
+    ----------
+    arr : dask.array.Array
+        Input array.
+    axes : str or sequence of str
+        Axis labels of ``arr`` (case-insensitive), e.g. ``"zyx"`` or ``"CYX"``.
+    target : str, optional
+        Desired axis order, ``"tczyx"`` by default.
+    """
+    import dask.array as da
+
+    current = "".join(str(a).lower() for a in axes)
+    target = target.lower()
+    if len(current) != arr.ndim:
+        raise ValueError(f"axes {current!r} do not match array ndim={arr.ndim}.")
+    extra = [a for a in current if a not in target]
+    if extra:
+        raise ValueError(f"Cannot map axes {extra!r} onto target {target!r}.")
+
+    for ax in target:
+        if ax not in current:
+            arr = da.expand_dims(arr, axis=0)
+            current = ax + current
+    return da.transpose(arr, axes=[current.index(ax) for ax in target])

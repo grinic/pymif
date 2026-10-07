@@ -7,15 +7,12 @@ import zarr
 
 from .axes import normalize_axes, normalize_data_type
 from .ngff import (
-    DEFAULT_SHARD_EXCLUDE_AXES,
     ZarrWriteConfig,
-    _build_axes,
-    _build_coordinate_transformations,
+    _build_multiscales,
     _build_omero_metadata,
-    _build_v2_compressor,
-    _build_v3_compressors,
+    _create_level_arrays,
+    _resolve_creation_shards,
     _resolve_format,
-    _resolve_shards_for_levels,
     _set_group_ngff_metadata,
     _set_dimension_names,
     _validate_metadata,
@@ -63,61 +60,20 @@ def create_empty_dataset(
     dummy_levels = [da.empty(shape=s, dtype=dtype, chunks=c) for s, c in zip(sizes, chunks)]
     _validate_metadata(dummy_levels, effective_metadata, axes)
 
-    shards = shards if shards is not None else metadata.get("shards")
-    shard_exclude_axes = (
-        shard_exclude_axes
-        if shard_exclude_axes is not None
-        else metadata.get("shard_exclude_axes", DEFAULT_SHARD_EXCLUDE_AXES)
-    )
-    shard_shapes = _resolve_shards_for_levels(
-        sizes,
-        chunks,
-        dtype,
-        shards,
+    shard_shapes = _resolve_creation_shards(
+        effective_metadata, sizes, chunks, axes,
         zarr_format=zarr_format,
-        target_bytes=int(shard_target_mb * 1024 * 1024),
-        axes=axes,
-        exclude_axes=shard_exclude_axes,
+        shards=shards,
+        shard_target_mb=shard_target_mb,
+        shard_exclude_axes=shard_exclude_axes,
     )
-
-    for i, (shape, chunk) in enumerate(zip(sizes, chunks)):
-        kwargs = {
-            "name": str(i),
-            "shape": shape,
-            "chunks": chunk,
-            "dtype": dtype,
-        }
-        if zarr_format == 2:
-            kwargs["compressor"] = _build_v2_compressor(compressor, compressor_level)
-            kwargs["chunk_key_encoding"] = {"name": "v2", "separator": "/"}
-        else:
-            compressors = _build_v3_compressors(compressor, compressor_level)
-            if compressors is not None:
-                kwargs["compressors"] = compressors
-            if shard_shapes[i] is not None:
-                kwargs["shards"] = shard_shapes[i]
-
-        root.create_array(**kwargs)
+    _create_level_arrays(
+        root, sizes, chunks, dtype, shard_shapes,
+        zarr_format=zarr_format, compressor=compressor, compressor_level=compressor_level,
+    )
 
     data_type = normalize_data_type(effective_metadata.get("data_type"))
-    multiscales = {
-        "name": metadata.get("name", "OME-Zarr image"),
-        "axes": _build_axes(axes, metadata),
-        "datasets": [
-            {
-                "path": str(i),
-                "coordinateTransformations": ct,
-            }
-            for i, ct in enumerate(
-                _build_coordinate_transformations(
-                    axes=axes,
-                    scales=metadata["scales"],
-                    time_increment=metadata.get("time_increment"),
-                )
-            )
-        ],
-        "type": "label" if data_type == "label" else "image",
-    }
+    multiscales = _build_multiscales(effective_metadata, axes, metadata.get("name", "OME-Zarr image"))
 
     _set_dimension_names(root, multiscales["datasets"], axes, zarr_format=zarr_format)
 

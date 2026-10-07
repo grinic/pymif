@@ -1,144 +1,135 @@
-from pathlib import Path
-from typing import Tuple, Dict, Any, Optional
-from .microscope_manager import MicroscopeManager
-# from bioio_czi.aicspylibczi_reader.reader import Reader as AicsPyLibCziReader
-# from bioio_czi.pylibczirw_reader.reader import Reader as PyLibCziReader
+import logging
+import warnings
+from typing import Any, Dict, List, Optional, Tuple
+
 from bioio import BioImage
-import numpy as np
+
+from .microscope_manager import MicroscopeManager
+from .utils.metadata import ChannelInfo, build_metadata
+from .utils.units import to_micrometers
+
+logger = logging.getLogger("pymif")
+
 
 class ZeissManager(MicroscopeManager):
     """
     A manager class for reading and handling .czi datasets.
 
     This class lazily loads data into a dask array and parses associated .czi metadata.
-
+    A CZI file can hold several scenes; one scene is loaded at a time and
+    :meth:`read` can be called again with another ``scene_index``.
     """
-        
-    def __init__(self, 
+
+    #: ``None`` keeps the native chunking of the first loaded scene.
+    DEFAULT_CHUNKS = None
+
+    def __init__(self,
                  path,
                  scene_index: int = 0,
-                 scene_name: Optional[str] = "",
-                 chunks: Tuple[int, ...] = None,
+                 scene_name: Optional[str] = None,
+                 chunks: Optional[Tuple[int, ...]] = None,
                  ):
         """
-        Initialize the ZarrManager.
+        Initialize the ZeissManager.
 
         Parameters
         ----------
         path : str
-            Path to the folder containing the Zarr dataset.
+            Path to the ``.czi`` file.
+        scene_index : int, optional
+            Index of the scene to load. Ignored if ``scene_name`` is given.
+        scene_name : str, optional
+            Name of the scene to load (see :attr:`scenes`).
         chunks : Tuple[int, ...], optional
-            Desired chunk shape for the output Dask array. Default is `None`.
+            Desired chunk shape for the output Dask array. Default keeps the native chunking.
         """
-        
-        super().__init__()
-        self.path = path
-        
-        czi = BioImage(path, reconstruct_mosaic=True, use_aicspylibczi=False)
-        self.scenes = czi.scenes
-        if scene_name == "":
-            self.scene_index = scene_index
-            assert scene_index<len(czi.scenes), ValueError(f"Invalid scene index {scene_index}, only {len(czi.scenes)} scenes available: {czi.scenes}")
-            self.scene_name = czi.scenes[scene_index]
-        else:
-            assert scene_name in czi.scenes, ValueError(f"Invalid scene {scene_name}: scene not found in available scenes: {czi.scenes}")
-            self.scene_name = scene_name
-            self.scene_index = czi.scenes.index(scene_name)
-            
-        print(f"Scenes: {czi.scenes}, loading {czi.scenes[self.scene_index]}. Rerun `read(scene_index)` to load another scene.")
+        super().__init__(path, chunks)
+        self._image = BioImage(str(self.path), reconstruct_mosaic=True, use_aicspylibczi=False)
+        self.scenes = self._image.scenes
 
-        self.chunks = chunks
-        self.read( scene_index = self.scene_index )
-        
-    def read(self,
-             scene_index: int = 0):
+        if scene_name:  # None and "" both mean "select by index"
+            if scene_name not in self.scenes:
+                raise ValueError(f"Invalid scene {scene_name!r}: not in available scenes {self.scenes}.")
+            scene_index = self.scenes.index(scene_name)
+
+        logger.info("Scenes: %s. Rerun `read(scene_index)` to load another scene.", self.scenes)
+        self.read(scene_index=scene_index)
+
+    def read(self, scene_index: Optional[int] = None) -> None:
         """
-        Read the Zeiss dataset and populate self.data and self.metadata.
-
-        Returns
-        -------
-        Tuple[List[da.Array], Dict[str, Any]]
-            A tuple containing:
-            - A list with one dask array representing the image data.
-            - A metadata dictionary with pixel sizes, units, axes, etc.
-        """
-                
-        czi = BioImage(self.path, reconstruct_mosaic=True, use_aicspylibczi=False)
-
-        assert scene_index<len(czi.scenes), ValueError(f"Invalid scene index {scene_index}, only {len(czi.scenes)} scenes available: {czi.scenes}")
-        self.scene_index = scene_index
-        self.scene_name = czi.scenes[scene_index]
-
-        czi.set_scene(self.scene_index)
-        array = czi.get_image_dask_data("TCZYX")
-        if self.chunks is None:
-            self.chunks = array.chunksize
-        self.data = [ array.rechunk(self.chunks) ]
-        self.metadata = self._parse_metadata(czi, array.shape)
-
-        return
-
-    def _parse_metadata(self, czi: BioImage, size: Tuple[int, ...]) -> Dict[str, Any]:
-        """
-        Parse metadata from the .czi dataset.
+        Read one scene of the Zeiss dataset and populate ``self.data`` and ``self.metadata``.
 
         Parameters
         ----------
-        czi : BioImage
-            Already-open image with the scene set.
-        size : Tuple[int, ...]
-            TCZYX shape of the scene.
+        scene_index : int, optional
+            Scene to load. Defaults to the scene currently selected.
+        """
+        if scene_index is None:
+            scene_index = getattr(self, "scene_index", 0)
+        if not 0 <= scene_index < len(self.scenes):
+            raise ValueError(
+                f"Invalid scene index {scene_index}, only {len(self.scenes)} scenes available: {self.scenes}"
+            )
+        self.scene_index = scene_index
+        self.scene_name = self.scenes[scene_index]
+        self._image.set_scene(scene_index)
+
+        # Metadata describes the loaded array, so the data is built first.
+        self.data = self._build_dask_array()
+        self.metadata = self._parse_metadata()
+
+    def _build_dask_array(self) -> List[Any]:
+        """Return the selected scene as a single-level TCZYX dask array."""
+        array = self._image.get_image_dask_data("TCZYX")
+        if self.chunks is None:
+            self.chunks = array.chunksize
+        return [array.rechunk(self.chunks)]
+
+    @staticmethod
+    def _distance(czi_metadata, axis: str, default: Optional[float] = None) -> float:
+        """Voxel size along ``axis`` in micrometers (CZI stores meters)."""
+        node = czi_metadata.find(f"./Metadata/Scaling/Items/Distance[@Id='{axis}']/Value")
+        if node is None or not node.text:
+            if default is None:
+                raise ValueError(f"CZI metadata has no voxel size for axis {axis}.")
+            warnings.warn(f"CZI metadata has no voxel size for axis {axis}; assuming {default}.", stacklevel=3)
+            return default
+        (um,), _ = to_micrometers((float(node.text),), ("meter",))
+        return um
+
+    def _parse_metadata(self) -> Dict[str, Any]:
+        """
+        Parse metadata of the currently selected scene.
 
         Returns
         -------
         Dict[str, Any]
             A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.
         """
+        czi = self._image
+        md = czi.metadata
 
-        # The values are stored in units of meters always in .czi. Convert to microns.
-        try:
-            pxl_z = float(czi.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='Z']")[0].find("./Value").text)/1e-6
-        except:
-            pxl_z  =1.
-        scales = tuple([
-            pxl_z,
-            float(czi.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='Y']")[0].find("./Value").text)/1e-6,
-            float(czi.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='X']")[0].find("./Value").text)/1e-6,
-        ])
-        
-        units = ["micrometer"] * 3
-        
-        time_increment = np.clip( float(czi.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/Value") or 1.0), 1.0, None )
-        time_unit = czi.metadata.findtext(".//TimeSeriesSetup/Interval/TimeSpan/DefaultUnitFormat") or "s"
+        scales = (
+            self._distance(md, "Z", default=1.0),
+            self._distance(md, "Y"),
+            self._distance(md, "X"),
+        )
 
-        # Channels
-        colors = []
-        default_colors = ["#FFFFFF", "#FF0000", "#0000FF", "#00FF00"]
-        for i, ch in enumerate( czi.metadata.findall(".//DisplaySetting/Channels/Channel") ):
-            color = ch.findtext("Color") or default_colors[i%len(default_colors)]
-            color = str(color)
-            if (len(color) == 9) and (color[0] == "#"):
-                # AARRGGBB → drop AA
-                color = "#"+color[3:]
-            colors.append(color)
-        
-        bit_depth = int(czi.metadata.findtext(".//BitsPerPixel") or 16)
-        if bit_depth==8:
-            dtype = "uint8"
-        elif bit_depth==16:
-            dtype = "uint16"
-        else:
-            dtype = "Unknown"
-        
-        return {
-            "size": [size],
-            "scales": [scales],
-            "units": tuple(units),
-            "time_increment": time_increment,
-            "time_increment_unit": time_unit,
-            "channel_names": [str(n) for n in czi.channel_names],
-            "channel_colors": colors,  # Example, map from name if needed
-            "dtype": dtype,
-            "plane_files": Path(self.path).stem,
-            "axes": "tczyx"
-        }
+        interval = float(md.findtext(".//TimeSeriesSetup/Interval/TimeSpan/Value") or 1.0)
+        time_unit = md.findtext(".//TimeSeriesSetup/Interval/TimeSpan/DefaultUnitFormat") or "s"
+
+        colors = [ch.findtext("Color") for ch in md.findall(".//DisplaySetting/Channels/Channel")]
+        channels = [
+            ChannelInfo(str(name), colors[i] if i < len(colors) else None)
+            for i, name in enumerate(czi.channel_names)
+        ]
+
+        return build_metadata(
+            size=[self.data[0].shape],
+            scales=[scales],
+            units=("micrometer",) * 3,
+            channels=channels,
+            dtype=self.data[0].dtype,
+            time_increment=interval if interval > 0 else 1.0,
+            time_increment_unit=time_unit,
+        )

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import math
 import os
-import re
 import warnings
 from dataclasses import dataclass
 from typing import Any, Literal, Sequence
@@ -13,6 +13,16 @@ import numpy as np
 import zarr
 from numcodecs import Blosc, GZip
 
+from .chunks import get_chunks as _get_chunks
+from .chunks import rechunk_to_shape as _rechunk_to_shape
+from .chunks import shape_tuple as _shape_tuple
+from .colors import (  # noqa: F401  (re-exported: historical import location)
+    default_channel_color,
+    ome_color_to_hex,
+    parse_channel_color,
+    parse_color,
+)
+from .units import normalize_unit
 from .axes import (
     DATA_TYPES,
     SPATIAL_AXIS_SET,
@@ -21,10 +31,6 @@ from .axes import (
     spatial_axes_in_order,
 )
 
-DEFAULT_COLORS = (
-    "FF0000", "00FF00", "0000FF", "FFFF00",
-    "FF00FF", "00FFFF", "FFFFFF", "808080",
-)
 SPATIAL_AXES = SPATIAL_AXIS_SET
 
 # Axes that `shards="auto"` never merges chunks along by default. Timepoints
@@ -110,6 +116,11 @@ class ZarrWriteConfig:
         blocks held in memory at once fit in about half of the free RAM.
         Only applies when ``compute=True``; with ``compute=False`` the caller
         controls the scheduler when computing the returned tasks.
+    progress
+        If ``True`` (default), show a ``tqdm`` progress bar (terminal or
+        notebook) while the arrays are written. Only applies when
+        ``compute=True`` and a local (threaded) dask scheduler is used.
+        Pass ``False`` for silent writes, e.g. in batch jobs or tests.
     """
 
     ngff_version: Literal["0.4", "0.5"] | None = None
@@ -126,6 +137,7 @@ class ZarrWriteConfig:
     shard_exclude_axes: Sequence[str] = DEFAULT_SHARD_EXCLUDE_AXES
     drop_singleton: bool = True
     num_workers: int | None = None
+    progress: bool = True
 
 def _infer_ngff_version(group: zarr.Group) -> str:
     """Infer the NGFF metadata layout used by an existing group."""
@@ -283,16 +295,6 @@ def _resolve_format(cfg: ZarrWriteConfig) -> tuple[str, int]:
     return ngff_version, zarr_format
 
 
-def _rechunk_to_shape(arr: da.Array, chunks: Sequence[int]) -> da.Array:
-    """Rechunk ``arr`` to ``chunks``, clipped so no axis exceeds the array's extent."""
-    normalized = tuple(
-        max(1, min(int(c), int(s))) for c, s in zip(chunks, arr.shape)
-    )
-    if normalized == tuple(int(c) for c in _get_chunks(arr)):
-        return arr
-    return arr.rechunk(normalized)
-
-
 def _resolve_write_chunks(
     data_levels: Sequence[da.Array],
     chunks: Sequence[int] | Sequence[Sequence[int]] | None,
@@ -362,16 +364,32 @@ def _resolve_num_workers(cfg: ZarrWriteConfig, block_bytes: int = 0) -> int:
     return workers
 
 
-def _run_stores(tasks, cfg: ZarrWriteConfig, block_bytes: int = 0):
+@contextlib.contextmanager
+def _progress_bar(enabled: bool, desc: str | None):
+    """Show a tqdm progress bar for the dask computation run inside the block."""
+    if not enabled:
+        yield
+        return
+    try:
+        from tqdm.dask import TqdmCallback
+    except ImportError:  # tqdm is optional at runtime: just skip the bar
+        yield
+        return
+    with TqdmCallback(desc=desc or "Writing zarr", unit="task"):
+        yield
+
+
+def _run_stores(tasks, cfg: ZarrWriteConfig, block_bytes: int = 0, desc: str | None = None):
     """Run (or return) the per-level store tasks of one multiscale dataset.
 
     All levels are computed in a single dask pass so shared upstream work (for
     example reading the source file) happens once instead of once per level.
     With ``cfg.compute`` false the unevaluated tasks are returned unchanged.
+    ``desc`` labels the progress bar (see ``ZarrWriteConfig.progress``).
     """
     if not cfg.compute:
         return list(tasks)
-    with dask.config.set(num_workers=_resolve_num_workers(cfg, block_bytes)):
+    with dask.config.set(num_workers=_resolve_num_workers(cfg, block_bytes)), _progress_bar(cfg.progress, desc):
         dask.compute(*tasks)
     return []
 
@@ -381,6 +399,7 @@ def _write_pyramid_v2(
     root: zarr.Group,
     data_levels: Sequence[da.Array],
     cfg: ZarrWriteConfig,
+    desc: str | None = None,
 ):
     """Create and populate zarr v2 arrays for each pyramid level."""
     if cfg.shards is not None:
@@ -396,25 +415,19 @@ def _write_pyramid_v2(
     tasks = []
 
     for i, arr in enumerate(data_levels):
-        chunks = _get_chunks(arr)
-
-        create_kwargs = {
-            "name": str(i),
-            "shape": arr.shape,
-            "dtype": arr.dtype,
-            "chunks": chunks,
-            "compressor": _build_v2_compressor(cfg.compressor, cfg.compressor_level),
-            "chunk_key_encoding": {"name": "v2", "separator": "/"},
-        }
-
-        if cfg.storage_options is not None:
-            create_kwargs.update(cfg.storage_options)
+        create_kwargs = _array_create_kwargs(
+            str(i), arr.shape, arr.dtype, _get_chunks(arr),
+            zarr_format=2,
+            compressor=cfg.compressor,
+            compressor_level=cfg.compressor_level,
+            storage_options=cfg.storage_options,
+        )
 
         z = root.create_array(**create_kwargs)
 
         tasks.append(da.store(arr, z, lock=False, compute=False))
 
-    return _run_stores(tasks, cfg)
+    return _run_stores(tasks, cfg, desc=desc)
 
 
 def _write_pyramid_v3(
@@ -423,6 +436,7 @@ def _write_pyramid_v3(
     data_levels: Sequence[da.Array],
     cfg: ZarrWriteConfig,
     axes: Sequence[str] | None = None,
+    desc: str | None = None,
 ):
     """Create and populate zarr v3 arrays for each pyramid level."""
     data_levels = _resolve_write_chunks(data_levels, cfg.chunks)
@@ -442,23 +456,15 @@ def _write_pyramid_v3(
     )
 
     for i, arr in enumerate(data_levels):
-        chunks = chunks_per_level[i]
-
-        create_kwargs = {
-            "name": str(i),
-            "shape": arr.shape,
-            "dtype": arr.dtype,
-            "chunks": chunks,
-        }
-
-        if shard_shapes[i] is not None:
-            create_kwargs["shards"] = shard_shapes[i]
-
-        compressors = _build_v3_compressors(cfg.compressor, cfg.compressor_level)
-        create_kwargs["compressors"] = compressors
-
-        if cfg.storage_options is not None:
-            create_kwargs.update(cfg.storage_options)
+        create_kwargs = _array_create_kwargs(
+            str(i), arr.shape, arr.dtype, chunks_per_level[i],
+            zarr_format=3,
+            compressor=cfg.compressor,
+            compressor_level=cfg.compressor_level,
+            shards=shard_shapes[i],
+            storage_options=cfg.storage_options,
+            always_pass_compressors=True,
+        )
 
         z = root.create_array(**create_kwargs)
 
@@ -477,20 +483,7 @@ def _write_pyramid_v3(
             )
         tasks.append(da.store(to_store, z, lock=False, compute=False))
 
-    return _run_stores(tasks, cfg, block_bytes=block_bytes)
-
-
-def _shape_tuple(value: Any, ndim: int) -> tuple[int, ...] | None:
-    """Return a positive shape tuple of length ``ndim`` from ``value``, or ``None``."""
-    if value is None or isinstance(value, (str, bytes)):
-        return None
-    try:
-        candidate = tuple(int(v) for v in value)
-    except TypeError:
-        return None
-    if len(candidate) != ndim or any(v <= 0 for v in candidate):
-        return None
-    return candidate
+    return _run_stores(tasks, cfg, block_bytes=block_bytes, desc=desc)
 
 
 def _auto_shard_for_level(
@@ -649,13 +642,6 @@ def _resolve_shards_for_levels(
     ]
 
 
-def _get_chunks(arr: da.Array) -> tuple[int, ...]:
-    """Return one normalized chunk tuple for a dask array."""
-    if hasattr(arr, "chunksize") and arr.chunksize is not None:
-        return tuple(int(x) for x in arr.chunksize)
-    return tuple(int(c[0]) for c in arr.chunks)
-
-
 def _build_v2_compressor(compressor: str | None, level: int):
     """Construct a zarr v2-compatible compressor configuration."""
     if compressor is None:
@@ -680,6 +666,141 @@ def _build_v3_compressors(compressor: str | None, level: int):
             )
         ]
     raise ValueError(f"Unsupported compressor for zarr v3: {compressor}")
+
+
+def _array_create_kwargs(
+    name: str,
+    shape: Sequence[int],
+    dtype: Any,
+    chunks: Sequence[int],
+    *,
+    zarr_format: int,
+    compressor: str | None,
+    compressor_level: int,
+    shards: Sequence[int] | None = None,
+    storage_options: dict[str, Any] | None = None,
+    always_pass_compressors: bool = False,
+) -> dict[str, Any]:
+    """Keyword arguments for ``Group.create_array`` of one pyramid level.
+
+    Single place that knows the differences between zarr v2 (compressor +
+    ``/``-separated v2 chunk keys) and v3 (codec chain + optional sharding).
+    For v3, ``compressors`` is only passed when a compressor is requested,
+    unless ``always_pass_compressors`` is set (the writer passes ``None``
+    explicitly, which stores uncompressed chunks).
+    """
+    kwargs: dict[str, Any] = {
+        "name": name,
+        "shape": tuple(shape),
+        "dtype": dtype,
+        "chunks": tuple(chunks),
+    }
+    if zarr_format == 2:
+        kwargs["compressor"] = _build_v2_compressor(compressor, compressor_level)
+        kwargs["chunk_key_encoding"] = {"name": "v2", "separator": "/"}
+    else:
+        compressors = _build_v3_compressors(compressor, compressor_level)
+        if compressors is not None or always_pass_compressors:
+            kwargs["compressors"] = compressors
+        if shards is not None:
+            kwargs["shards"] = tuple(shards)
+    if storage_options is not None:
+        kwargs.update(storage_options)
+    return kwargs
+
+
+def _resolve_creation_shards(
+    metadata: dict[str, Any],
+    sizes: Sequence[Sequence[int]],
+    chunks: Sequence[Sequence[int]],
+    axes: Sequence[str],
+    *,
+    zarr_format: int,
+    shards: Any = None,
+    shard_target_mb: float = 1024.0,
+    shard_exclude_axes: Sequence[str] | None = None,
+) -> list[tuple[int, ...] | None]:
+    """Per-level shard shapes for creating empty arrays from metadata.
+
+    Falls back to ``metadata['shards']`` / ``metadata['shard_exclude_axes']``
+    when not given explicitly. Shards inherited from metadata whose rank does
+    not match the new arrays (for example image metadata reused for a label
+    group without channel axis) are ignored with a warning instead of failing.
+    """
+    inherited = shards is None and metadata.get("shards") is not None
+    if shards is None:
+        shards = metadata.get("shards")
+    if inherited and not isinstance(shards, str):
+        ndim = len(chunks[0])
+        per_level = shards if isinstance(shards[0], (list, tuple)) else [shards]
+        if any(s is not None and len(s) != ndim for s in per_level):
+            warnings.warn(
+                f"Ignoring metadata['shards'] {shards!r}: it does not match the "
+                f"{ndim} axes of the new arrays.",
+                UserWarning,
+                stacklevel=3,
+            )
+            shards = None
+    if shard_exclude_axes is None:
+        shard_exclude_axes = metadata.get("shard_exclude_axes", DEFAULT_SHARD_EXCLUDE_AXES)
+    return _resolve_shards_for_levels(
+        sizes,
+        chunks,
+        metadata.get("dtype", "uint16"),
+        shards,
+        zarr_format=zarr_format,
+        target_bytes=int(shard_target_mb * 1024 * 1024),
+        axes=axes,
+        exclude_axes=shard_exclude_axes,
+    )
+
+
+def _create_level_arrays(
+    parent: zarr.Group,
+    sizes: Sequence[Sequence[int]],
+    chunks: Sequence[Sequence[int]],
+    dtype: Any,
+    shard_shapes: Sequence[Sequence[int] | None],
+    *,
+    zarr_format: int,
+    compressor: str | None,
+    compressor_level: int,
+) -> None:
+    """Create the empty array of every pyramid level (``0``, ``1``, ...) in ``parent``."""
+    for i, (shape, chunk) in enumerate(zip(sizes, chunks)):
+        parent.create_array(
+            **_array_create_kwargs(
+                str(i), shape, dtype, chunk,
+                zarr_format=zarr_format,
+                compressor=compressor,
+                compressor_level=compressor_level,
+                shards=shard_shapes[i],
+            )
+        )
+
+
+def _build_multiscales(
+    metadata: dict[str, Any],
+    axes: Sequence[str],
+    name: str,
+) -> dict[str, Any]:
+    """NGFF ``multiscales`` entry (axes + per-level transforms) for ``metadata``."""
+    data_type = normalize_data_type(metadata.get("data_type"))
+    return {
+        "name": name,
+        "axes": _build_axes(axes, metadata),
+        "datasets": [
+            {"path": str(i), "coordinateTransformations": ct}
+            for i, ct in enumerate(
+                _build_coordinate_transformations(
+                    axes=axes,
+                    scales=metadata["scales"],
+                    time_increment=metadata.get("time_increment"),
+                )
+            )
+        ],
+        "type": "label" if data_type == "label" else "image",
+    }
 
 
 def _validate_metadata(
@@ -739,10 +860,10 @@ def _build_axes(axes: tuple[str, ...], metadata: dict[str, Any]) -> list[dict[st
     axis_types = {"t": "time", "c": "channel", "z": "space", "y": "space", "x": "space"}
     spatial_labels = spatial_axes_in_order(axes)
     spatial_units = [
-        _normalize_unit(u) for u in metadata.get("units", [None] * len(spatial_labels))
+        normalize_unit(u) for u in metadata.get("units", [None] * len(spatial_labels))
     ]
     spatial_unit_map = dict(zip(spatial_labels, spatial_units))
-    time_unit = _normalize_unit(metadata.get("time_increment_unit"))
+    time_unit = normalize_unit(metadata.get("time_increment_unit"))
 
     out = []
     for ax in axes:
@@ -795,7 +916,7 @@ def _build_omero_metadata(
     channels = []
     for i in range(c_size):
         label = ch_names[i] if i < len(ch_names) else f"channel_{i}"
-        color = ch_colors[i] if i < len(ch_colors) else DEFAULT_COLORS[i % len(DEFAULT_COLORS)]
+        color = ch_colors[i] if i < len(ch_colors) else default_channel_color(i)
         channels.append(
             {
                 "label": label,
@@ -820,52 +941,3 @@ def _default_window(dtype: np.dtype | str) -> tuple[float, float]:
         info = np.iinfo(dt)
         return float(info.min), float(info.max)
     return 0.0, 1.0
-
-
-_HEX_COLOR_PATTERN = re.compile(r"^#?[0-9a-fA-F]{6}$")
-
-
-def parse_color(value: str) -> str:
-    """Parse a color to a six-digit uppercase hex string (without ``#``).
-
-    Accepts 6-digit hex codes (``#`` optional) and matplotlib color names
-    (e.g. ``"magenta"``, ``"cyan"``).
-    """
-    from matplotlib.colors import cnames
-
-    if not isinstance(value, str):
-        raise TypeError("Channel colors must be strings.")
-
-    value = value.strip()
-    if _HEX_COLOR_PATTERN.match(value):
-        return value.replace("#", "").upper()
-
-    lower = value.lower()
-    if lower in cnames:
-        return cnames[lower].replace("#", "").upper()
-
-    raise TypeError(
-        f"Invalid color {value!r}. Use a 6-digit hex code or a valid "
-        "matplotlib color name."
-    )
-
-
-def ome_color_to_hex(value: int | str) -> str:
-    """Convert an OME-XML ``Color`` (signed 32-bit RGBA integer) to ``RRGGBB``."""
-    return f"{(int(value) & 0xFFFFFFFF) >> 8:06X}"
-
-
-def _normalize_unit(unit: str | None) -> str | None:
-    """Map common unit aliases to names expected in NGFF metadata."""
-    if not unit:
-        return None
-
-    aliases = {
-        "um": "micrometer",
-        "micron": "micrometer",
-        "microns": "micrometer",
-        "s": "second",
-        "sec": "second",
-    }
-    unit = str(unit).strip()
-    return aliases.get(unit, unit)

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import warnings
 
 import dask.array as da
 import numpy as np
 
 from .microscope_manager import MicroscopeManager
+from .utils.ngff import parse_channel_color
 from .utils.axes import normalize_axes, infer_axes_from_ndim, spatial_axes_in_order, normalize_data_type
 
 
@@ -20,11 +21,14 @@ class ArrayManager(MicroscopeManager):
     matches the input arrays.
     """
 
+    #: ``chunks=None`` means "let dask decide" for in-memory arrays.
+    DEFAULT_CHUNKS = None
+
     def __init__(
         self,
         array: Union[np.ndarray, da.Array, List[Union[np.ndarray, da.Array]]],
         metadata: Dict[str, Any],
-        chunks: Tuple[int, ...] = (1, 1, 8, 4096, 4096),
+        chunks: Optional[Tuple[int, ...]] = (1, 1, 8, 4096, 4096),
     ):
         """Initialize ArrayManager with a single array or pyramid.
 
@@ -37,64 +41,53 @@ class ArrayManager(MicroscopeManager):
             Metadata dictionary.  ``axes`` may be any subset of ``tczyx`` and
             ``data_type`` may be ``"intensity"`` or ``"label"``.
         chunks
-            Dask chunk shape for NumPy inputs.  When omitted or incompatible with
+            Dask chunk shape for NumPy inputs.  When ``None`` or incompatible with
             the dimensionality, automatic chunking is used.
         """
-        super().__init__()
-        self.data = array
-        self.metadata = dict(metadata)
-        self.chunks = chunks
+        super().__init__(chunks=chunks)
+        # The raw user input is kept apart from ``self.data`` (always a list of
+        # dask arrays once :meth:`read` has run).
+        self._source = array
+        self._user_metadata = dict(metadata)
         self.read()
 
-    @staticmethod
-    def _normalize_chunks(chunks, shape: tuple[int, ...]):
-        if chunks is None:
-            return "auto"
-        if chunks == "auto":
-            return "auto"
-        try:
-            chunk_tuple = tuple(int(c) for c in chunks)
-        except TypeError:
-            return "auto"
-        if len(chunk_tuple) != len(shape):
-            return "auto"
-        return tuple(max(1, min(int(c), int(s))) for c, s in zip(chunk_tuple, shape))
+    def read(self) -> None:
+        """Convert the inputs given to the constructor into dask levels and normalized metadata.
 
-    def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
-        """Return the pyramid and metadata.
-
-        Returns
-        ----------
-        Tuple[List[da.Array], Dict[str, Any]]
-            A tuple containing a list of
-            Dask arrays representing image data and a dictionary of metadata.
+        Unlike the file-based managers there is nothing to load from disk; the
+        arrays and metadata come from the constructor. The data is built first
+        because the metadata defaults (size, dtype, channel count) depend on it.
         """
-        array = self.data
-        metadata = dict(self.metadata)
-        chunks = self.chunks
+        self.data = self._build_dask_array()
+        self.metadata = self._parse_metadata()
 
-        if not isinstance(array, list):
-            array = [array]
-
-        if not array:
+    def _build_dask_array(self) -> List[da.Array]:
+        """Validate the input levels and return them as dask arrays."""
+        levels = self._source if isinstance(self._source, list) else [self._source]
+        if not levels:
             raise ValueError("array cannot be empty.")
 
-        axes = normalize_axes(metadata.get("axes") or infer_axes_from_ndim(array[0].ndim), ndim=array[0].ndim)
-        self.data = []
-        for level in array:
+        axes = normalize_axes(
+            self._user_metadata.get("axes") or infer_axes_from_ndim(levels[0].ndim),
+            ndim=levels[0].ndim,
+        )
+        out = []
+        for level in levels:
             if getattr(level, "ndim", None) != len(axes):
                 raise ValueError(
                     f"Each level ndim must match metadata['axes']={''.join(axes)!r}."
                 )
             if isinstance(level, np.ndarray):
-                level = da.from_array(level, chunks=self._normalize_chunks(chunks, level.shape))
-            elif isinstance(level, da.Array):
-                if not level.chunks:
-                    level = level.rechunk(self._normalize_chunks(chunks, level.shape))
-            else:
+                level = da.from_array(level, chunks=self._normalize_chunks(self.chunks, level.shape))
+            elif not isinstance(level, da.Array):
                 raise TypeError("array levels must be NumPy arrays or Dask arrays.")
-            self.data.append(level)
+            out.append(level)
+        return out
 
+    def _parse_metadata(self) -> Dict[str, Any]:
+        """Fill in defaults of the user metadata from the already built ``self.data``."""
+        metadata = dict(self._user_metadata)
+        axes = normalize_axes(metadata.get("axes") or infer_axes_from_ndim(self.data[0].ndim), ndim=self.data[0].ndim)
         metadata["axes"] = "".join(axes)
         metadata.setdefault("dtype", str(self.data[0].dtype))
         metadata["data_type"] = normalize_data_type(metadata.get("data_type"))
@@ -110,7 +103,7 @@ class ArrayManager(MicroscopeManager):
                 warnings.warn(
                     "Metadata 'scales' length does not match pyramid levels. "
                     "Falling back to automatic scale generation.",
-                    stacklevel=2,
+                    stacklevel=3,
                 )
             base_scale = tuple(user_scales[0]) if user_scales else tuple(1.0 for _ in spatial_axes)
             if len(base_scale) != len(spatial_axes):
@@ -123,6 +116,9 @@ class ArrayManager(MicroscopeManager):
             c_size = int(self.data[0].shape[axes.index("c")])
             metadata.setdefault("channel_names", [f"Channel {i}" for i in range(c_size)])
             metadata.setdefault("channel_colors", ["FFFFFF"] * c_size)
+            metadata["channel_colors"] = [
+                parse_channel_color(c, i) for i, c in enumerate(metadata["channel_colors"])
+            ]
         else:
             metadata.setdefault("channel_names", [])
             metadata.setdefault("channel_colors", [])
@@ -134,6 +130,4 @@ class ArrayManager(MicroscopeManager):
             metadata.setdefault("time_increment", None)
             metadata.setdefault("time_increment_unit", None)
         metadata.setdefault("plane_files", None)
-
-        self.metadata = metadata
-        return self.data, self.metadata
+        return metadata

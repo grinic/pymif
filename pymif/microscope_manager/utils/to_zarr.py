@@ -11,8 +11,7 @@ import zarr
 from .axes import normalize_axes, normalize_data_type, spatial_axes_in_order
 from .ngff import (
     ZarrWriteConfig,
-    _build_axes,
-    _build_coordinate_transformations,
+    _build_multiscales,
     _build_omero_metadata,
     _resolve_format,
     _set_group_ngff_metadata,
@@ -115,33 +114,6 @@ def _metadata_for_write(
     out["data_type"] = data_type
     return out
 
-def _build_multiscales(
-    metadata: dict,
-    axes: tuple[str, ...],
-    *,
-    name: str | None,
-    n_levels: int,
-) -> dict:
-    data_type = normalize_data_type(metadata.get("data_type"))
-    return {
-        "name": name or metadata.get("name") or "dataset",
-        "axes": _build_axes(axes, metadata),
-        "datasets": [
-            {
-                "path": str(i),
-                "coordinateTransformations": ct,
-            }
-            for i, ct in enumerate(
-                _build_coordinate_transformations(
-                    axes=axes,
-                    scales=metadata["scales"],
-                    time_increment=metadata.get("time_increment"),
-                )
-            )
-        ],
-        "type": "label" if data_type == "label" else "image",
-    }
-
 def to_zarr(
     path: str | Path,
     data_levels: Sequence[da.Array],
@@ -181,15 +153,12 @@ def to_zarr(
     )
 
     if zarr_format == 3:
-        delayed = _write_pyramid_v3(root=root, data_levels=data_levels, cfg=cfg, axes=axes)
+        delayed = _write_pyramid_v3(root=root, data_levels=data_levels, cfg=cfg, axes=axes, desc=Path(path).name)
     else:
-        delayed = _write_pyramid_v2(root=root, data_levels=data_levels, cfg=cfg)
+        delayed = _write_pyramid_v2(root=root, data_levels=data_levels, cfg=cfg, desc=Path(path).name)
 
     multiscales = _build_multiscales(
-        effective_metadata,
-        axes,
-        name=effective_metadata.get("name") or "dataset",
-        n_levels=len(data_levels),
+        effective_metadata, axes, effective_metadata.get("name") or "dataset"
     )
 
     _set_dimension_names(root, multiscales["datasets"], axes, zarr_format=zarr_format)
@@ -250,15 +219,14 @@ def write_multiscale_to_group(
                 del group[key]
 
     if zarr_format == 3:
-        delayed = _write_pyramid_v3(root=group, data_levels=data_levels, cfg=cfg, axes=axes)
+        label = name or group.name.strip('/') or 'raw'
+        delayed = _write_pyramid_v3(root=group, data_levels=data_levels, cfg=cfg, axes=axes, desc=label)
     else:
-        delayed = _write_pyramid_v2(root=group, data_levels=data_levels, cfg=cfg)
+        label = name or group.name.strip('/') or 'raw'
+        delayed = _write_pyramid_v2(root=group, data_levels=data_levels, cfg=cfg, desc=label)
 
     multiscales = _build_multiscales(
-        effective_metadata,
-        axes,
-        name=name,
-        n_levels=len(data_levels),
+        effective_metadata, axes, name or effective_metadata.get("name") or "dataset"
     )
 
     _set_dimension_names(group, multiscales["datasets"], axes, zarr_format=zarr_format)
