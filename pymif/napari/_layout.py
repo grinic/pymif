@@ -41,28 +41,26 @@ def make_section(*widgets, margins=(6, 4, 6, 6), spacing=3):
     return frame
 
 
-def make_footer(button: QPushButton) -> QWidget:
-    """A holder for the main action button.
+def make_button_holder(button: QPushButton) -> QWidget:
+    """A small holder for an action button.
 
     Disable the *holder* to lock the button: a disabled parent keeps its
-    children disabled even if the button re-enables itself.
+    children disabled even if the button re-enables itself (magicgui does).
     """
-    footer = QWidget()
-    layout = QHBoxLayout(footer)
+    holder = QWidget()
+    layout = QHBoxLayout(holder)
     layout.setContentsMargins(0, 2, 0, 2)
-    button.setMinimumHeight(30)
+    button.setMinimumHeight(28)
     button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
     layout.addWidget(button)
-    return footer
+    return holder
 
 
-def compose_dock(content: QWidget, footer: QWidget | None = None, bottom: QWidget | None = None) -> QWidget:
-    """Build the dock widget: scrollable content, an always-visible footer, a resizable bottom pane.
+def compose_dock(content: QWidget, bottom: QWidget | None = None) -> QWidget:
+    """Build the dock widget: scrollable content and an optional resizable bottom pane.
 
-    * ``content`` goes in a scroll area, so nothing is ever cut off, whatever the
-      size or position of the dock (side or bottom).
-    * ``footer`` (typically the box holding the main action button) stays visible
-      below it; ``dock.set_footer_stretch(n)`` lets it grow when it is expanded.
+    * ``content`` (all the boxes) goes in one scroll area, so nothing is ever cut
+      off, whatever the size or position of the dock (side or bottom).
     * ``bottom`` (typically the log) sits under a splitter handle, so it can be
       dragged taller or shorter.
     """
@@ -86,15 +84,6 @@ def compose_dock(content: QWidget, footer: QWidget | None = None, bottom: QWidge
     top_layout.setContentsMargins(0, 0, 0, 0)
     top_layout.setSpacing(2)
     top_layout.addWidget(scroll, 1)
-    if footer is not None:
-        top_layout.addWidget(footer, 0)
-
-    def set_footer_stretch(stretch: int) -> None:
-        """Let the footer grow (``stretch`` > 0) or shrink to its content (0)."""
-        if footer is not None:
-            top_layout.setStretch(1, stretch)
-
-    container.set_footer_stretch = set_footer_stretch
 
     if bottom is None:
         outer.addWidget(top)
