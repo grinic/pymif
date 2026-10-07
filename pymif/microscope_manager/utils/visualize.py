@@ -7,6 +7,7 @@ import dask.array as da
 
 from .axes import normalize_axes, spatial_axes_in_order
 from .colors import hex_to_rgb, parse_channel_color
+from .units import normalize_unit
 
 if TYPE_CHECKING:
     import napari
@@ -32,6 +33,35 @@ def _axis_scale(metadata: Dict[str, Any], axes: tuple[str, ...], level: int, *, 
         else:
             scale.append(1.0)
     return tuple(scale)
+
+
+def _axis_units(metadata: Dict[str, Any], axes: tuple[str, ...], *, drop_channel: bool):
+    """Per-axis units for napari, or ``None`` if they cannot be used.
+
+    Layers added without units default to ``pixel``. napari then disables units
+    for rendering ("Inconsistent units across layers") as soon as it also holds
+    layers with physical units, such as the converted zarr opened by
+    ``napari-ome-zarr``. Passing the metadata's units keeps both consistent.
+    """
+    try:
+        from napari.utils.transforms._units import get_units_from_name
+    except ImportError:  # napari without layer units
+        return None
+
+    spatial = dict(zip(spatial_axes_in_order(axes), metadata.get("units") or ()))
+    units = []
+    for ax in axes:
+        if drop_channel and ax == "c":
+            continue
+        if ax == "t":
+            units.append(normalize_unit(metadata.get("time_increment_unit")))
+        else:
+            units.append(normalize_unit(spatial.get(ax)))
+    try:
+        get_units_from_name(units)  # validate every entry
+    except Exception:
+        return None
+    return tuple(units)
 
 
 def _set_axis_labels(viewer, axes: tuple[str, ...], *, drop_channel: bool) -> None:
@@ -91,12 +121,17 @@ def visualize(
     scale = _axis_scale(metadata, axes, start_level, drop_channel=("c" in axes and data_type != "label"))
 
     if data_type == "label":
+        label_kwargs = {}
+        label_units = _axis_units(metadata, axes, drop_channel=False)
+        if label_units is not None:
+            label_kwargs["units"] = label_units
         viewer.add_labels(
             pyramid,
             name=metadata.get("name", "labels"),
             scale=scale,
             metadata=metadata,
             multiscale=True,
+            **label_kwargs,
         )
         _set_axis_labels(viewer, axes, drop_channel=False)
         return viewer
@@ -106,6 +141,9 @@ def visualize(
         "metadata": metadata,
         "multiscale": True,
     }
+    image_units = _axis_units(metadata, axes, drop_channel=("c" in axes))
+    if image_units is not None:
+        add_kwargs["units"] = image_units
 
     try:
         max_val = da.max(data_levels[-1]).compute()

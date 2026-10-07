@@ -7,7 +7,7 @@ import dask.array as da
 import h5py
 
 from .microscope_manager import MicroscopeManager
-from .utils.metadata import ChannelInfo, build_metadata
+from .utils.metadata import ChannelInfo, build_metadata, scale_for_level
 
 
 class LuxendoManager(MicroscopeManager):
@@ -122,11 +122,10 @@ class LuxendoManager(MicroscopeManager):
             shapes = [f[n].shape for n in names]
             dtype = f[names[0]].dtype
 
-        # Downscale factor of each level along z, y, x, from the actual shapes.
-        scales = [
-            tuple(s * max(1, round(b / l)) for s, b, l in zip(base_scale, shapes[0], shape))
-            for shape in shapes
-        ]
+        # Voxel size of each level from the actual shapes, so the physical extent
+        # is preserved. Levels are not simply downsampled: Luxendo also resamples
+        # z, so a level can have *more* planes than level 0 (e.g. 137 -> 192).
+        scales = [scale_for_level(base_scale, shapes[0], shape) for shape in shapes]
 
         return build_metadata(
             size=[(size_t, len(channels)) + tuple(shape) for shape in shapes],

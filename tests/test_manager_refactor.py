@@ -415,3 +415,41 @@ def test_progress_bar_labels_each_dataset(tmp_path, image_pyramid, metadata, lab
     capsys.readouterr()
     z.to_zarr(str(tmp_path / "copy.zarr"), zarr_format=2, ngff_version="0.4", overwrite=True)
     assert "raw" in capsys.readouterr().err
+
+
+def test_visualize_layers_carry_units_matching_converted_zarr(tmp_path, image_pyramid, metadata):
+    """Source layers and the re-imported zarr must agree on units.
+
+    Otherwise napari warns "Inconsistent units across layers" and stops using
+    units for rendering (e.g. the scale bar).
+    """
+    pytest.importorskip("napari")
+    ome_zarr = pytest.importorskip("napari_ome_zarr")
+    from napari.components import ViewerModel
+
+    source = mm.ArrayManager(image_pyramid, dict(metadata, units=("µm",) * 3, time_increment_unit="s"))
+    out = tmp_path / "units.zarr"
+    source.to_zarr(str(out), progress=False)
+
+    viewer = ViewerModel()
+    source.visualize(viewer=viewer)
+    source_units = viewer.layers.extent.units
+    assert source_units is not None
+    assert [str(u) for u in source_units] == ["second", "micrometer", "micrometer", "micrometer"]
+
+    for data, kwargs, kind in ome_zarr.napari_get_reader(str(out))(str(out)):
+        getattr(viewer, "add_" + kind)(data, **kwargs)
+    assert viewer.layers.extent.units == source_units  # consistent -> no warning
+
+
+def test_luxendo_pyramid_levels_with_resampled_z(luxendo_dir):
+    """Luxendo levels can have *more* z planes than level 0; scales must keep the physical extent."""
+    for f in luxendo_dir.glob("*.lux.h5"):
+        with h5py.File(f, "a") as h:
+            del h["Data222"]
+            h["Data_2_2_1"] = np.zeros((12, 16, 16), np.uint16)  # z: 8 -> 12, xy halved
+    with mm.LuxendoManager(luxendo_dir) as lux:
+        assert [a.shape[2:] for a in lux.data] == [(8, 32, 32), (12, 16, 16)]
+        assert lux.metadata["scales"][1] == pytest.approx((2.0 * 8 / 12, 1.0, 1.0))
+        extents = [tuple(n * s for n, s in zip(sz[2:], sc)) for sz, sc in zip(lux.metadata["size"], lux.metadata["scales"])]
+        assert extents[0] == pytest.approx(extents[1])
