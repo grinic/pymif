@@ -12,6 +12,7 @@ from .axes import normalize_axes, spatial_axis_indices, spatial_values_for_axes
 from .downsampling import (
     SpatialFactor,
     axis_names_from_multiscales,
+    downsample_nearest,
     level_scale_ratios_from_multiscales,
     relative_level_factors_for_axes,
 )
@@ -192,53 +193,6 @@ def _is_reciprocal_integer_shrink(scale: Sequence[float]) -> tuple[bool, tuple[i
     return True, tuple(factors)
 
 
-def _downsample_nearest_exact_numpy(
-    arr: np.ndarray,
-    factors: Sequence[int],
-    spatial_axes: Sequence[int],
-) -> np.ndarray:
-    """Nearest-neighbor downsampling with ceil output sizes on odd axes."""
-    pad_width = [(0, 0)] * arr.ndim
-    slicing = [slice(None)] * arr.ndim
-    for axis, factor in zip(spatial_axes, factors):
-        factor = int(factor)
-        if factor <= 1:
-            continue
-        size = int(arr.shape[axis])
-        remainder = size % factor
-        if remainder:
-            pad_width[axis] = (0, factor - remainder)
-        slicing[axis] = slice(0, None, factor)
-    if any(width != (0, 0) for width in pad_width):
-        arr = np.pad(arr, pad_width, mode="edge")
-    return arr[tuple(slicing)]
-
-
-def _downsample_nearest_exact_dask(
-    arr: da.Array,
-    factors: Sequence[int],
-    spatial_axes: Sequence[int],
-) -> da.Array:
-    """Dask equivalent of _downsample_nearest_exact_numpy."""
-    if not isinstance(arr, da.Array):
-        arr = da.from_array(arr, chunks="auto")
-
-    pad_width = [(0, 0)] * arr.ndim
-    slicing = [slice(None)] * arr.ndim
-    for axis, factor in zip(spatial_axes, factors):
-        factor = int(factor)
-        if factor <= 1:
-            continue
-        size = int(arr.shape[axis])
-        remainder = size % factor
-        if remainder:
-            pad_width[axis] = (0, factor - remainder)
-        slicing[axis] = slice(0, None, factor)
-    if any(width != (0, 0) for width in pad_width):
-        arr = da.pad(arr, pad_width, mode="edge")
-    return arr[tuple(slicing)]
-
-
 def _generate_pyramid(
     ref_data,
     total_levels: int,
@@ -280,14 +234,7 @@ def _generate_pyramid(
         )
         is_integer_shrink, integer_factors = _is_reciprocal_integer_shrink(scale)
         if is_integer_shrink:
-            if isinstance(pyramid[i - 1], da.Array):
-                pyramid[i] = _downsample_nearest_exact_dask(
-                    pyramid[i - 1], integer_factors, spatial_axes=spatial_axes
-                )
-            else:
-                pyramid[i] = _downsample_nearest_exact_numpy(
-                    pyramid[i - 1], integer_factors, spatial_axes=spatial_axes
-                )
+            pyramid[i] = downsample_nearest(pyramid[i - 1], integer_factors, spatial_axes)
         else:
             pyramid[i] = zoom_fn(pyramid[i - 1], scale=scale, spatial_axes=spatial_axes)
 

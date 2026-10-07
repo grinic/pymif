@@ -1,48 +1,22 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, TYPE_CHECKING, Union
+from typing import Any, Dict, Iterable, List, TYPE_CHECKING, Union
 
 import dask.array as da
 
 from .axes import normalize_axes, spatial_axes_in_order
-from .ngff import parse_color
+from .colors import hex_to_rgb, parse_channel_color
+from .units import normalize_unit
 
 if TYPE_CHECKING:
     import napari
 
 
 def _parse_color(color: Union[int, str]) -> tuple[float, float, float]:
-    """Convert OME int or hex string color to RGB float tuple for Napari."""
-    if isinstance(color, int):
-        r = (color >> 16) & 0xFF
-        g = (color >> 8) & 0xFF
-        b = color & 0xFF
-    elif isinstance(color, str):
-        try:
-            s = parse_color(color)  # hex or matplotlib color name
-        except TypeError:
-            s = color.strip()
-        if s.startswith("#"):
-            s = s[1:]
-        if s.lower().startswith("0x"):
-            s = s[2:]
+    """Convert an OME int, hex string or color name to an RGB float tuple for napari."""
+    return hex_to_rgb(parse_channel_color(color))
 
-        if len(s) == 8:
-            s = s[2:]  # drop AA from AARRGGBB
-
-        if len(s) != 6:
-            raise ValueError(
-                f"Invalid hex color string: {color!r} (expected 6 or 8 hex digits)"
-            )
-
-        r = int(s[0:2], 16)
-        g = int(s[2:4], 16)
-        b = int(s[4:6], 16)
-    else:
-        raise TypeError(f"Unsupported color type: {type(color)}")
-
-    return (r / 255.0, g / 255.0, b / 255.0)
 
 def _axis_scale(metadata: Dict[str, Any], axes: tuple[str, ...], level: int, *, drop_channel: bool) -> tuple[float, ...]:
     spatial_axes = spatial_axes_in_order(axes)
@@ -59,6 +33,43 @@ def _axis_scale(metadata: Dict[str, Any], axes: tuple[str, ...], level: int, *, 
         else:
             scale.append(1.0)
     return tuple(scale)
+
+
+def units_for_axes(metadata: Dict[str, Any], requested: "Iterable[str]"):
+    """Per-axis units for napari layers covering the axes ``requested``, or ``None``.
+
+    Layers added without units default to ``pixel``. napari then disables units
+    for rendering ("Inconsistent units across layers") as soon as it also holds
+    layers with physical units. Every layer that PyMIF adds, image or helper
+    (ROI, Z range...), therefore takes its units from here so they all agree
+    with each other and with a converted zarr opened by ``napari-ome-zarr``.
+
+    ``None`` is returned (so the caller omits ``units``) when napari has no
+    layer units or a unit cannot be parsed.
+    """
+    try:
+        from napari.utils.transforms._units import get_units_from_name
+    except ImportError:  # napari without layer units
+        return None
+
+    axes = normalize_axes(metadata.get("axes"))
+    spatial = dict(zip(spatial_axes_in_order(axes), metadata.get("units") or ()))
+    units = []
+    for ax in requested:
+        if ax == "t":
+            units.append(normalize_unit(metadata.get("time_increment_unit")))
+        else:
+            units.append(normalize_unit(spatial.get(ax)))
+    try:
+        get_units_from_name(units)  # validate every entry
+    except Exception:
+        return None
+    return tuple(units)
+
+
+def _axis_units(metadata: Dict[str, Any], axes: tuple[str, ...], *, drop_channel: bool):
+    """Units of the axes shown by an image/label layer (channel axis optionally removed)."""
+    return units_for_axes(metadata, [ax for ax in axes if not (drop_channel and ax == "c")])
 
 
 def _set_axis_labels(viewer, axes: tuple[str, ...], *, drop_channel: bool) -> None:
@@ -118,12 +129,17 @@ def visualize(
     scale = _axis_scale(metadata, axes, start_level, drop_channel=("c" in axes and data_type != "label"))
 
     if data_type == "label":
+        label_kwargs = {}
+        label_units = _axis_units(metadata, axes, drop_channel=False)
+        if label_units is not None:
+            label_kwargs["units"] = label_units
         viewer.add_labels(
             pyramid,
             name=metadata.get("name", "labels"),
             scale=scale,
             metadata=metadata,
             multiscale=True,
+            **label_kwargs,
         )
         _set_axis_labels(viewer, axes, drop_channel=False)
         return viewer
@@ -133,11 +149,15 @@ def visualize(
         "metadata": metadata,
         "multiscale": True,
     }
+    image_units = _axis_units(metadata, axes, drop_channel=("c" in axes))
+    if image_units is not None:
+        add_kwargs["units"] = image_units
 
     try:
-        max_val = da.max(data_levels[-1]).compute()
-        min_val = da.min(data_levels[-1]).compute()
-        add_kwargs["contrast_limits"] = [max(0, min_val), max(1, int(2 * max_val))]
+        # Python ints: ``2 * np.uint16(40000)`` would silently wrap around to 14464.
+        max_val = int(da.max(data_levels[-1]).compute())
+        min_val = int(da.min(data_levels[-1]).compute())
+        add_kwargs["contrast_limits"] = [max(0, min_val), max(1, 2 * max_val)]
     except Exception:
         pass
 

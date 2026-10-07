@@ -2,6 +2,7 @@ from napari import current_viewer
 from magicgui import magicgui
 from magicgui.widgets import FileEdit
 from qtpy.QtWidgets import QWidget, QVBoxLayout
+from ._layout import compose_dock
 
 import numpy as np
 
@@ -184,10 +185,11 @@ def export_widget():
         # Reset the settings
         set_settings(viewer, input_settings)
     
-    widget = QWidget()
-    layout = QVBoxLayout()
+    content = QWidget()
+    layout = QVBoxLayout(content)
+    layout.setContentsMargins(4, 4, 4, 4)
     layout.addWidget(_export_widget.native)
-    widget.setLayout(layout)
+    layout.addStretch(1)
 
-    return widget   
+    return compose_dock(content)
 

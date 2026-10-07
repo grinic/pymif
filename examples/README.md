@@ -26,6 +26,9 @@ The notebooks write small synthetic examples to `pymif_tutorial_output/` in the 
 - Use `data_type="label"` and an integer dtype for labels.
 - For segmentation labels, prefer explicit no-channel axes such as `"tzyx"`.
 - Use `mode="r+"` when adding groups or labels to an existing Zarr.
+- PyMIF reports progress through the standard `logging` module (silent by default). Run `logging.basicConfig(format="%(message)s")` and `logging.getLogger("pymif").setLevel(logging.INFO)` to see it; the notebooks that need it do this in their setup cell.
+- `to_zarr()` shows a progress bar while writing; pass `progress=False` to silence it.
+- Vendor readers are context managers (`with mm.LuxendoManager(path) as m: ...`) and always report channel colors as `RRGGBB` and units as NGFF names such as `micrometer`.
 
 ## Optional dependencies
 

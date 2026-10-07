@@ -38,6 +38,25 @@ The main reader classes currently exposed by `pymif.microscope_manager` are:
 - `ZarrManager` — NGFF v0.4/v0.5 OME-Zarr datasets.
 - `ZarrV04Manager` — compatibility reader for older v0.4-style datasets.
 
+All file-based readers share the same conventions:
+
+- The dataset location is the first argument (`path`; for `ScapeManager` the OME-TIFF file) and `chunks` is an optional TCZYX tuple. When omitted, `chunks` defaults to the manager's `DEFAULT_CHUNKS` (`(1, 1, 8, 4096, 4096)` for most readers, `(1, 1, 8, 1024, 1024)` for `ScapeManager`, the native chunking for `ZeissManager`).
+- The dataset is read in the constructor, so `.data` (one lazy dask array per pyramid level) and `.metadata` are available immediately. `read()` returns `None`.
+- Managers can be used as context managers, which closes any open file handle (HDF5 files for `LuxendoManager`) on exit:
+
+  ```python
+  with mm.LuxendoManager("path/to/luxendo_folder") as lux:
+      lux.to_zarr("output.zarr")
+  ```
+- The metadata uses one spelling everywhere: channel colors are `RRGGBB` hex strings (no `#`), spatial units are NGFF names such as `"micrometer"`, and time units are e.g. `"second"`.
+- Progress messages (opened scenes, subsets, metadata updates, the Zarr tree printed when opening a store) go through the standard `logging` module under the `"pymif"` logger and are silent by default. Show them with:
+
+  ```python
+  import logging
+  logging.basicConfig(format="%(message)s")
+  logging.getLogger("pymif").setLevel(logging.INFO)
+  ```
+
 ### Core capabilities
 
 - Read vendor-specific microscopy metadata into a shared metadata schema.
@@ -229,6 +248,12 @@ PyMIF provides napari widgets for conversion and overview generation. After inst
 
 The widget can load data, preview channels, define a 3D ROI, restrict z/time/channel ranges, choose pyramid settings, and export to OME-Zarr. For axis-aware zarr datasets, controls tied to missing axes are disabled; for example, a dataset with `axes="yx"` has no active T slider or channel selector.
 
+The widgets are built to be docked on any side of the napari window, or floated, and to stay usable at small sizes:
+
+- The three boxes (dataset loading, dataset conversion, batch CSV export) sit in one scroll area, so nothing is cut off in a narrow or short dock.
+- In the **Dataset conversion** box, the arrow in its title expands or collapses the parameters in place. The **Convert to zarr** button stays inside the box and visible when they are collapsed, and is disabled while a conversion runs.
+- The log is a separate pane under a drag handle: drag it taller to see more lines, or shorter to give room to the parameters. Progress bars update a single line instead of filling the log.
+
 ![napari-demo](../documentation/napari-demo.png)
 
 ---
@@ -301,6 +326,17 @@ How it works:
 
 Writing speed is also bounded by how fast the source can be read and decoded, which `num_workers` does not change.
 
+### Progress bar
+
+`to_zarr` shows a [tqdm](https://tqdm.github.io/) progress bar (in a terminal or a notebook) while the arrays are written, labelled with the dataset being written (`raw`, a group or a label). The CLI shows it too. All pyramid levels of a dataset share one bar, because they are computed in a single pass.
+
+```python
+dataset.to_zarr("out.zarr")                    # progress bar on (default)
+dataset.to_zarr("out.zarr", progress=False)    # silent, e.g. for batch jobs and tests
+```
+
+The bar needs a local (threaded) dask scheduler, which is what `to_zarr` uses, and is skipped with `compute=False` because nothing is written then.
+
 ---
 
 ## Documentation strategy in this repository
@@ -324,13 +360,36 @@ The most important API entry points to document and keep stable are:
 
 ## Contributing and extending PyMIF
 
-New microscope support is typically added by subclassing `MicroscopeManager` and implementing `read()` so that it returns:
+New microscope support is typically added by subclassing `MicroscopeManager` (exported from `pymif.microscope_manager`) and implementing two hooks. The base class provides `read()`, which calls them and stores the results in `self.metadata` and `self.data`; it returns `None`:
 
 ```python
-Tuple[List[dask.array.Array], Dict[str, Any]]
+from pymif.microscope_manager import MicroscopeManager
+from pymif.microscope_manager.utils.metadata import ChannelInfo, build_metadata
+
+
+class MyManager(MicroscopeManager):
+    DEFAULT_CHUNKS = (1, 1, 8, 2048, 2048)  # used when chunks=None
+
+    def __init__(self, path, chunks=None):
+        super().__init__(path, chunks)  # sets self.path (Path) and self.chunks
+        self.read()
+
+    def _parse_metadata(self) -> dict:
+        return build_metadata(
+            size=[(t, c, z, y, x)],
+            scales=[(sz, sy, sx)],
+            units=("micrometer",) * 3,
+            channels=[ChannelInfo("DAPI", "0000FF"), ChannelInfo("GFP", "#00ff00")],
+            dtype="uint16",
+        )
+
+    def _build_dask_array(self) -> list:
+        ...  # one lazy dask array per pyramid level, in TCZYX order
 ```
 
-The returned metadata should follow the PyMIF schema used across the repository, including:
+`build_metadata()` normalizes units (`"µm"` -> `"micrometer"`) and channel colors (always `RRGGBB`). The helpers in `pymif.microscope_manager.utils` (`parse_channel_color`, `normalize_unit`, `to_micrometers`, `to_tczyx`, `parse_ome_xml`, `scale_for_level`) are shared by the built-in readers. Managers that need the data before they can describe it, or that read several datasets at once (like `ZarrManager`), may override `read()` instead.
+
+The metadata should follow the PyMIF schema used across the repository, including:
 
 ```python
 {
@@ -349,3 +408,19 @@ The returned metadata should follow the PyMIF schema used across the repository,
 ```
 
 For axis-aware zarr data, `scales` and `units` contain only the spatial axes present in `axes`, in that same order. For example, `axes="yx"` uses two scale values per pyramid level, while `axes="tczyx"` uses three spatial scale values for `z`, `y`, and `x`. Once that contract is respected, the new manager automatically benefits from the common PyMIF tooling such as `build_pyramid()`, `to_zarr()`, `visualize()`, `reorder_channels()`, `update_metadata()`, and `subset_dataset()`.
+
+### Layout of `pymif.microscope_manager.utils`
+
+Shared helpers live in one place each, so readers, writers and the napari viewer behave the same way:
+
+| Module | What it owns |
+| --- | --- |
+| `colors` | `parse_channel_color` / `parse_color` / `ome_color_to_hex` / `hex_to_rgb` and the default channel palette |
+| `units` | `normalize_unit`, `to_micrometers` |
+| `axes` | axis validation, `to_tczyx`, index selections |
+| `chunks` | `shape_tuple`, `get_chunks`, `rechunk_to_shape` |
+| `downsampling` | factor math and `downsample_nearest` (NumPy or Dask) |
+| `metadata`, `ome` | `build_metadata`, `ChannelInfo`, `scale_for_level`, `parse_ome_xml` |
+| `dataset_ops` | validation and in-place edits shared by `MicroscopeManager` and `ZarrManager` (`subset_levels`, `reorder_channels`, `apply_metadata_updates`) |
+| `ngff` | `ZarrWriteConfig`, array creation (`_array_create_kwargs`), sharding, multiscales metadata (`_build_multiscales`) and the pyramid writers |
+

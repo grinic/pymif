@@ -4,7 +4,10 @@ from collections.abc import Sequence
 from numbers import Real
 from typing import Any, TypeAlias
 
-from .axes import SPATIAL_AXIS_SET, normalize_axes, spatial_axes_in_order, spatial_values_for_axes
+import dask.array as da
+import numpy as np
+
+from .axes import SPATIAL_AXIS_SET, normalize_axes, spatial_values_for_axes
 
 SpatialFactor: TypeAlias = int | float | Sequence[int | float]
 SpatialScale: TypeAlias = tuple[float, ...]
@@ -187,3 +190,28 @@ def level_scale_ratios_from_multiscales(
         )
         for level_scale in level_scales
     ]
+
+
+def downsample_nearest(arr, factors: Sequence[int], spatial_axes: Sequence[int]):
+    """Nearest-neighbour downsampling by striding the spatial axes.
+
+    Works on NumPy and Dask arrays. Axes whose length is not divisible by the
+    factor are edge-padded first, so the output length is ``ceil(n / factor)``.
+    A factor of 1 leaves an axis untouched.
+    """
+    if len(factors) != len(spatial_axes):
+        raise ValueError("factors must match spatial_axes length.")
+    xp = da if isinstance(arr, da.Array) else np
+    pad_width = [(0, 0)] * arr.ndim
+    slicing = [slice(None)] * arr.ndim
+    for axis, factor in zip(spatial_axes, factors):
+        factor = int(factor)
+        if factor <= 1:
+            continue
+        remainder = int(arr.shape[axis]) % factor
+        if remainder:
+            pad_width[axis] = (0, factor - remainder)
+        slicing[axis] = slice(0, None, factor)
+    if any(width != (0, 0) for width in pad_width):
+        arr = xp.pad(arr, pad_width, mode="edge")
+    return arr[tuple(slicing)]

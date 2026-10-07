@@ -1,3 +1,4 @@
+from .microscope_manager import MicroscopeManager
 from .luxendo_manager import LuxendoManager
 from .viventis_manager import ViventisManager
 from .zarr_manager import ZarrManager

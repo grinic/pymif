@@ -1,22 +1,25 @@
-import dask.array as da
-from tifffile import imread
 import xml.etree.ElementTree as ET
-from pathlib import Path
-from typing import List, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
+
+import dask.array as da
 from dask import delayed
+from tifffile import imread
+
 from .microscope_manager import MicroscopeManager
-from .utils.ngff import ome_color_to_hex
+from .utils.metadata import build_metadata
+from .utils.ome import parse_ome_xml, xml_attr
+
 
 class ViventisManager(MicroscopeManager):
     """
     Reader for Viventis microscope datasets with OME-TIFF and companion .ome XML files.
-    
+
     This class lazily loads data into a dask array and parses associated OME-XML metadata.
     """
-        
-    def __init__(self, 
+
+    def __init__(self,
                  path: str,
-                 chunks: Tuple[int, ...] = (1, 1, 8, 4096, 4096)):
+                 chunks: Optional[Tuple[int, ...]] = None):
         """
         Initialize the ViventisManager.
 
@@ -25,15 +28,26 @@ class ViventisManager(MicroscopeManager):
         path : str
             Path to the folder containing the Viventis dataset (including `.ome` and `.tif` files).
         chunks : Tuple[int, ...], optional
-            Desired chunk shape for the output Dask array. Default is `(1, 1, 8, 4096, 4096)`.
+            Desired chunk shape for the output Dask array. Defaults to
+            :attr:`DEFAULT_CHUNKS` ``(1, 1, 8, 4096, 4096)``.
         """
-        
-        super().__init__()
-        self.path = Path(path)
-        self.chunks = chunks
+        super().__init__(path, chunks)
         self.read()
 
-    def _parse_companion_file(self) -> Dict[str, Any]:
+    @staticmethod
+    def _plane_files(tiffdata: List[ET.Element]) -> Dict[Tuple[int, int], str]:
+        """Map ``(t, c)`` to the TIFF file holding that plane stack."""
+        plane_files = {}
+        for entry in tiffdata:
+            t = xml_attr(entry, "FirstT", int, what="<TiffData>")
+            c = xml_attr(entry, "FirstC", int, what="<TiffData>")
+            uuid = entry.find(".//{*}UUID")
+            if uuid is None:
+                raise ValueError(f"<TiffData> for t={t}, c={c} has no <UUID FileName=...>.")
+            plane_files[(t, c)] = xml_attr(uuid, "FileName", what="<UUID>")
+        return plane_files
+
+    def _parse_metadata(self) -> Dict[str, Any]:
         """
         Parse the companion `.ome` XML metadata file.
 
@@ -41,59 +55,23 @@ class ViventisManager(MicroscopeManager):
         -------
         Dict[str, Any]
             Dictionary containing extracted metadata such as size, scales, units, channel info,
-            time increment, and TIFF file mapping.
+            time increment, and TIFF file mapping (``plane_files``).
         """
-        
-        companion = next(self.path.glob("*.ome"))
-        tree = ET.parse(companion)
-        root = tree.getroot()
+        companion = next(self.path.glob("*.ome"), None)
+        if companion is None:
+            raise FileNotFoundError(f"No companion '*.ome' file found in {self.path}.")
 
-        pixels = root.find(".//{*}Pixels")
-        size_t = int(pixels.attrib["SizeT"])
-        size_z = int(pixels.attrib["SizeZ"])
-        size_y = int(pixels.attrib["SizeY"])
-        size_x = int(pixels.attrib["SizeX"])
-        size_c = int(pixels.attrib["SizeC"])
-
-        scales = [(float(pixels.attrib["PhysicalSizeZ"]),
-                   float(pixels.attrib["PhysicalSizeY"]),
-                   float(pixels.attrib["PhysicalSizeX"]))]
-
-        units = (pixels.attrib["PhysicalSizeZUnit"],
-                 pixels.attrib["PhysicalSizeYUnit"],
-                 pixels.attrib["PhysicalSizeXUnit"])
-
-        time_increment = float(pixels.attrib.get("TimeIncrement", 1))
-        time_increment_unit = pixels.attrib.get("TimeIncrementUnit", "s")
-
-        channels = root.findall(".//{*}Channel")
-        channel_names = [c.attrib.get("Name", f"Channel {i}") for i, c in enumerate(channels)]
-        # OME Color is a signed 32-bit RGBA int; default -1 is opaque white
-        channel_colors = [ome_color_to_hex(c.attrib.get("Color", -1)) for c in channels]
-
-        dtype = str(pixels.attrib["Type"])
-
-        # Plane map: (t, c) -> filename
-        tiffdata = root.findall(".//{*}TiffData")
-        plane_files = {}
-        for entry in tiffdata:
-            t = int(entry.attrib["FirstT"])
-            c = int(entry.attrib["FirstC"])
-            filename = entry.find(".//{*}UUID").attrib["FileName"]
-            plane_files[(t, c)] = filename
-
-        return {
-            "size": [(size_t, size_c, size_z, size_y, size_x)],
-            "scales": scales,
-            "units": units,
-            "time_increment": time_increment,
-            "time_increment_unit": time_increment_unit,
-            "channel_names": channel_names,
-            "channel_colors": channel_colors,
-            "dtype": dtype,
-            "plane_files": plane_files,
-            "axes": "tczyx"
-        }
+        px = parse_ome_xml(ET.parse(companion).getroot())
+        return build_metadata(
+            size=[(px.size_t, px.size_c, px.size_z, px.size_y, px.size_x)],
+            scales=[px.scale_zyx],
+            units=px.units_zyx,
+            channels=px.channels,
+            dtype=px.dtype,
+            time_increment=px.time_increment,
+            time_increment_unit=px.time_increment_unit,
+            plane_files=self._plane_files(px.tiffdata),
+        )
 
     def _build_dask_array(self) -> List[da.Array]:
         """
@@ -104,37 +82,23 @@ class ViventisManager(MicroscopeManager):
         List[da.Array]
             A list containing a single Dask array representing the full dataset (level 0).
         """
-        
         t, c, z, y, x = self.metadata["size"][0]
-
-        lazy_imread = delayed(imread)  # lazy reader
         filenames = self.metadata["plane_files"]
         dtype = self.metadata["dtype"]
-        dask_arrays = [
+
+        missing = [(ti, ci) for ti in range(t) for ci in range(c) if (ti, ci) not in filenames]
+        if missing:
+            raise ValueError(f"No TIFF file listed for (t, c) = {missing[:5]}{'...' if len(missing) > 5 else ''}.")
+
+        lazy_imread = delayed(imread)
+        stack = da.stack(
             [
-                da.from_delayed(lazy_imread(str(self.path / filenames[(ti, ci)])), shape=(z, y, x), dtype=dtype)
-                for ci in range(c)
-            ]
-            for ti in range(t)
-        ]
-        # Stack into one large dask.array
-        stack = da.stack(dask_arrays, axis=0).rechunk(self.chunks)
-
+                [
+                    da.from_delayed(lazy_imread(str(self.path / filenames[(ti, ci)])), shape=(z, y, x), dtype=dtype)
+                    for ci in range(c)
+                ]
+                for ti in range(t)
+            ],
+            axis=0,
+        ).rechunk(self.chunks)
         return [stack]  # level 0 only
-
-    def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
-        """
-        Read the Viventis dataset and populate self.data and self.metadata.
-
-        Returns
-        -------
-        Tuple[List[da.Array], Dict[str, Any]]
-            A tuple containing:
-            - A list with one dask array representing the image data.
-            - A metadata dictionary with pixel sizes, units, axes, etc.
-        """
-        
-        self.metadata = self._parse_companion_file()
-        self.data = self._build_dask_array()
-        return
-    

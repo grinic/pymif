@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Optional, TYPE_CHECKING
-import dask.array as da
-import warnings
-
 from collections.abc import Sequence
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+
+import dask.array as da
 
 if TYPE_CHECKING:
     import napari
+
+logger = logging.getLogger("pymif")
+
 
 class MicroscopeManager(ABC):
     """
@@ -16,32 +20,81 @@ class MicroscopeManager(ABC):
 
     Provides shared functionality for reading, writing, visualizing,
     and managing multiscale image data and metadata.
+
+    Subclasses implement two hooks and inherit :meth:`read`:
+
+    * :meth:`_parse_metadata` -- return the normalized metadata dictionary
+      (see :func:`pymif.microscope_manager.utils.metadata.build_metadata`);
+    * :meth:`_build_dask_array` -- return one lazy dask array per pyramid level.
+
+    Managers can be used as context managers so that any open file handle is
+    closed automatically::
+
+        with mm.LuxendoManager("path/to/dataset") as lux:
+            lux.to_zarr("out.zarr")
     """
-    
-    def __init__(self):
+
+    #: Chunk shape used when the constructor receives ``chunks=None``.
+    DEFAULT_CHUNKS: Optional[Tuple[int, ...]] = (1, 1, 8, 4096, 4096)
+
+    def __init__(self, path: Optional[str | Path] = None, chunks: Optional[Tuple[int, ...]] = None):
         """Initialize the common manager state.
 
         Subclasses populate :attr:`data` with one dask array per pyramid level
         and :attr:`metadata` with the normalized PyMIF metadata schema.
         ``_open_files`` stores any file handles that should be closed through
         :meth:`close`.
+
+        Parameters
+        ----------
+        path : str or Path, optional
+            Dataset location, stored as a :class:`~pathlib.Path` in :attr:`path`.
+        chunks : tuple of int, optional
+            Dask chunk shape. Falls back to :attr:`DEFAULT_CHUNKS` when ``None``.
         """
         self.data: List[da.Array] = []
         self.metadata: Dict[str, Any] = {}
-        self._open_files = []
+        self._open_files: list = []
+        self.path = Path(path) if path is not None else None
+        self.chunks = chunks if chunks is not None else self.DEFAULT_CHUNKS
+
+    # ------------------------------------------------------------------
+    # Reading
+    # ------------------------------------------------------------------
+
+    def read(self) -> None:
+        """Parse the metadata and build the lazy dask pyramid.
+
+        Populates :attr:`metadata` and :attr:`data` in place; nothing is
+        returned. Called automatically by the constructors.
+        """
+        self.metadata = self._parse_metadata()
+        self.data = self._build_dask_array()
 
     @abstractmethod
-    def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
-        """
-        Abstract method that must be implemented by subclasses to read image data and metadata.
+    def _parse_metadata(self) -> Dict[str, Any]:
+        """Return the metadata dictionary describing the dataset."""
 
-        Returns
-        ----------
-        Tuple
-            - List of Dask arrays for each resolution level.
-            - Dictionary of extracted metadata.
+    @abstractmethod
+    def _build_dask_array(self) -> List[da.Array]:
+        """Return one dask array per pyramid level, in the order given by ``metadata["axes"]``."""
+
+    @staticmethod
+    def _normalize_chunks(chunks, shape: Tuple[int, ...]):
+        """Make ``chunks`` valid for an array of ``shape``.
+
+        ``None``, ``"auto"``, non-iterables and tuples of the wrong length give
+        ``"auto"``; otherwise every chunk is clipped to ``[1, axis size]``.
         """
-        pass
+        if chunks is None or chunks == "auto":
+            return "auto"
+        try:
+            chunk_tuple = tuple(int(c) for c in chunks)
+        except TypeError:
+            return "auto"
+        if len(chunk_tuple) != len(shape):
+            return "auto"
+        return tuple(max(1, min(c, int(s))) for c, s in zip(chunk_tuple, shape))
 
     def to_zarr(self, 
                 path: str,
@@ -119,16 +172,20 @@ class MicroscopeManager(ABC):
 
     def close(self) -> None:
         """Close all open resources, such as file handles."""
-        for f in getattr(self, "_open_files", []):
+        for f in self._open_files:
             try:
                 f.close()
             except Exception as e:
-                print(f"Warning: failed to close file: {e}")
+                logger.warning("Failed to close file: %s", e)
         self._open_files = []
-        
-    def reorder_channels(self, 
-                         new_order: List[int]
-                         ) -> None:
+
+    def __enter__(self) -> "MicroscopeManager":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+
+    def reorder_channels(self, new_order: List[int]) -> None:
         """
         Reorder the channel axis and update channel-related metadata.
 
@@ -137,37 +194,12 @@ class MicroscopeManager(ABC):
             new_order : List[int]
                 A permutation of the channel indices.
         """
-        if not self.data:
-            raise ValueError("No data loaded.")
+        from .utils.dataset_ops import reorder_channels as _reorder
 
-        axes = self.metadata.get("axes", "").lower()
-        if "c" not in axes:
-            raise ValueError("Dataset has no channel axis to reorder.")
+        self.data = _reorder(self.data, self.metadata, new_order)
+        logger.info("Channels reordered to %s", list(new_order))
 
-        c_dim = axes.index("c")
-        original_c = self.data[0].shape[c_dim]
-        if sorted(new_order) != list(range(original_c)):
-            raise ValueError(f"new_order must be a permutation of 0..{original_c - 1}")
-
-        reordered = []
-        for level in self.data:
-            slicer = [slice(None)] * level.ndim
-            slicer[c_dim] = new_order
-            reordered.append(level[tuple(slicer)])
-        self.data = reordered
-
-        if "channel_names" in self.metadata:
-            self.metadata["channel_names"] = [self.metadata["channel_names"][i] for i in new_order]
-        if "channel_colors" in self.metadata:
-            self.metadata["channel_colors"] = [self.metadata["channel_colors"][i] for i in new_order]
-
-        self.metadata["size"] = [tuple(level.shape) for level in self.data]
-        self.metadata["chunksize"] = [tuple(level.chunksize) for level in self.data]
-        print(f"Channels reordered to {new_order}")
-        
-    def update_metadata(self, 
-                        updates: Dict[str, Any]
-                        ) -> None:
+    def update_metadata(self, updates: Dict[str, Any]) -> None:
         """
         Safely update entries in the metadata dictionary with validation.
 
@@ -182,76 +214,18 @@ class MicroscopeManager(ABC):
                     - scales (list[tuple])
                     - time_increment (float)
                     - time_increment_unit (str)
+                    - units (tuple[str])
+                    - data_type (``"intensity"`` or ``"label"``)
 
         Warnings
         ----------
-            Issues warnings or raises exceptions if updates are incompatible.
+            Unknown keys and channel updates that do not match the dataset
+            are skipped with a warning; invalid values raise.
         """
-        
-        valid_keys = {
-            "channel_names",
-            "channel_colors",
-            "scales",
-            "time_increment",
-            "time_increment_unit",
-            "units",
-            "data_type",
-        }
+        from .utils.dataset_ops import apply_metadata_updates, known_updates
 
-        from .utils.ngff import parse_color
+        apply_metadata_updates(self.data, self.metadata, known_updates(updates))
 
-        for key, value in updates.items():
-            if key not in valid_keys:
-                warnings.warn(f"⚠️ Unsupported or unknown metadata key: '{key}'")
-                continue
-
-            if key in {"channel_names", "channel_colors"}:
-                axes = self.metadata.get("axes", "").lower()
-                if "c" not in axes:
-                    warnings.warn(f"Dataset has no channel axis. Skipping '{key}'.")
-                    continue
-                c_dim = axes.index("c")
-                expected_len = self.data[0].shape[c_dim]
-                if len(value) != expected_len:
-                    warnings.warn(
-                        f"Length of '{key}' ({len(value)}) does not match number of channels ({expected_len}). Skipping."
-                    )
-                    continue
-
-            if key == "scales":
-                if not isinstance(value, list) or len(value) != len(self.data):
-                    raise ValueError("❌ 'scales' must be a list with one entry per pyramid level.")
-                spatial_axes = [ax for ax in self.metadata.get("axes", "").lower() if ax in "zyx"]
-                for s in value:
-                    if not isinstance(s, (list, tuple)) or len(s) != len(spatial_axes):
-                        raise ValueError("Each scale entry must match the dataset spatial axes.")
-
-            if key == "time_increment":
-                if not isinstance(value, (float, int)) or value <= 0:
-                    raise ValueError("❌ 'time_increment' must be a positive float.")
-
-            if key == "time_increment_unit":
-                if value is not None and not isinstance(value, str):
-                    raise ValueError("❌ 'time_increment_unit' must be a string or None.")
-
-            if key == "units":
-                if not isinstance(value, (tuple, list)):
-                    raise TypeError("'units' must be a tuple or list.")
-                spatial_axes = [ax for ax in self.metadata.get("axes", "").lower() if ax in "zyx"]
-                if len(value) != len(spatial_axes):
-                    raise ValueError("'units' must match the dataset spatial axes.")
-
-            if key == "data_type":
-                from .utils.axes import normalize_data_type
-                value = normalize_data_type(value)
-                self.metadata["is_label"] = value == "label"
-                
-            if key == "channel_colors":
-                value = [parse_color(v) for v in value]
-
-            self.metadata[key] = value
-            print(f"✅ Updated metadata entry '{key}'")
-            
     def subset_dataset(self,
                     T: Optional[Sequence[int]] = None,
                     C: Optional[Sequence[int]] = None,
@@ -269,48 +243,20 @@ class MicroscopeManager(ABC):
             Optional sequences of indices for each axis.
             Must be uniformly spaced. For example:
             dataset.subset_dataset(T=np.arange(0, 10, 2), Z=[0,1,2])
+        rebuild_pyramid : bool
+            Rebuild the same number of pyramid levels (with the original
+            per-axis downscale factors) after subsetting.
 
         Raises
         -------
-        ValueError 
+        ValueError
             if index spacing is not uniform or out of bounds.
         """
-        from .utils.subset import subset_dask_array, subset_metadata
-        from .utils.axes import index_list_from_selection
-        import numpy as np
-        
-        if not self.data:
-            raise ValueError("No data loaded.")
+        from .utils.dataset_ops import subset_levels
 
-        shape = self.metadata["size"][0]
-        axis_order = self.metadata["axes"].lower()
-        requested = {"t": T, "c": C, "z": Z, "y": Y, "x": X}
-        for name, index in requested.items():
-            if index is None or name not in axis_order:
-                continue
-            axis = axis_order.index(name)
-            indices = index_list_from_selection(index, shape[axis])
-            if indices and (min(indices) < 0 or max(indices) >= shape[axis]):
-                raise ValueError(f"Index for {name.upper()} out of range.")
-
-        num_levels = len(self.data)
-        downscale_factor = 2
-        if num_levels > 1 and self.metadata["size"][1][-1] != 0:
-            downscale_factor = int(np.round(self.metadata["size"][0][-1] / self.metadata["size"][1][-1]))
-
-        subset_kwargs = {
-            "T": T if "t" in axis_order else None,
-            "C": C if "c" in axis_order else None,
-            "Z": Z if "z" in axis_order else None,
-            "Y": Y if "y" in axis_order else None,
-            "X": X if "x" in axis_order else None,
-        }
-        self.data = [subset_dask_array(self.data[0], axes=axis_order, **subset_kwargs)]
-        self.metadata = subset_metadata(self.metadata, **subset_kwargs)
-        self.metadata["chunksize"] = [tuple(arr.chunksize) for arr in self.data]
-
-        if rebuild_pyramid:
-            self.build_pyramid(num_levels=num_levels, downscale_factor=downscale_factor)
-
-
-        print("Dataset subset complete.")
+        self.data, self.metadata = subset_levels(
+            self.data, self.metadata,
+            T=T, C=C, Z=Z, Y=Y, X=X,
+            rebuild_pyramid=rebuild_pyramid,
+        )
+        logger.info("Dataset subset complete.")

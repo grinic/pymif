@@ -1,23 +1,28 @@
-import os, re
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import List, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
+
 import dask.array as da
 import h5py
-import numpy as np
+
 from .microscope_manager import MicroscopeManager
-import itertools
+from .utils.metadata import ChannelInfo, build_metadata, scale_for_level
+
 
 class LuxendoManager(MicroscopeManager):
     """
     Reader for Luxendo microscope data saved as multi-resolution HDF5 (.lux.h5) and XML metadata.
 
     This class parses Luxendo's XML configuration and builds a lazy Dask array pyramid for downstream processing.
+    One ``*.lux.h5`` file holds one timepoint and channel (``tp-<t>`` / ``ch-<c>`` in the file name);
+    HDF5 handles stay open until :meth:`close` (or leaving a ``with`` block).
     """
-        
-    def __init__(self, 
+
+
+    def __init__(self,
                  path: str,
-                 chunks: Tuple[int, ...] = (1, 1, 8, 4096, 4096)):
+                 chunks: Optional[Tuple[int, ...]] = None):
         """
         Initialize the LuxendoManager.
 
@@ -26,15 +31,60 @@ class LuxendoManager(MicroscopeManager):
         path : str
             Path to the Luxendo dataset directory.
         chunks : Tuple[int, ...], optional
-            Chunk shape for Dask arrays, by default (1, 1, 8, 4096, 4096).
+            Chunk shape for Dask arrays, by default :attr:`DEFAULT_CHUNKS` ``(1, 1, 8, 4096, 4096)``.
         """
-        
-        super().__init__()
-        self.path = Path(path)
-        self.chunks = chunks
-        self._open_files = []
+        super().__init__(path, chunks)
         self._h5_handles: Dict[Path, h5py.File] = {}
         self.read()
+
+    # ---------- File discovery ----------
+
+    @classmethod
+    def _tp_ch(cls, filename: str) -> Tuple[int, int]:
+        """Extract ``(timepoint, channel)`` from a ``...tp-<t>...ch-<c>....lux.h5`` file name."""
+        tp = re.search(r"tp-(\d+)", filename)
+        ch = re.search(r"ch-(\d+)", filename)
+        if tp is None or ch is None:
+            raise ValueError(f"Cannot read timepoint/channel from file name {filename!r} (expected 'tp-<n>' and 'ch-<n>').")
+        return int(tp.group(1)), int(ch.group(1))
+
+    def _plane_files(self) -> Dict[Tuple[int, int], Path]:
+        """Map ``(t, c)`` to the ``.lux.h5`` file holding it."""
+        files = {self._tp_ch(f.name): f for f in sorted(self.path.glob("*.lux.h5"))}
+        if not files:
+            raise FileNotFoundError(f"No '*.lux.h5' files found in {self.path}.")
+        return files
+
+    @staticmethod
+    def _sorted_dataset_names(f: h5py.File) -> List[str]:
+        """Return the "Data*" dataset names of an open file in natural scale order."""
+        return sorted((k for k in f.keys() if k.startswith("Data")), key=lambda s: (len(s), s))
+
+    @classmethod
+    def get_available_datasets(cls, h5_file) -> List[str]:
+        """
+        Extract all dataset names from a .lux.h5 file.
+
+        Parameters
+        ----------
+        h5_file : Path
+            Path to a Luxendo HDF5 file.
+
+        Returns
+        -------
+        List[str]
+            Sorted list of dataset names (one per resolution level).
+        """
+        with h5py.File(h5_file, "r") as f:
+            return cls._sorted_dataset_names(f)
+
+    # ---------- Metadata ----------
+
+    @staticmethod
+    def _xyz_to_zyx(text: str, cast) -> Tuple:
+        """Parse a space-separated ``x y z`` triplet and return it as ``(z, y, x)``."""
+        x, y, z = (cast(v) for v in text.split())
+        return z, y, x
 
     def _parse_metadata(self) -> Dict[str, Any]:
         """
@@ -45,76 +95,52 @@ class LuxendoManager(MicroscopeManager):
         Dict[str, Any]
             A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.
         """
-        
-        xml_path = next(self.path.glob("*.xml"))
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        xml_path = next(self.path.glob("*.xml"), None)
+        if xml_path is None:
+            raise FileNotFoundError(f"No '*.xml' metadata file found in {self.path}.")
+        root = ET.parse(xml_path).getroot()
 
-        setups = root.findall(".//ViewSetup")
         timepoints = root.find(".//Timepoints")
-        first_tp = int(timepoints.find("first").text)
-        last_tp = int(timepoints.find("last").text)
-        size_t = last_tp - first_tp + 1
+        if timepoints is None:
+            raise ValueError(f"No <Timepoints> element in {xml_path.name}.")
+        size_t = int(timepoints.find("last").text) - int(timepoints.find("first").text) + 1
 
-        setup_sizes = {}
-        setup_voxels = {}
-        channel_names = []
-        channel_ids = []
+        setup = root.find(".//ViewSetup")  # all setups share size and voxel size
+        if setup is None:
+            raise ValueError(f"No <ViewSetup> element in {xml_path.name}.")
+        base_scale = self._xyz_to_zyx(setup.find("voxelSize/size").text, float)
+        unit = setup.findtext("voxelSize/unit") or "micrometer"
 
-        for setup in setups:
-            setup_id = int(setup.find("id").text)
-            size = tuple(map(int, setup.find("size").text.split()))
-            size = (size[2],size[1],size[0]) # invert XYZ -> ZYX
-            voxel = tuple(map(float, setup.find("voxelSize/size").text.split()))
-            voxel = (voxel[2],voxel[1],voxel[0]) # invert XYZ -> ZYX
-            setup_sizes[setup_id] = size
-            setup_voxels[setup_id] = voxel
+        channels = [ChannelInfo(ch.findtext("name") or f"Channel {i}") for i, ch in enumerate(root.findall(".//Channel"))]
 
-        # Assume sorted by id
-        channels = root.findall(".//Channel")
-        for ch in channels:
-            channel_ids.append(int(ch.find("id").text))
-            channel_names.append(ch.find("name").text)
+        # Level shapes (and dtype) come from the first file of the dataset.
+        ref_file = next(iter(sorted(self._plane_files().items())))[1]
+        with h5py.File(ref_file, "r") as f:
+            names = self._sorted_dataset_names(f)
+            if not names:
+                raise ValueError(f"No 'Data*' datasets in {ref_file.name}.")
+            shapes = [f[n].shape for n in names]
+            dtype = f[names[0]].dtype
 
-        size_c = len(channel_ids)
-        size_z, size_y, size_x = setup_sizes[0]  # all setups have same size
-        scales = [setup_voxels[0]]
-        units = ["micrometer"] * 3  # consistent with metadata
-        
-        # Gather HDF5 files and dataset names
-        h5_files = sorted(self.path.glob("*.lux.h5"))
-        # Open the reference file once for names and shapes of all levels
-        with h5py.File(h5_files[0], "r") as f:
-            dataset_names = self._sorted_dataset_names(f)
-            size = [(size_t, size_c) + f[ds_name].shape for ds_name in dataset_names]
-        
-        for name in dataset_names[1:]:
-            downscale_factors = list(map(int, re.findall(r'\d+', name)))
-            
-            scales.append(tuple([
-                scales[0][0] * downscale_factors[0],
-                scales[0][1] * downscale_factors[1],
-                scales[0][2] * downscale_factors[2],
-            ]))
-            
-        palette = ['white', 'red', 'green', 'blue', 'yellow', 'magenta', 'cyan']
-        channel_colors = list(itertools.islice(itertools.cycle(palette), len(channel_names)))
+        # Voxel size of each level from the actual shapes, so the physical extent
+        # is preserved. Levels are not simply downsampled: Luxendo also resamples
+        # z, so a level can have *more* planes than level 0 (e.g. 137 -> 192).
+        scales = [scale_for_level(base_scale, shapes[0], shape) for shape in shapes]
 
-        return {
-            "size": size,
-            "scales": scales,
-            "units": tuple(units),
-            "time_increment": 1.0,
-            "time_increment_unit": "s",
-            "channel_names": channel_names,
-            "channel_colors": channel_colors,  # Example, map from name if needed
-            "dtype": "uint16",
-            "plane_files": None,
-            "axes": "tczyx"
-        }
-        
-    def _read_h5_stack(self, h5_path: Path, 
-                       dataset_name: str) -> np.ndarray:
+        return build_metadata(
+            size=[(size_t, len(channels)) + tuple(shape) for shape in shapes],
+            scales=scales,
+            units=(unit,) * 3,
+            channels=channels,
+            dtype=dtype,
+            # The Luxendo XML does not record the interval between timepoints.
+            time_increment=1.0,
+            time_increment_unit="s",
+        )
+
+    # ---------- Dask array ----------
+
+    def _read_h5_stack(self, h5_path: Path, dataset_name: str) -> da.Array:
         """
         Load a single resolution dataset lazily as a Dask array.
 
@@ -127,59 +153,14 @@ class LuxendoManager(MicroscopeManager):
 
         Returns
         -------
-        np.ndarray
-            A Dask array loaded from the HDF5 file.
+        dask.array.Array
+            A lazy ``(z, y, x)`` Dask array backed by the HDF5 dataset.
         """
-        
         f = self._h5_handles.get(h5_path)
         if f is None:  # one handle per file, shared by all pyramid levels
             f = self._h5_handles[h5_path] = h5py.File(h5_path, "r")
             self._open_files.append(f)
-        # return dask array, no readings yet
-        return da.from_array(f[dataset_name], chunks=self.chunks[2:]) 
-
-    def _read_h5_shape(self, h5_path: Path, dataset_name: str):
-        """
-        Read the shape and dtype of a dataset in an HDF5 file.
-
-        Parameters
-        ----------
-        h5_path : Path
-            Path to the .lux.h5 file.
-        dataset_name : str
-            Internal dataset name.
-
-        Returns
-        -------
-        Tuple[Tuple[int, ...], np.dtype]
-            A tuple containing the dataset shape and dtype.
-        """
-        
-        with h5py.File(h5_path, "r") as f:
-            return f[dataset_name].shape, f[dataset_name].dtype
-        
-    def get_available_datasets(self, h5_file) -> List:
-        """
-        Extract all dataset names from a .lux.h5 file.
-
-        Parameters
-        ----------
-        h5_file : Path
-            Path to a Luxendo HDF5 file.
-
-        Returns
-        -------
-        List[str]
-            Sorted list of dataset names.
-        """
-        
-        with h5py.File(h5_file, "r") as f:
-            return self._sorted_dataset_names(f)
-
-    @staticmethod
-    def _sorted_dataset_names(f: h5py.File) -> List[str]:
-        """Return the "Data*" dataset names of an open file in natural scale order."""
-        return sorted((k for k in f.keys() if k.startswith("Data")), key=lambda s: (len(s), s))
+        return da.from_array(f[dataset_name], chunks=self.chunks[2:])
 
     def _build_dask_array(self) -> List[da.Array]:
         """
@@ -190,44 +171,20 @@ class LuxendoManager(MicroscopeManager):
         List[da.Array]
             A list of Dask arrays representing each resolution level (from highest to lowest).
         """
-        
-        t, c, z, y, x = self.metadata["size"][0]
-        
-        def extract_tp_ch_numbers(filename: str) -> tuple[int, int]:
-            tp_match = re.search(r'tp-(\d+)', filename)
-            ch_match = re.search(r'ch-(\d+)', filename)
-            tp = int(tp_match.group(1)) if tp_match else -1
-            ch = int(ch_match.group(1)) if ch_match else -1
-            return tp, ch
-        
-        h5_files = sorted(self.path.glob("*.lux.h5"), 
-                          key=lambda f: extract_tp_ch_numbers(f.name)
-                          )
-        assert len(h5_files) == t * c, "Mismatch between expected and found HDF5 files."
+        t, c = self.metadata["size"][0][:2]
+        files = self._plane_files()
+        missing = [(ti, ci) for ti in range(t) for ci in range(c) if (ti, ci) not in files]
+        if missing:
+            raise ValueError(
+                f"Expected {t * c} '*.lux.h5' files (t={t}, c={c}) but {len(missing)} are missing, "
+                f"e.g. (t, c) = {missing[:5]}."
+            )
 
-        dataset_names = self.get_available_datasets(h5_files[0])
-
-        pyramid = []
-        for ds_name in dataset_names:
-            lazy_arrays = [
-                [self._read_h5_stack(h5_files[ti * c + ci], ds_name) for ci in range(c)]
-                for ti in range(t)
-            ]
-            pyramid.append(da.stack(lazy_arrays, axis=0).rechunk(self.chunks))  # T, C, Z, Y, X
-
-        return pyramid
-
-    def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
-        """
-        Read Luxendo image data and metadata.
-
-        Returns
-        -------
-        Tuple[List[da.Array], Dict[str, Any]]
-            A list of Dask arrays (pyramidal levels) and a metadata dictionary.
-        """
-        
-        self.metadata = self._parse_metadata()
-        self.data = self._build_dask_array()
-        return
-    
+        names = self.get_available_datasets(files[(0, 0)])
+        return [
+            da.stack(
+                [[self._read_h5_stack(files[(ti, ci)], name) for ci in range(c)] for ti in range(t)],
+                axis=0,
+            ).rechunk(self.chunks)  # T, C, Z, Y, X
+            for name in names
+        ]
