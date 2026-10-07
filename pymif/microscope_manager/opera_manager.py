@@ -1,5 +1,3 @@
-from logging import root
-
 import dask.array as da
 import zarr
 import xml.etree.ElementTree as ET

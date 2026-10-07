@@ -44,7 +44,7 @@ class ViventisManager(MicroscopeManager):
             time increment, and TIFF file mapping.
         """
         
-        companion = list(self.path.glob("*.ome"))[0]
+        companion = next(self.path.glob("*.ome"))
         tree = ET.parse(companion)
         root = tree.getroot()
 
@@ -79,7 +79,6 @@ class ViventisManager(MicroscopeManager):
         for entry in tiffdata:
             t = int(entry.attrib["FirstT"])
             c = int(entry.attrib["FirstC"])
-            z_count = int(entry.attrib.get("PlaneCount", 1))
             filename = entry.find(".//{*}UUID").attrib["FileName"]
             plane_files[(t, c)] = filename
 
@@ -110,18 +109,17 @@ class ViventisManager(MicroscopeManager):
 
         lazy_imread = delayed(imread)  # lazy reader
         filenames = self.metadata["plane_files"]
-        lazy_arrays = [ [ lazy_imread(f"{self.path}/{filenames[(ti,ci)]}") for ci in range(c) ] for ti in range(t) ] 
+        dtype = self.metadata["dtype"]
         dask_arrays = [
             [
-                da.from_delayed(l2, shape=(z,y,x), dtype=self.metadata["dtype"])
-                for l2 in l1
+                da.from_delayed(lazy_imread(str(self.path / filenames[(ti, ci)])), shape=(z, y, x), dtype=dtype)
+                for ci in range(c)
             ]
-            for l1 in lazy_arrays
+            for ti in range(t)
         ]
         # Stack into one large dask.array
-        stack = da.stack(dask_arrays, axis=0)
-        stack = stack.rechunk((self.chunks))
-  
+        stack = da.stack(dask_arrays, axis=0).rechunk(self.chunks)
+
         return [stack]  # level 0 only
 
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:

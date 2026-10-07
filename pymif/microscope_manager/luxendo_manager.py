@@ -33,6 +33,7 @@ class LuxendoManager(MicroscopeManager):
         self.path = Path(path)
         self.chunks = chunks
         self._open_files = []
+        self._h5_handles: Dict[Path, h5py.File] = {}
         self.read()
 
     def _parse_metadata(self) -> Dict[str, Any]:
@@ -82,9 +83,10 @@ class LuxendoManager(MicroscopeManager):
         
         # Gather HDF5 files and dataset names
         h5_files = sorted(self.path.glob("*.lux.h5"))
-        dataset_names = self.get_available_datasets(h5_files[0])
-        
-        size = [(size_t, size_c) + self._read_h5_shape(h5_files[0], ds_name)[0] for ds_name in dataset_names]
+        # Open the reference file once for names and shapes of all levels
+        with h5py.File(h5_files[0], "r") as f:
+            dataset_names = self._sorted_dataset_names(f)
+            size = [(size_t, size_c) + f[ds_name].shape for ds_name in dataset_names]
         
         for name in dataset_names[1:]:
             downscale_factors = list(map(int, re.findall(r'\d+', name)))
@@ -129,8 +131,10 @@ class LuxendoManager(MicroscopeManager):
             A Dask array loaded from the HDF5 file.
         """
         
-        f = h5py.File(h5_path, "r")
-        self._open_files.append(f)
+        f = self._h5_handles.get(h5_path)
+        if f is None:  # one handle per file, shared by all pyramid levels
+            f = self._h5_handles[h5_path] = h5py.File(h5_path, "r")
+            self._open_files.append(f)
         # return dask array, no readings yet
         return da.from_array(f[dataset_name], chunks=self.chunks[2:]) 
 
@@ -170,9 +174,12 @@ class LuxendoManager(MicroscopeManager):
         """
         
         with h5py.File(h5_file, "r") as f:
-            dataset_names = [k for k in f.keys() if k.startswith("Data")]
-        dataset_names = sorted(dataset_names, key=lambda s: (len(s), s))  # natural scale order
-        return dataset_names
+            return self._sorted_dataset_names(f)
+
+    @staticmethod
+    def _sorted_dataset_names(f: h5py.File) -> List[str]:
+        """Return the "Data*" dataset names of an open file in natural scale order."""
+        return sorted((k for k in f.keys() if k.startswith("Data")), key=lambda s: (len(s), s))
 
     def _build_dask_array(self) -> List[da.Array]:
         """
@@ -202,21 +209,12 @@ class LuxendoManager(MicroscopeManager):
 
         pyramid = []
         for ds_name in dataset_names:
-            lazy_arrays = []
-            for ti in range(t):
-                row = []
-                for ci in range(c):
-                    index = ti * c + ci
-                    h5_path = h5_files[index]
-                    # shape, dtype = self._read_h5_shape(h5_path, ds_name)
-                    delayed_arr = self._read_h5_stack(h5_path, ds_name)
-                    row.append(delayed_arr)
-                lazy_arrays.append(row)
+            lazy_arrays = [
+                [self._read_h5_stack(h5_files[ti * c + ci], ds_name) for ci in range(c)]
+                for ti in range(t)
+            ]
+            pyramid.append(da.stack(lazy_arrays, axis=0).rechunk(self.chunks))  # T, C, Z, Y, X
 
-            dask_stack = da.stack([[arr for arr in row] for row in lazy_arrays], axis=0)  # T, C, Z, Y, X
-            dask_stack = dask_stack.rechunk(self.chunks)
-            pyramid.append(dask_stack)
-            
         return pyramid
 
     def read(self) -> Tuple[List[da.Array], Dict[str, Any]]:
