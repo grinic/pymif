@@ -9,6 +9,7 @@ from ._dataset_helpers import axis_index as _axis_index
 from ._dataset_helpers import axis_size as _axis_size
 from ._dataset_helpers import dataset_axes as _dataset_axes
 from ._dataset_helpers import scale_for_axes as _scale_for_axes
+from ._dataset_helpers import points_projection_kwargs
 from ._dataset_helpers import units_kwargs as _units_kwargs
 from magicgui.widgets import FileEdit
 import sys
@@ -493,7 +494,7 @@ def convert_widget():
                 face_color="lime",
                 size=20,
                 ndim=3,
-                out_of_slice_display=True,
+                **points_projection_kwargs(),
                 scale=_scale_for_axes(dataset, "zyx"),
                 **_units_kwargs(dataset, "zyx"),
             )

@@ -154,9 +154,10 @@ def visualize(
         add_kwargs["units"] = image_units
 
     try:
-        max_val = da.max(data_levels[-1]).compute()
-        min_val = da.min(data_levels[-1]).compute()
-        add_kwargs["contrast_limits"] = [max(0, min_val), max(1, int(2 * max_val))]
+        # Python ints: ``2 * np.uint16(40000)`` would silently wrap around to 14464.
+        max_val = int(da.max(data_levels[-1]).compute())
+        min_val = int(da.min(data_levels[-1]).compute())
+        add_kwargs["contrast_limits"] = [max(0, min_val), max(1, 2 * max_val)]
     except Exception:
         pass
 

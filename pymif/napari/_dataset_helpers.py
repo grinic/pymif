@@ -41,3 +41,19 @@ def units_kwargs(dataset, requested_axes):
     axes = dataset_axes(dataset)
     units = units_for_axes(dataset.metadata, [ax for ax in requested_axes if ax in axes])
     return {} if units is None else {"units": units}
+
+
+def points_projection_kwargs():
+    """Keyword arguments that make a napari ``Points`` layer show out-of-slice points.
+
+    napari 0.9 deprecated ``out_of_slice_display`` in favour of
+    ``projection_mode``; ``rescale_linear`` is what the old flag mapped to.
+    Older napari versions only know the old flag.
+    """
+    import inspect
+
+    from napari.layers import Points
+
+    if "projection_mode" in inspect.signature(Points).parameters:
+        return {"projection_mode": "rescale_linear"}
+    return {"out_of_slice_display": True}
