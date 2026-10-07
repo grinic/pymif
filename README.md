@@ -91,16 +91,18 @@ pip install -e .[napari]
 
 ### Versioning
 
-PyMIF uses semantic versions (`MAJOR.MINOR.PATCH`) derived from git tags with [setuptools-scm](https://setuptools-scm.readthedocs.io/). The version is never edited by hand: every pull request merged into `main` automatically creates a new `vX.Y.Z` tag, a GitHub Release and a Docker image. The PR title, description, labels and commit messages decide the bump:
+PyMIF uses semantic versions (`MAJOR.MINOR.PATCH`) derived from git tags with [setuptools-scm](https://setuptools-scm.readthedocs.io/). The version is never edited by hand. Releases are **opt-in**: merging a PR into `main` does nothing unless the PR carries a release label, so you can merge many feature PRs and release once, from the PR that should trigger it:
 
-| PR contains | Bump |
+| PR label | Result |
 |---|---|
-| `BREAKING CHANGE`, `[major]`, a `type!:` prefix (e.g. `refactor!:`) or label `major` | major |
-| a `feat:` / `feat(scope):` prefix, `[minor]` or label `minor` | minor |
-| anything else | patch |
-| `[skip release]`, label `skip-release`, or only docs/CI files changed | no release |
+| `release:major` | new `vX.0.0` tag, GitHub Release and Docker image |
+| `release:minor` | new `vX.Y.0` tag, GitHub Release and Docker image |
+| `release:patch` | new `vX.Y.Z` tag, GitHub Release and Docker image |
+| none | no release |
 
-Direct pushes to `main` do not create a release. Installs from untagged commits get a dev version such as `0.3.2.dev3+g1a2b3c4`. Check the installed version with `pymif --version` or `pymif.__version__`.
+The label must be on the PR when it is merged (create the three labels once in the repository's Labels page). The generated release notes cover everything merged since the previous release.
+
+Direct pushes to `main` do not create a release; a Docker image can also be built by hand by pushing a `v*` tag or running the Docker workflow manually. Installs from untagged commits get a dev version such as `0.3.2.dev3+g1a2b3c4`. Check the installed version with `pymif --version` or `pymif.__version__`.
 
 ---
 

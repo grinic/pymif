@@ -1,7 +1,9 @@
 name: release
 
-# Every merged PR into main creates a new vX.Y.Z tag, a GitHub Release and a Docker image.
-# The bump (major/minor/patch/none) is decided by .github/scripts/next_version.py.
+# Releases are opt-in: only a merged PR into main labelled release:major, release:minor or
+# release:patch creates a vX.Y.Z tag, a GitHub Release and a Docker image. All other merged
+# PRs skip this workflow (the job-level `if` means no runner is started).
+# The version is computed by .github/scripts/next_version.py.
 # pull_request_target is used so merges of PRs from forks also get a write token; the
 # job only checks out the merge commit, i.e. code that is already on main.
 on:
@@ -11,7 +13,11 @@ on:
 
 jobs:
   tag:
-    if: github.event.pull_request.merged == true
+    if: >-
+      github.event.pull_request.merged == true && (
+      contains(github.event.pull_request.labels.*.name, 'release:major') ||
+      contains(github.event.pull_request.labels.*.name, 'release:minor') ||
+      contains(github.event.pull_request.labels.*.name, 'release:patch'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -42,7 +48,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
-            --json title,body,labels,commits,files > "$RUNNER_TEMP/pr.json"
+            --json labels > "$RUNNER_TEMP/pr.json"
           version=$(python .github/scripts/next_version.py "$RUNNER_TEMP/pr.json")
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if [ -z "$version" ]; then

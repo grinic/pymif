@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Optional,Sequence
+from typing import Any, Dict, List, Tuple, Optional, TYPE_CHECKING
 import dask.array as da
 import warnings
 
-from typing import TYPE_CHECKING, Optional
 from collections.abc import Sequence
 
 if TYPE_CHECKING:

@@ -68,30 +68,33 @@ class ZeissManager(MicroscopeManager):
         assert scene_index<len(czi.scenes), ValueError(f"Invalid scene index {scene_index}, only {len(czi.scenes)} scenes available: {czi.scenes}")
         self.scene_index = scene_index
         self.scene_name = czi.scenes[scene_index]
-            
+
         czi.set_scene(self.scene_index)
+        array = czi.get_image_dask_data("TCZYX")
         if self.chunks is None:
-            self.chunks = czi.get_image_dask_data("TCZYX").chunksize
-        self.data = [ czi.get_image_dask_data("TCZYX").rechunk(self.chunks) ]
-        self.metadata = self._parse_metadata()
-        
+            self.chunks = array.chunksize
+        self.data = [ array.rechunk(self.chunks) ]
+        self.metadata = self._parse_metadata(czi, array.shape)
+
         return
-        
-    def _parse_metadata(self) -> Dict[str, Any]:
+
+    def _parse_metadata(self, czi: BioImage, size: Tuple[int, ...]) -> Dict[str, Any]:
         """
         Parse metadata from the .czi dataset.
+
+        Parameters
+        ----------
+        czi : BioImage
+            Already-open image with the scene set.
+        size : Tuple[int, ...]
+            TCZYX shape of the scene.
 
         Returns
         -------
         Dict[str, Any]
             A dictionary containing dataset shape, voxel sizes, channel info, and other metadata.
         """
-        
-        czi = BioImage(self.path, reconstruct_mosaic=True, use_aicspylibczi=False)
-        czi.set_scene(self.scene_index)
-        
-        size = czi.get_image_dask_data("TCZYX").shape
-        
+
         # The values are stored in units of meters always in .czi. Convert to microns.
         try:
             pxl_z = float(czi.metadata.findall(f"./Metadata/Scaling/Items/Distance[@Id='Z']")[0].find("./Value").text)/1e-6
