@@ -2,17 +2,13 @@
 
 Usage: python next_version.py <pr.json>
 
-``pr.json`` is the output of
-``gh pr view <n> --json title,body,labels,commits,files``. Existing tags are
+``pr.json`` is the output of ``gh pr view <n> --json labels``. Existing tags are
 read from the local git repository. Prints the next version (``X.Y.Z``,
 without the leading ``v``), or nothing when the PR should not be released.
 
-Bump rules (checked on PR title, body, labels and commit messages):
-
-- major: ``BREAKING CHANGE``, ``[major]``, a ``type!:`` prefix or label ``major``
-- minor: a ``feat:`` / ``feat(scope):`` prefix, ``[minor]`` or label ``minor``
-- patch: anything else
-- none:  ``[skip release]``, label ``skip-release``, or only docs/CI files changed
+Releases are opt-in: a PR is released only if it carries one of the labels
+``release:major``, ``release:minor`` or ``release:patch``. Without such a label
+nothing is tagged. If several are present the largest bump wins.
 """
 
 from __future__ import annotations
@@ -26,10 +22,7 @@ import sys
 CALVER_MAJOR = 2000
 
 TAG_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
-MAJOR_RE = re.compile(r"BREAKING CHANGE|\[major\]|^\w+(\([^)]*\))?!:", re.MULTILINE)
-MINOR_RE = re.compile(r"\[minor\]|^feat(\([^)]*\))?:", re.MULTILINE)
-SKIP_RE = re.compile(r"\[skip release\]")
-NON_RELEASE_PATHS = ("doc/", "documentation/", ".github/")
+KINDS = ("major", "minor", "patch")  # ordered by priority
 
 
 def latest_version(tags: list[str]) -> tuple[int, int, int] | None:
@@ -45,22 +38,10 @@ def latest_version(tags: list[str]) -> tuple[int, int, int] | None:
 
 def bump_kind(pr: dict) -> str | None:
     labels = {label["name"].lower() for label in pr.get("labels") or []}
-    texts = [pr.get("title") or "", pr.get("body") or ""]
-    for commit in pr.get("commits") or []:
-        texts.append(commit.get("messageHeadline") or "")
-        texts.append(commit.get("messageBody") or "")
-    text = "\n".join(texts)
-
-    if "skip-release" in labels or SKIP_RE.search(text):
-        return None
-    files = [f["path"] for f in pr.get("files") or []]
-    if files and all(p.startswith(NON_RELEASE_PATHS) or p.endswith(".md") for p in files):
-        return None
-    if "major" in labels or MAJOR_RE.search(text):
-        return "major"
-    if "minor" in labels or MINOR_RE.search(text):
-        return "minor"
-    return "patch"
+    for kind in KINDS:
+        if f"release:{kind}" in labels:
+            return kind
+    return None
 
 
 def next_version(tags: list[str], pr: dict) -> str | None:
