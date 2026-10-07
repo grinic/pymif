@@ -5,6 +5,7 @@ from magicgui import magicgui
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 import pymif.microscope_manager as mm
+from ._layout import compose_dock
 from ._dataset_helpers import axis_index as _axis_index
 from ._dataset_helpers import axis_size as _axis_size
 from ._dataset_helpers import dataset_axes as _dataset_axes
@@ -346,11 +347,14 @@ def overview_widget():
 
     container = QWidget()
     layout = QVBoxLayout(container)
+    layout.setContentsMargins(4, 4, 4, 4)
+    layout.setSpacing(4)
     layout.addWidget(make_overview_widget_inner.native)
     layout.addWidget(reset_roi_widget.native)
+    layout.addStretch(1)
 
     make_overview_widget_inner.input_path.tooltip = (
         "Select a folder containing OME-Zarr data (.zarr)"
     )
 
-    return container
+    return compose_dock(container)

@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from magicgui import magicgui
 import pymif.microscope_manager as mm
+from ._layout import compose_dock, make_footer
+from ._layout import make_section as _make_section
 from ._dataset_helpers import axis_index as _axis_index
 from ._dataset_helpers import axis_size as _axis_size
 from ._dataset_helpers import dataset_axes as _dataset_axes
@@ -16,7 +18,7 @@ import sys
 from qtpy.QtWidgets import QTextEdit, QLineEdit
 from qtpy.QtCore import QObject, Qt, Signal, QUrl
 from qtpy.QtGui import QTextCursor
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QToolButton, QFrame
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QToolButton, QFrame, QSizePolicy
 from pathlib import Path
 from matplotlib import rc
 rc('font', size=12)
@@ -90,6 +92,48 @@ class EmittingStream(QObject):
         """Report that this stream is not an interactive terminal."""
         return False
     
+def make_log_appender(log_widget):
+    """Return a slot that appends timestamped console output to ``log_widget``.
+
+    Progress bars (tqdm) redraw themselves by writing ``"\\r"`` followed by the
+    new bar. Those writes replace the previous progress line instead of adding
+    a new line each time; any other output starts a new line.
+    """
+    state = {"progress_start": None}  # document position where the current bar starts
+
+    def append_with_time(text):
+        if not text.strip():
+            if "\n" in text:  # tqdm ends a finished bar with a bare newline
+                state["progress_start"] = None
+            return
+
+        is_progress = text.startswith("\r")
+        ts = datetime.now().strftime("[%H:%M:%S] ")
+        html = f"<span style='color:#ffffff;'>{ts}{text.strip()}</span><br>"
+
+        cursor = QTextCursor(log_widget.document())
+        cursor.movePosition(QTextCursor.End)
+        if is_progress:
+            if state["progress_start"] is None:
+                state["progress_start"] = cursor.position()
+            else:  # drop the previous redraw of this bar
+                cursor.setPosition(state["progress_start"], QTextCursor.KeepAnchor)
+                cursor.removeSelectedText()
+        else:
+            state["progress_start"] = None
+
+        # insertHtml does NOT add an automatic newline like append()
+        cursor.insertHtml(html)  # we add exactly one <br> per line
+
+        # auto-scroll
+        end = log_widget.textCursor()
+        end.movePosition(QTextCursor.End)
+        log_widget.setTextCursor(end)
+        log_widget.ensureCursorVisible()
+
+    return append_with_time
+
+
 def dataset_reader(microscope):
     """Return the PyMIF manager class matching the selected microscope key."""
     if microscope == "zeiss":
@@ -266,26 +310,6 @@ def _append_batch_csv(csv_path, row):
         combined = new_row
     combined = combined.reindex(columns=BATCH_CSV_COLUMNS, fill_value="")
     combined.to_csv(csv_path, index=False)
-
-def _make_section(*widgets):
-    """Wrap widgets in a rounded, bordered frame to visually separate a block.
-
-    The border uses a translucent grey so it reads on both light and dark
-    napari themes. More widgets can be added later via ``section.layout()``.
-    """
-    frame = QFrame()
-    frame.setObjectName("pymifSection")
-    frame.setStyleSheet(
-        "QFrame#pymifSection { border: 1px solid rgba(128, 128, 128, 0.55);"
-        " border-radius: 6px; }"
-    )
-    inner = QVBoxLayout(frame)
-    inner.setContentsMargins(8, 6, 8, 8)
-    inner.setSpacing(4)
-    for w in widgets:
-        inner.addWidget(w)
-    return frame
-
 
 def _compact_advanced_rows(widget, insert_after):
     """Regroup the "Additional parameters" of the converter into compact rows.
@@ -878,23 +902,38 @@ def convert_widget():
                 num_workers=int(num_workers) if int(num_workers) > 0 else None,
             )
         
-        make_convert_widget.enabled = False
+        _set_convert_enabled(False)
         make_batch_csv_widget.enabled = False
         make_visualize_widget.enabled = False
 
         @worker.returned.connect
         def _on_done(result_path):
             print(f"Conversion completed: {result_path}")
-            make_convert_widget.enabled = True
+            _set_convert_enabled(True)
             make_visualize_widget.enabled = True
 
         @worker.errored.connect
         def _on_error(err):
             print("Conversion failed:", err)
-            make_convert_widget.enabled = True
+            _set_convert_enabled(True)
             make_visualize_widget.enabled = True
 
         worker.start()
+
+    ui = {}  # widgets created later, when the dock is composed
+
+    def _set_convert_enabled(enabled):
+        """Enable or disable the conversion panel *and* its Convert button.
+
+        The button lives in a footer outside the panel so that it is always
+        visible; disabling the panel alone would therefore not lock it, and a
+        second click could start a second conversion. The footer is disabled as
+        a whole because magicgui re-enables its own call button after every
+        call, which would undo disabling just the button.
+        """
+        make_convert_widget.enabled = enabled
+        if "footer" in ui:
+            ui["footer"].setEnabled(enabled)
 
     @make_convert_widget.zarr_format.changed.connect
     def _update_sharding_availability(zarr_format):
@@ -1010,7 +1049,7 @@ def convert_widget():
         make_batch_csv_widget.enabled = True
 
 
-        make_convert_widget.enabled = True
+        _set_convert_enabled(True)
 
         axes = _dataset_axes(dataset)
         chunk_size = get_chunk_size(dataset.metadata["size"][0], max_size_mb=100, axes=axes)
@@ -1055,7 +1094,7 @@ def convert_widget():
         viewer.layers.clear()
 
     make_visualize_widget.scene_index.enabled = False
-    make_convert_widget.enabled = False
+    _set_convert_enabled(False)
     viewer.dims.events.ndisplay.connect(lock_roi_in_3d)
     # lock_roi_in_3d()
 
@@ -1095,7 +1134,7 @@ def convert_widget():
     title1_label.setStyleSheet("""
         QLabel {
             font-weight: bold;
-            font-size: 15px;
+            font-size: 13px;
             padding: 2px 0px;
         }
     """)
@@ -1112,7 +1151,7 @@ def convert_widget():
         title2_btn.setStyleSheet("""
             QToolButton {
                 font-weight: bold;
-                font-size: 15px;
+                font-size: 13px;
                 padding: 2px 0px;
                 color: %s;
             }
@@ -1125,7 +1164,8 @@ def convert_widget():
 
     section_loading = _make_section(title1_label, make_visualize_widget.native)
     section_conversion = _make_section(title2_btn)
-    layout.setSpacing(10)
+    layout.setSpacing(6)
+    layout.setContentsMargins(4, 4, 4, 4)
     layout.addWidget(section_loading)
     layout.addWidget(section_conversion)
 
@@ -1178,7 +1218,7 @@ def convert_widget():
     title_csv_label.setStyleSheet("""
         QLabel {
             font-weight: bold;
-            font-size: 15px;
+            font-size: 13px;
             padding: 2px 0px;
         }
     """)
@@ -1191,8 +1231,7 @@ def convert_widget():
 
     log_widget = QTextEdit()
     log_widget.setReadOnly(True)
-    log_widget.setMinimumHeight(60)
-    log_widget.setMaximumHeight(100)
+    log_widget.setMinimumHeight(110)  # the dock splitter lets the user drag it taller
     log_widget.setStyleSheet("""
         QTextEdit {
             background-color: #111;
@@ -1208,21 +1247,7 @@ def convert_widget():
     sys.stdout = stdout_stream
     sys.stderr = stderr_stream
 
-    def append_with_time(text):
-        if not text.strip():
-            return
-
-        ts = datetime.now().strftime("[%H:%M:%S] ")
-        html = f"<span style='color:#ffffff;'>{ts}{text.rstrip()}</span>"
-
-        # insertHtml does NOT add an automatic newline like append()
-        log_widget.insertHtml(html + "<br>")  # we add exactly one <br> per line
-
-        # auto-scroll
-        cursor = log_widget.textCursor()
-        cursor.movePosition(QTextCursor.End)
-        log_widget.setTextCursor(cursor)
-        log_widget.ensureCursorVisible()
+    append_with_time = make_log_appender(log_widget)
 
     stdout_stream.text_written.connect(append_with_time)
     stderr_stream.text_written.connect(append_with_time)
@@ -1231,16 +1256,32 @@ def convert_widget():
     title3_label.setStyleSheet("""
         QLabel {
             font-weight: bold;
-            font-size: 15px;
+            font-size: 13px;
             padding: 2px 0px;
         }
     """)
 
-    clear_btn = QPushButton("Clear log")
+    clear_btn = QPushButton("Clear")
+    clear_btn.setToolTip("Clear the log")
+    clear_btn.setMaximumWidth(60)
     clear_btn.clicked.connect(log_widget.clear)
 
-    layout.addWidget(_make_section(title3_label, log_widget, clear_btn))
+    log_header = QWidget()
+    log_header_layout = QHBoxLayout(log_header)
+    log_header_layout.setContentsMargins(0, 0, 0, 0)
+    log_header_layout.addWidget(title3_label)
+    log_header_layout.addStretch(1)
+    log_header_layout.addWidget(clear_btn)
+    log_section = _make_section(log_header, log_widget)
+    log_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
+    # The convert button is pulled out of the (collapsible) conversion panel so
+    # it is always visible, below the scrollable parameters.
+    convert_button = make_convert_widget._call_button.native
+    make_convert_widget.native.layout().removeWidget(convert_button)
+    footer = make_footer(convert_button)
+    ui["footer"] = footer
+    footer.setEnabled(make_convert_widget.native.isEnabled())
 
-
-    return container
+    layout.addStretch(1)
+    return compose_dock(container, footer=footer, bottom=log_section)

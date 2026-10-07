@@ -268,6 +268,12 @@ PyMIF provides napari widgets for conversion and overview generation. After inst
 
 The widget can load data, preview channels, define a 3D ROI, restrict z/time/channel ranges, choose pyramid settings, and export to OME-Zarr. For axis-aware zarr datasets, controls tied to missing axes are disabled; for example, a dataset with `axes="yx"` has no active T slider or channel selector.
 
+The widgets are built to be docked on any side of the napari window, or floated, and to stay usable at small sizes:
+
+- The parameters sit in a scroll area, so nothing is cut off in a narrow or short dock.
+- The **Convert to zarr** button is always visible below them, even while "Dataset conversion" is collapsed. It is disabled while a conversion runs.
+- The log is a separate pane under a drag handle: drag it taller to see more lines, or shorter to give room to the parameters. Progress bars update a single line instead of filling the log.
+
 ![napari-demo](documentation/napari-demo.png)
 
 ---
