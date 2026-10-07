@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, TYPE_CHECKING, Union
+from typing import Any, Dict, Iterable, List, TYPE_CHECKING, Union
 
 import dask.array as da
 
@@ -35,24 +35,27 @@ def _axis_scale(metadata: Dict[str, Any], axes: tuple[str, ...], level: int, *, 
     return tuple(scale)
 
 
-def _axis_units(metadata: Dict[str, Any], axes: tuple[str, ...], *, drop_channel: bool):
-    """Per-axis units for napari, or ``None`` if they cannot be used.
+def units_for_axes(metadata: Dict[str, Any], requested: "Iterable[str]"):
+    """Per-axis units for napari layers covering the axes ``requested``, or ``None``.
 
     Layers added without units default to ``pixel``. napari then disables units
     for rendering ("Inconsistent units across layers") as soon as it also holds
-    layers with physical units, such as the converted zarr opened by
-    ``napari-ome-zarr``. Passing the metadata's units keeps both consistent.
+    layers with physical units. Every layer that PyMIF adds, image or helper
+    (ROI, Z range...), therefore takes its units from here so they all agree
+    with each other and with a converted zarr opened by ``napari-ome-zarr``.
+
+    ``None`` is returned (so the caller omits ``units``) when napari has no
+    layer units or a unit cannot be parsed.
     """
     try:
         from napari.utils.transforms._units import get_units_from_name
     except ImportError:  # napari without layer units
         return None
 
+    axes = normalize_axes(metadata.get("axes"))
     spatial = dict(zip(spatial_axes_in_order(axes), metadata.get("units") or ()))
     units = []
-    for ax in axes:
-        if drop_channel and ax == "c":
-            continue
+    for ax in requested:
         if ax == "t":
             units.append(normalize_unit(metadata.get("time_increment_unit")))
         else:
@@ -62,6 +65,11 @@ def _axis_units(metadata: Dict[str, Any], axes: tuple[str, ...], *, drop_channel
     except Exception:
         return None
     return tuple(units)
+
+
+def _axis_units(metadata: Dict[str, Any], axes: tuple[str, ...], *, drop_channel: bool):
+    """Units of the axes shown by an image/label layer (channel axis optionally removed)."""
+    return units_for_axes(metadata, [ax for ax in axes if not (drop_channel and ax == "c")])
 
 
 def _set_axis_labels(viewer, axes: tuple[str, ...], *, drop_channel: bool) -> None:

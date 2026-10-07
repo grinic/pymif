@@ -453,3 +453,31 @@ def test_luxendo_pyramid_levels_with_resampled_z(luxendo_dir):
         assert lux.metadata["scales"][1] == pytest.approx((2.0 * 8 / 12, 1.0, 1.0))
         extents = [tuple(n * s for n, s in zip(sz[2:], sc)) for sz, sc in zip(lux.metadata["size"], lux.metadata["scales"])]
         assert extents[0] == pytest.approx(extents[1])
+
+
+def test_plugin_helper_layers_use_dataset_units(image_pyramid, metadata):
+    """ROI / Zrange / CropBox layers must share the image layers' units (else napari warns)."""
+    pytest.importorskip("napari")
+    from napari.components import ViewerModel
+
+    from pymif.napari._dataset_helpers import axis_size, scale_for_axes, units_kwargs
+
+    dataset = mm.ArrayManager(image_pyramid, dict(metadata, time_increment_unit="s"))
+    viewer = ViewerModel()
+    dataset.visualize(viewer=viewer)
+
+    ymax, xmax = axis_size(dataset, "y") - 1, axis_size(dataset, "x") - 1
+    viewer.add_shapes(
+        np.array([[0, 0], [0, xmax], [ymax, xmax], [ymax, 0]]), shape_type="rectangle", name="ROI",
+        ndim=2, scale=scale_for_axes(dataset, "yx"), **units_kwargs(dataset, "yx"),
+    )
+    viewer.add_points(
+        np.array([[0, 1, 1], [2, 1, 1]]), name="Zrange", ndim=3,
+        scale=scale_for_axes(dataset, "zyx"), **units_kwargs(dataset, "zyx"),
+    )
+    assert viewer.layers.extent.units is not None  # None would trigger napari's warning
+
+    # the helper builds exactly what napari expects for each axis subset
+    assert units_kwargs(dataset, "yx")["units"] == ("micrometer", "micrometer")
+    assert units_kwargs(dataset, "tyx")["units"][0] == "second"
+    assert units_kwargs(dataset, "q") == {"units": ()}  # axes the dataset lacks are skipped

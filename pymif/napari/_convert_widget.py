@@ -5,6 +5,11 @@ import numpy as np
 import pandas as pd
 from magicgui import magicgui
 import pymif.microscope_manager as mm
+from ._dataset_helpers import axis_index as _axis_index
+from ._dataset_helpers import axis_size as _axis_size
+from ._dataset_helpers import dataset_axes as _dataset_axes
+from ._dataset_helpers import scale_for_axes as _scale_for_axes
+from ._dataset_helpers import units_kwargs as _units_kwargs
 from magicgui.widgets import FileEdit
 import sys
 from qtpy.QtWidgets import QTextEdit, QLineEdit
@@ -102,31 +107,6 @@ def dataset_reader(microscope):
         raise ValueError(f"Unsupported microscope: {microscope}")
     
     return reader
-
-
-def _dataset_axes(dataset):
-    """Return normalized dataset axes, defaulting to legacy TCZYX metadata."""
-    return str(dataset.metadata.get("axes", "tczyx")).lower()
-
-
-def _axis_index(dataset, axis):
-    axes = _dataset_axes(dataset)
-    return axes.index(axis) if axis in axes else None
-
-
-def _axis_size(dataset, axis, default=1):
-    idx = _axis_index(dataset, axis)
-    if idx is None:
-        return default
-    return int(dataset.metadata["size"][0][idx])
-
-
-def _scale_for_axes(dataset, requested_axes):
-    """Return a napari scale tuple for the requested spatial axis labels."""
-    axes = _dataset_axes(dataset)
-    spatial_axes = [ax for ax in axes if ax in "zyx"]
-    scale_map = dict(zip(spatial_axes, dataset.metadata.get("scales", [(1,) * len(spatial_axes)])[0]))
-    return tuple(scale_map.get(ax, 1) for ax in requested_axes if ax in axes)
 
 
 def _chunk_shape_for_dataset(dataset, chunk_z=16, chunk_y=512, chunk_x=512):
@@ -498,6 +478,7 @@ def convert_widget():
                 edge_width=10,
                 ndim=2,
                 scale=_scale_for_axes(dataset, "yx"),
+                **_units_kwargs(dataset, "yx"),
             )
             layer.mode = "add_rectangle"
 
@@ -514,6 +495,7 @@ def convert_widget():
                 ndim=3,
                 out_of_slice_display=True,
                 scale=_scale_for_axes(dataset, "zyx"),
+                **_units_kwargs(dataset, "zyx"),
             )
             layer.mode = "add"
 
@@ -526,6 +508,7 @@ def convert_widget():
                 face_color="transparent",
                 ndim=3,
                 scale=_scale_for_axes(dataset, "zyx"),
+                **_units_kwargs(dataset, "zyx"),
             )
             layer.editable = False          # prevents adding/moving/editing shapes
             layer.selectable = False        # prevents selecting the shape
