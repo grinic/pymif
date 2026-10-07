@@ -79,10 +79,16 @@ class OperaManager(MicroscopeManager):
             channel_names.append(channel.attrib.get("Name", f"Ch{i}"))
             color = channel.attrib.get("Color") or default_colors[i%len(default_colors)]
             try:
-                # OME Color is a signed 32-bit RGBA int
-                channel_colors.append(ome_color_to_hex(color))
+                value = int(color)
             except ValueError:
                 channel_colors.append(parse_color(color))
+                continue
+            if 0 <= value <= 0xFFFFFF:
+                # Opera writes a plain 24-bit RGB int (no alpha byte)
+                channel_colors.append(f"{value:06X}")
+            else:
+                # Spec-compliant OME Color: signed 32-bit RGBA int
+                channel_colors.append(ome_color_to_hex(value))
 
         # Build scale list for NGFF: one level for now
         scales = [(px_z, px_y, px_x)]  # t, z, y, x
@@ -179,7 +185,7 @@ class OperaManager(MicroscopeManager):
                                 )  # Z, Y, X
                 scales.append(level_scale)  # T, C, Z, Y, X
                 sizes.append(self.metadata["size"][0][:2] + current_size)
-                data_levels.append(arr.rechunk(chunks = self.chunks))
+                data_levels.append(arr.rechunk(chunks = self.chunks, method="tasks"))
 
         self.metadata["scales"] = scales
         self.metadata["size"] = sizes
