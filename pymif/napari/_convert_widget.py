@@ -18,7 +18,7 @@ import sys
 from qtpy.QtWidgets import QTextEdit, QLineEdit
 from qtpy.QtCore import QObject, Qt, Signal, QUrl
 from qtpy.QtGui import QTextCursor
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QToolButton, QFrame, QSizePolicy
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QToolButton, QFrame, QScrollArea, QSizePolicy
 from pathlib import Path
 from matplotlib import rc
 rc('font', size=12)
@@ -1146,7 +1146,12 @@ def convert_widget():
     title2_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
     def _toggle_conversion(checked):
-        make_convert_widget.native.setVisible(checked)
+        # Only the parameters collapse: the title and the Convert button of the
+        # box stay visible.
+        if "params" in ui:
+            ui["params"].setVisible(checked)
+        if "dock" in ui:
+            ui["dock"].set_footer_stretch(3 if checked else 0)
         title2_btn.setText("Dataset conversion: ▾" if checked else "Dataset conversion: ▸")
         title2_btn.setStyleSheet("""
             QToolButton {
@@ -1167,7 +1172,6 @@ def convert_widget():
     layout.setSpacing(6)
     layout.setContentsMargins(4, 4, 4, 4)
     layout.addWidget(section_loading)
-    layout.addWidget(section_conversion)
 
     advanced_btn = QToolButton()
     advanced_btn.setText("Additional parameters ▸")
@@ -1211,7 +1215,15 @@ def convert_widget():
     make_convert_widget.native.layout().setContentsMargins(0, 0, 0, 0)
     make_convert_widget.channels.native.setMaximumHeight(64)
 
-    section_conversion.layout().addWidget(make_convert_widget.native)
+    # The parameters scroll inside the conversion box, so the box (with its
+    # Convert button) never grows beyond the dock.
+    params_scroll = QScrollArea()
+    params_scroll.setWidgetResizable(True)
+    params_scroll.setFrameShape(QFrame.NoFrame)
+    params_scroll.setMinimumHeight(140)
+    params_scroll.setWidget(make_convert_widget.native)
+    ui["params"] = params_scroll
+    section_conversion.layout().addWidget(params_scroll)
     _toggle_conversion(title2_btn.isChecked())
 
     title_csv_label = QLabel("Batch CSV export:")
@@ -1275,13 +1287,17 @@ def convert_widget():
     log_section = _make_section(log_header, log_widget)
     log_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-    # The convert button is pulled out of the (collapsible) conversion panel so
-    # it is always visible, below the scrollable parameters.
+    # The Convert button stays inside the "Dataset conversion" box, below the
+    # (collapsible) parameters, so it is visible even when they are collapsed.
     convert_button = make_convert_widget._call_button.native
     make_convert_widget.native.layout().removeWidget(convert_button)
-    footer = make_footer(convert_button)
-    ui["footer"] = footer
-    footer.setEnabled(make_convert_widget.native.isEnabled())
+    button_holder = make_footer(convert_button)
+    ui["footer"] = button_holder  # locked as a whole while converting (see _set_convert_enabled)
+    button_holder.setEnabled(make_convert_widget.native.isEnabled())
+    section_conversion.layout().addWidget(button_holder)
 
+    # The whole conversion box is the always-visible bar under the scrolling sections.
     layout.addStretch(1)
-    return compose_dock(container, footer=footer, bottom=log_section)
+    dock = compose_dock(container, footer=section_conversion, bottom=log_section)
+    ui["dock"] = dock
+    return dock

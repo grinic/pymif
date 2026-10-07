@@ -42,7 +42,11 @@ def make_section(*widgets, margins=(6, 4, 6, 6), spacing=3):
 
 
 def make_footer(button: QPushButton) -> QWidget:
-    """A bar holding the main action button, kept outside of any scroll area."""
+    """A holder for the main action button.
+
+    Disable the *holder* to lock the button: a disabled parent keeps its
+    children disabled even if the button re-enables itself.
+    """
     footer = QWidget()
     layout = QHBoxLayout(footer)
     layout.setContentsMargins(0, 2, 0, 2)
@@ -57,7 +61,8 @@ def compose_dock(content: QWidget, footer: QWidget | None = None, bottom: QWidge
 
     * ``content`` goes in a scroll area, so nothing is ever cut off, whatever the
       size or position of the dock (side or bottom).
-    * ``footer`` (typically the main action button) stays visible below it.
+    * ``footer`` (typically the box holding the main action button) stays visible
+      below it; ``dock.set_footer_stretch(n)`` lets it grow when it is expanded.
     * ``bottom`` (typically the log) sits under a splitter handle, so it can be
       dragged taller or shorter.
     """
@@ -83,6 +88,13 @@ def compose_dock(content: QWidget, footer: QWidget | None = None, bottom: QWidge
     top_layout.addWidget(scroll, 1)
     if footer is not None:
         top_layout.addWidget(footer, 0)
+
+    def set_footer_stretch(stretch: int) -> None:
+        """Let the footer grow (``stretch`` > 0) or shrink to its content (0)."""
+        if footer is not None:
+            top_layout.setStretch(1, stretch)
+
+    container.set_footer_stretch = set_footer_stretch
 
     if bottom is None:
         outer.addWidget(top)

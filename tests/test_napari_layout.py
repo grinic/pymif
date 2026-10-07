@@ -130,3 +130,54 @@ def test_footer_button_still_runs_the_conversion_and_locks_while_running(convert
     assert button.isEnabled(), "button must be re-enabled when the conversion ends"
     assert len(calls) == 1  # exactly one conversion was started
     assert "Conversion completed: converted.zarr" in log.toPlainText()
+
+
+def conversion_box(button):
+    """The bordered 'Dataset conversion' frame that contains ``button``, or ``None``."""
+    parent = button.parentWidget()
+    while parent is not None:
+        if parent.objectName() == "pymifSection":
+            return parent
+        parent = parent.parentWidget()
+    return None
+
+
+def conversion_toggle(widget):
+    from qtpy.QtWidgets import QToolButton
+
+    return next(b for b in widget.findChildren(QToolButton) if b.text().startswith("Dataset conversion"))
+
+
+@pytest.mark.parametrize("expanded", [False, True])
+def test_convert_button_stays_inside_the_dataset_conversion_box(converter, app, expanded):
+    toggle = conversion_toggle(converter)
+    toggle.setChecked(expanded)
+    converter.resize(420, 760)
+    converter.show()
+    app.processEvents()
+
+    button = convert_button(converter)
+    box = conversion_box(button)
+    assert box is not None, "the Convert button must live in a section frame"
+    assert toggle in box.findChildren(type(toggle)), "...and that frame is the 'Dataset conversion' one"
+    assert button.isVisible()  # also while the parameters are collapsed
+    assert box.rect().contains(button.mapTo(box, button.rect().center()))
+    bottom = button.mapTo(converter, button.rect().bottomLeft()).y()
+    assert 0 < bottom <= converter.height()
+
+
+def test_collapsing_hides_the_parameters_but_not_the_title_or_button(converter, app):
+    toggle = conversion_toggle(converter)
+    button = convert_button(converter)
+    converter.resize(420, 760)
+    converter.show()
+
+    toggle.setChecked(True)
+    app.processEvents()
+    params = [w for w in conversion_box(button).findChildren(QScrollArea)]
+    assert params and all(p.isVisible() for p in params)
+
+    toggle.setChecked(False)
+    app.processEvents()
+    assert all(not p.isVisible() for p in params)
+    assert toggle.isVisible() and button.isVisible()
